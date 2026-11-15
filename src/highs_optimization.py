@@ -1,11 +1,16 @@
 import os
+import logging
 import multiprocessing as mp
 import highspy
 import numpy as np
 import pandas as pd
 from functools import partial
 
-DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+from highs_runtime import apply_threads, run_and_check
+
+logger = logging.getLogger(__name__)
+
+DAYS_OF_WEEK =['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 def prepare_workout_df(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -161,12 +166,7 @@ def optimize_weekly_workouts(
         h.setOptionValue("mip_abs_gap", float(mip_abs_gap))
     if mip_rel_gap is not None:
         h.setOptionValue("mip_rel_gap", float(mip_rel_gap))
-    if threads is not None and threads > 1:
-        h.setOptionValue("threads", int(threads))
-        h.setOptionValue("parallel", "on")
-    elif threads == 1:
-        h.setOptionValue("threads", 1)
-        h.setOptionValue("parallel", "off")
+    apply_threads(h, threads)
     if random_seed is not None:
         h.setOptionValue("random_seed", int(random_seed))
     if mip_heuristic_effort is not None:
@@ -264,14 +264,11 @@ def optimize_weekly_workouts(
     # 5. Extract Top-K distinct plans
     plans = []
     for _ in range(top_k_plans):
-        h.run()
-        model_status = h.getModelStatus()
-        sol = h.getSolution()
-
-        if not sol.col_value or len(sol.col_value) < n:
+        res = run_and_check(h)
+        if not res.has_solution or len(res.col_value) < n:
             break
 
-        chosen_idx = [i for i in range(n) if sol.col_value[i] > 0.5]
+        chosen_idx = [i for i in range(n) if res.col_value[i] > 0.5]
         if len(chosen_idx) != num_workouts:
             break
 
@@ -289,12 +286,14 @@ def optimize_weekly_workouts(
         s_high = (s_sub["z3_dur"] + s_sub["z4_dur"] + s_sub["z5_dur"]).sum()
         tot_high = b_high + r_high + s_high
 
-        penalty = h.getObjectiveValue()
+        penalty = res.objective
         score = max(0.0, 100.0 * (1.0 - penalty / 8.0))
 
         plans.append({
             "Workouts": sorted(list(sub["code"])),
             "Score": round(score, 2),
+            "Status": res.status,
+            "MIP Gap": res.mip_gap,
             "Total Duration": round(tot_dur, 1),
             "Total TSS": round(tot_tss, 2),
             "% Bike Dur": round(b_dur / tot_dur, 2) if tot_dur else 0.0,
@@ -310,9 +309,6 @@ def optimize_weekly_workouts(
             "% High Bike Dur": round(b_high / b_dur, 2) if b_dur else 0.0,
             "% Low Bike Dur": round(1.0 - (b_high / b_dur), 2) if b_dur else 0.0,
         })
-
-        if model_status != highspy.HighsModelStatus.kOptimal and len(plans) >= top_k_plans:
-            break
 
         h.addConstr(h.qsum(x[i] for i in chosen_idx) <= num_workouts - min_workout_diff)
 
@@ -403,9 +399,7 @@ def optimize_weekly_schedule(
     h.setOptionValue("log_to_console", False)
     if time_limit is not None:
         h.setOptionValue("time_limit", float(time_limit))
-    if threads is not None and threads > 1:
-        h.setOptionValue("threads", int(threads))
-        h.setOptionValue("parallel", "on")
+    apply_threads(h, threads)
     if random_seed is not None:
         h.setOptionValue("random_seed", int(random_seed))
     h.setOptionValue("mip_heuristic_effort", 0.20)
@@ -530,15 +524,17 @@ def optimize_weekly_schedule(
     add_soft_goal(h.qsum(is_run[i] * (z5[i] - z5_tgt_dur * dur[i]) * x[i, d] for i in range(n) for d in range(num_days)), run_scale, 1.0, name="run_z5")
 
     h.minimize(h.qsum(obj_terms))
-    h.run()
+    res = run_and_check(h)
+    if not res.has_solution:
+        logger.warning("optimize_weekly_schedule: no feasible schedule (status=%s, target_tss=%s)",
+                       res.status, target_tss)
 
-    sol = h.getSolution()
     schedule = []
     for d, day_name in enumerate(days):
         day_item = None
         for i in range(n):
             idx = x[i, d].index
-            if sol.col_value[idx] > 0.5:
+            if res.has_solution and res.col_value[idx] > 0.5:
                 day_item = {
                     'Day': day_name,
                     'Code': df.loc[i, 'code'],
@@ -563,10 +559,16 @@ def optimize_weekly_schedule(
                 'High_Dur': 0.0,
                 'Low_Dur': 0.0,
                 'Intensity': 'REST',
-                'Description': 'Rest / Active Recovery',
+                'Description': 'Rest / Active Recovery' if res.has_solution else f'NO SOLUTION ({res.status})',
             })
 
-    return pd.DataFrame(schedule)
+    out = pd.DataFrame(schedule)
+    # Every row carries the solve status so an all-REST week can't be mistaken for a planned rest week.
+    out['Solve_Status'] = res.status
+    out['MIP_Gap'] = res.mip_gap
+    out.attrs['status'] = res.status
+    out.attrs['mip_gap'] = res.mip_gap
+    return out
 
 
 def optimize_multi_week_step_cycle(

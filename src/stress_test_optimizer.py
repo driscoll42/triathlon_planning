@@ -53,8 +53,10 @@ def run_scenario(name: str, library: list, cfg: MesoCycleTargetsAndConstraints, 
             p = plans[0]
             slack_info = p.get('soft_slack_violations', {})
             slack_str = f" | Soft Slack Violations: {slack_info}" if slack_info else " | Strict Constraints Met"
-            print(f"RESULT: SUCCESS (Solved in {dur:.2f}s | Obj: {p['objective']:.2f} | TSS: {p['total_tss']:.1f} | MechStrain: {p['total_mech_strain']:.1f} | LongRun: {p['max_single_run_ratio']*100:.1f}%{slack_str})")
-            return {"status": "OPTIMAL", "duration": dur, "plans": plans}
+            gap = p.get('mip_gap')
+            gap_str = f"{gap*100:.2f}%" if gap is not None else "n/a"
+            print(f"RESULT: {p['status']} (Solved in {dur:.2f}s | Gap: {gap_str} | Obj: {p['objective']:.2f} | TSS: {p['total_tss']:.1f} | MechStrain: {p['total_mech_strain']:.1f} | LongRun: {p['max_single_run_ratio']*100:.1f}%{slack_str})")
+            return {"status": p["status"], "mip_gap": gap, "duration": dur, "plans": plans}
     except Exception as e:
         dur = time.time() - t0
         print(f"RESULT: ERROR ({e}) in {dur:.2f}s")
@@ -344,7 +346,8 @@ def stress_test_suite():
         print(f"RESULT: SUCCESS (Solved {len(hybrid_plans)} distinct hybrid plans in {dur_h:.2f}s | Obj: {hybrid_plans[0]['objective_value']:.2f})")
         print(f"  Option A: {hybrid_plans[0]['split_architecture']}")
         print(f"  Option B: {hybrid_plans[1]['split_architecture']}")
-        results["11_hybrid_athlete"] = {"status": "OPTIMAL", "duration": dur_h, "plans": len(hybrid_plans)}
+        results["11_hybrid_athlete"] = {"status": hybrid_plans[0]["status"], "mip_gap": hybrid_plans[0]["mip_gap"],
+                                       "duration": dur_h, "plans": len(hybrid_plans)}
     else:
         print(f"RESULT: FAILED (Found {len(hybrid_plans)} plans in {dur_h:.2f}s)")
         results["11_hybrid_athlete"] = {"status": "FAILED", "duration": dur_h, "plans": len(hybrid_plans)}

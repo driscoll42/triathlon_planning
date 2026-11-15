@@ -26,6 +26,8 @@ import numpy as np
 import pandas as pd
 import highspy
 
+from highs_runtime import apply_threads, run_and_check
+
 
 # =============================================================================
 # 1. DATA MODELS & WORKOUT SPECIFICATION
@@ -1057,23 +1059,16 @@ class TriathlonMILPScheduler:
         # ---------------------------------------------------------------------
         h.setOptionValue("mip_rel_gap", 0.01)
         h.setOptionValue("mip_heuristic_effort", 0.20)
-        h.setOptionValue("threads", 4)
+        apply_threads(h)
 
         plans: List[Dict[str, Any]] = []
 
         for k in range(k_plans):
-            h.run()
-            status = h.getModelStatus()
-            info = h.getInfo()
-
-            is_optimal = (status == highspy.HighsModelStatus.kOptimal)
-            is_feasible_timeout = (status == highspy.HighsModelStatus.kTimeLimit and info.primal_solution_status == highspy.kSolutionStatusFeasible)
-
-            if not (is_optimal or is_feasible_timeout):
+            res = run_and_check(h)
+            if not res.has_solution:
                 break
 
-            sol = h.getSolution()
-            col_vals = sol.col_value
+            col_vals = res.col_value
 
             active_cols: List[int] = []
             inactive_cols: List[int] = []
@@ -1105,7 +1100,9 @@ class TriathlonMILPScheduler:
 
             plans.append({
                 "rank": k + 1,
-                "objective": info.objective_function_value,
+                "status": res.status,
+                "mip_gap": res.mip_gap,
+                "objective": res.objective,
                 "total_tss": total_tss,
                 "total_mech_strain": total_mech,
                 "total_duration": total_dur,
@@ -1516,15 +1513,14 @@ class HybridAthleteMILPOptimizer:
                         row_m[x_idx[(i, d)]] = float(sets_m)
             add_sparse_row(row_m, t_m, t_m)
 
+        apply_threads(h)
         solutions = []
         for k in range(k_solutions):
-            h.run()
-            model_status = h.getModelStatus()
-            if model_status != highspy.HighsModelStatus.kOptimal:
+            res = run_and_check(h)
+            if not res.has_solution:
                 break
 
-            sol = h.getSolution().col_value
-            info = h.getInfo()
+            sol = res.col_value
 
             selected_pairs = []
             schedule_by_day: Dict[int, List[Any]] = {d: [] for d in self.days}
@@ -1549,7 +1545,9 @@ class HybridAthleteMILPOptimizer:
                 "option": chr(65 + k),
                 "rank": k + 1,
                 "split_architecture": split_label,
-                "objective_value": info.objective_function_value,
+                "status": res.status,
+                "mip_gap": res.mip_gap,
+                "objective_value": res.objective,
                 "total_tss": total_tss_solved,
                 "total_axial_load": total_axial_solved,
                 "total_duration": total_dur_solved,
@@ -2395,6 +2393,7 @@ def generate_closed_loop_season_schedule(
         scheduler = TriathlonMILPScheduler(lib, cfg)
         plans = scheduler.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
 
+        used_fallback = not plans
         if not plans:
             print(f"Week {week_num:02d} ({phase_name} - {step_type}): INFEASIBLE at TSS {target_tss}! Soft recovery triggered.")
             # Fallback to recovery config
@@ -2437,6 +2436,9 @@ def generate_closed_loop_season_schedule(
                 "Ending_ODI": round(athlete_state.orthopedic_decoupling_index, 3),
                 "Ending_ACWR": round(athlete_state.running_mechanical_acwr, 3),
                 "Recalibration": recal_action if not pert_info else f"{recal_action} + {pert_info}",
+                "Solve_Status": plan.get("status"),
+                "MIP_Gap": plan.get("mip_gap"),
+                "Fallback": used_fallback,  # True => primary week infeasible; profile-ignoring recovery config used (TASK-016)
             })
 
             print(f"Week {week_num:02d} [{phase_name:<20} | {step_type:<22}]: TSS={plan['total_tss']:>5.1f} | Mech={plan['total_mech_strain']:>5.1f} | ANS={tot_ans:>6.1f} | CTL={athlete_state.total_ctl:>4.1f} | TSB={athlete_state.total_tsb:>5.1f} | ODI={athlete_state.orthopedic_decoupling_index:.2f} ({recal_action})")
