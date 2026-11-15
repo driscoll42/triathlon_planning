@@ -142,6 +142,11 @@ class triVariables:
     zone_5 = 'Zone 5'
     high_duration = 'High Duration'
     low_duration = 'Low Duration'
+    # Column aliases referenced by util.py / clean_file.py (TASK-006)
+    high_duration_head = 'High Duration'
+    low_duration_head = 'Low Duration'
+    intensity_factor = 'Intensity Factor'
+    normalized_power = 'Normalized Power'
 
 
 class HybridVariables:

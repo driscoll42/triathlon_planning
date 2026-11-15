@@ -311,6 +311,29 @@ def create_workout_dataframe(raw_rows, wkt_type):
     return df
 
 
+def _is_custom_code(code) -> bool:
+    """Custom (non-80/20-library) rows use underscore codes, e.g. RUN_SS1_STR, BK_TH_OU1, SW_CSS_TH1."""
+    return '_' in str(code)
+
+
+def preserve_custom_rows(new_df: pd.DataFrame, path: str) -> pd.DataFrame:
+    """Re-append rows from the existing file that the scrape does not produce (TASK-006).
+
+    Rebuilding from the 80/20 HTML library would otherwise silently drop the hand/agent-authored
+    custom rows (provenance per ADR-012 / TASK-028). Scraped rows win on code collisions.
+    """
+    if not path or not os.path.exists(path):
+        return new_df
+    old_df = pd.read_excel(path, engine='openpyxl')
+    old_df = old_df.loc[:, ~old_df.columns.astype(str).str.startswith('Unnamed')]
+    scraped_codes = set(new_df[triv.code].astype(str))
+    keep = old_df[old_df[triv.code].astype(str).map(lambda c: _is_custom_code(c) and c not in scraped_codes)]
+    if keep.empty:
+        return new_df
+    print(f"Preserving {len(keep)} custom rows from {path}: {list(keep[triv.code])}")
+    return pd.concat([new_df, keep], ignore_index=True)
+
+
 def rebuild_all_files():
     html = fetch_workout_library()
 
@@ -323,18 +346,21 @@ def rebuild_all_files():
     # Tables 1 to 17: Run (190 rows)
     run_rows = [row for t in parser.tables[1:18] for row in t[1:]]
     run_df = create_workout_dataframe(run_rows, 'Run')
+    run_df = preserve_custom_rows(run_df, triv.run_file)
     run_df.to_excel(triv.run_file, engine='openpyxl')
     print(f"Created {triv.run_file} with {len(run_df)} workouts.")
 
     # Tables 18 to 27: Bike (218 rows)
     bike_rows = [row for t in parser.tables[18:28] for row in t[1:]]
     bike_df = create_workout_dataframe(bike_rows, 'Bike')
+    bike_df = preserve_custom_rows(bike_df, triv.bike_file)
     bike_df.to_excel(triv.bike_file, engine='openpyxl')
     print(f"Created {triv.bike_file} with {len(bike_df)} workouts.")
 
     # Tables 28 to 36: Swim (71 rows)
     swim_rows = [row for t in parser.tables[28:37] for row in t[1:]]
     swim_df = create_workout_dataframe(swim_rows, 'Swim')
+    swim_df = preserve_custom_rows(swim_df, triv.swim_file)
     swim_df.to_excel(triv.swim_file, engine='openpyxl')
     print(f"Created {triv.swim_file} with {len(swim_df)} workouts.")
 

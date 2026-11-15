@@ -82,10 +82,10 @@ def load_workouts(run_file=None, bike_file=None, swim_file=None, strength_file=N
     df = df[df['TSS'].notnull()]
 
     wkend_wts_df = df[df['Duration'] <= triv.max_time_weekend]
-    wkend_wts_df = wkend_wts_df[wkend_wts_df['TSS'] <= triv.max_time_weekend]
+    wkend_wts_df = wkend_wts_df[wkend_wts_df['TSS'] <= triv.max_tss_weekend]
 
     wkday_wts_df = df[df['Duration'] <= triv.max_time_weekday]
-    wkday_wts_df = wkday_wts_df[wkday_wts_df['TSS'] <= triv.max_time_weekday]
+    wkday_wts_df = wkday_wts_df[wkday_wts_df['TSS'] <= triv.max_tss_weekday]
 
     return wkend_wts_df, wkday_wts_df
 
