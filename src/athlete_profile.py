@@ -54,6 +54,11 @@ class AthleteProfile:
     barbell_max_load_lbs: float = 400.0      # DECISION-008: plates 2.5-45 lb, stackable to ~400 lb total
     barbell_increment_lbs: float = 5.0       # Smallest jump = 2 x 2.5 lb plates
     has_trap_bar: bool = False               # Library rows prescribing Trap Bar DL must substitute conventional DL
+    # DECISION-022 equipment inventory
+    has_pullup_bar: bool = True
+    has_nordic_anchor: bool = True
+    has_resistance_bands: bool = False       # Banded face pulls/pull-aparts -> DB rear-delt fly / prone Y-T-W
+    has_treadmill: bool = True
     allow_squat_deadlift_same_session: bool = True  # DECISION-008: heavy SQ + DL may share a session (HLM_BB_INT)
     strength_split_preference: str = "AUTO"  # 'AUTO', 'UL' (Upper/Lower), or 'HLM' (Texas Method)
     strength_priority: str = "COEQUAL"       # DECISION-009: strength is co-equal with triathlon
@@ -97,7 +102,7 @@ class AthleteProfile:
     reentry_run_ctl_exit: float = 15.0
     reentry_run_minutes_floor: float = 60.0  # Always-allowed weekly run/walk minutes (e.g. 3 x 20 min) regardless of ACWR
     max_weekly_run_minutes_increase: float = 15.0  # Absolute week-over-week cap on running minutes during re-entry
-    default_run_surface: str = "outdoor"     # DECISION-012: runs outdoors; treadmill optional (ice, dark, intervals)
+    default_run_surface: str = "outdoor"     # DECISION-012: runs outdoors; treadmill (owned) for ice, dark, intervals, walk-run
 
     # -------------------------------------------------------------------------
     # 3. TARGET RACE & SEASON GOALS
@@ -131,6 +136,11 @@ class AthleteProfile:
     weekday_single_workout_cap: float = 60.0 # Max duration for any single workout on weekdays (= largest weekday cap)
     # DECISION-004: no AM/PM split days (>=6h apart) assumed. Set True on days that allow two windows.
     two_session_windows: List[bool] = field(default_factory=lambda: [False] * 7)
+    # DECISION-021: within one window, a lift may be followed immediately by short, strictly easy cardio.
+    allow_lift_cardio_combo: bool = True
+    combo_cardio_max_minutes: float = 20.0   # Z1/Z2 only; lift first
+    combo_cardio_sports_after_heavy_lower: List[str] = field(default_factory=lambda: ["Bike"])
+    combo_cardio_sports_after_other_lift: List[str] = field(default_factory=lambda: ["Bike", "Run"])
 
     # -------------------------------------------------------------------------
     # 5. FACILITY & EQUIPMENT ACCESS (Mon through Sun)

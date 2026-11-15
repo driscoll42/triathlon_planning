@@ -9,7 +9,7 @@
   - Squat vs. High-Torque Bike / Threshold Run: Absolute same-day exclusion.
   - Heavy Upper Press vs. CSS Threshold Swim: Absolute same-day exclusion to prevent subacromial impingement.
 - **Orthopedic Dissociation Index (ODI):** Cardiovascular remodeling ($\tau=35d$) adapts faster than collagenous matrix remodeling ($\tau=120d$). The ratio of metabolic fitness to connective tissue adaptation ($ODI$) must never exceed **1.35**.
-- **EWMA Mechanical ACWR:** Acute-to-Chronic Workload Ratio for mechanical running load ($\tau_a=7d, \tau_c=28d$) must remain within $[0.80, 1.30]$.
+- **EWMA Mechanical ACWR:** Acute-to-Chronic Workload Ratio for mechanical running load ($\tau_a=7d, \tau_c=28d$) must remain within $[0.80, 1.30]$; tightened to $\le 1.20$ during running re-entry (run CTL < 15) and $\le 1.25$ thereafter, with an absolute-minutes guard (60 min/wk floor, +15 min/wk max) (`ADR-012`).
 - **Adjacency Prohibitions:** Never schedule two breakthrough high-intensity sessions on consecutive days; maintain $\ge 48$ hours between heavy running workouts.
 
 ## 2. Optimization & Solver Invariants
@@ -21,12 +21,13 @@
 - **Pre-Filtering Invariant:** Workout candidate pools must be pruned of mathematically non-viable sessions prior to building the HiGHS problem matrix to guarantee sub-second solve latency.
 
 ## 3. Physiological & Periodization Invariants
-- **80/20 Intensity Partitioning:** Weekly training volume must adhere to $\ge 78\%$ low intensity (Zone 1/2) and $\le 20\%$ high intensity (Zone 4/5) via exact linear ratio bounds.
+- **80/20 Intensity Partitioning:** Weekly endurance time-in-zone (strength excluded) must adhere to $\ge 78\%$ low intensity (Zone 1/2; 80% soft target) and $\le 20\%$ moderate + high intensity (Zone 3/Y/4/5 combined) via exact linear ratio bounds; Zone X penalized toward 0 (`ADR-012`).
 - **Canonical 80/20 7-Zone Power Scale:** Prescriptions and `.fit` ingestion must use the 80/20 7-Zone Scale anchored to verified Critical Power ($CP$). Stryd 5-Zone and MyProCoach 5-Zone tables are prohibited (Zone 2 overreaches past $LT_1$). Zone X (88%–94% Run, 83%–91% Bike) and Zone Y (100%–103% Run, 100%–102% Bike) incurs non-zero ANS drift penalties (`ADR-009`).
 - **Critical Power Testing Protocol:** Single-effort proxy tests (Cycling Ramp at $0.75 \times \text{MAP}$, un-cleared 20-min TT at $0.95 \times P_{20}$) are strictly prohibited due to high $W'$ from concurrent barbell lifting. Calibrate via Two-Point CP ($P_3$ 180s + $P_{12}$ 720s) or Kolie Moore 35–45m MLSS baseline (`ADR-009`).
 - **Aero vs. Upright Hoods Positional Rule:** Indoor/Aero CP must be tested in aero position; upright road-hoods wattage is 3%–7% (10–20W) higher and must not be mixed without positional scaling.
 - **Single Source of Truth Threshold Integer:** Auto-CP in Stryd and Auto-FTP on Garmin must be disabled; the identical manual integer must be locked across Stryd PowerCenter, TrainingPeaks, and optimizer profiles.
 - **Molecular Signaling Window (AMPK vs mTORC1):** Dual-session days must enforce $\ge 6\text{h}$ intra-day separation between endurance and resistance training. When paired with easy Z1/Z2 recovery PM, lift fresh in the AM.
+  - **Exception — Lift + Easy Cardio Combo (`ADR-012`):** A strength session may be followed immediately (same window) by $\le 20$ min of strictly Z1/Z2 Bike or Run. Lift first. Bike only after heavy lower-body lifting (no impact on a loaded spine, consistent with `HEUR-004`). The pair counts as one window and toward the day's time cap. Low-intensity, short-duration cardio produces negligible AMPK-mediated interference.
 - **Hard-Days-Hard Stacking:** Strength sessions must be stacked onto hard endurance days (AM endurance + PM strength), preserving easy days for complete physiological restoration. Maximum 2 sessions/day; non-consecutive strength days.
 - **3:1 Step-Cycle Rhythm:** Mesocycles must follow three progressive loading weeks followed by a mandatory recovery week (15–25% reduction in TSS, axial load, and mechanical strain).
 

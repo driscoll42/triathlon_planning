@@ -415,6 +415,8 @@ Conversely, static CP assignments lead to undertraining over multi-month seasons
 | 018 | One device per sport, no dual-recording: Edge 530 for bike; Enduro 3 for run, swim and strength. Swim 2 is retired. The 300 s dedup rule stays for historical data. | `recording_device` |
 | 019 | **Garmin Connect** is authoritative for completed activities (raw FIT with Stryd developer fields). TrainingPeaks holds the *plan* only. | `completed_activity_source`, `planned_workout_target` |
 | 020 | TrainingPeaks push mode: **dry run**. | `trainingpeaks_push_mode="dry_run"` |
+| 021 | **Lift + easy cardio combo:** a strength session may be followed right away, in the same window, by ≤20 min of strictly Z1/Z2 Bike or Run. Lift comes first. After heavy lower-body lifting, Bike only (no impact on a loaded spine, per `HEUR-004`). The pair counts as one window toward the day's cap. This is an exception to the 6h AMPK/mTOR rule (`INVARIANTS.md`). | `allow_lift_cardio_combo`, `combo_cardio_*` |
+| 022 | Equipment: pull-up bar ✔, treadmill ✔, Nordic anchor ✔, resistance bands ✘. Banded rows become DB rear-delt fly or prone Y-T-W. | `has_pullup_bar`, `has_treadmill`, `has_nordic_anchor`, `has_resistance_bands=False` |
 
 **Enforcement Mechanism:** These profile fields are **not yet read by the solver** and must be wired in by the unified engine work: the 80/20 definition (013), ACWR caps and minute floors (014), relaxation order (006), the 3:1 season matrix (010) and two-window gating (004). Tracked in `TASK-016`, `TASK-018`, `TASK-019` and `TASK-026`.
 
@@ -424,7 +426,7 @@ Conversely, static CP assignments lead to undertraining over multi-month seasons
 
 ## 5. Consequences & Trade-Offs
 - **Positive:** One coherent athlete model. Provisional thresholds are deliberately conservative, keeping Z2 below LT1.
-- **Negative / Operational Cost:** With 1 session/day and ≥1 rest day there are at most 6 sessions/week. Strength 3× + Bike 2× + Run 2× (7 sessions) only fits if a day allows a split window or a lift + short easy cardio combination.
+- **Negative / Operational Cost:** With 1 window/day and ≥1 rest day there are 6 windows/week. Strength 3× + Bike 2× + Run 2× fits only through the `DECISION-021` lift + easy cardio combo, which the engine must model as a compound candidate (`TASK-019`).
 - **When to Revisit:** 2027-05-15 (pool access, time budget), after the first CP or CSS tests, or when a race date is set.
 
 ---
