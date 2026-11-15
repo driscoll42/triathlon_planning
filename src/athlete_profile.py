@@ -102,6 +102,10 @@ class AthleteProfile:
     reentry_run_ctl_exit: float = 15.0
     reentry_run_minutes_floor: float = 60.0  # Always-allowed weekly run/walk minutes (e.g. 3 x 20 min) regardless of ACWR
     max_weekly_run_minutes_increase: float = 15.0  # Absolute week-over-week cap on running minutes during re-entry
+    # DECISION-023 (2026-11-15): during re-entry, 0 heavy lifts/week are allowed and the conservative axial
+    # (65) / neuro (75) caps stay. Flip reentry_phase to False to restore phase defaults (ADR-012).
+    reentry_phase: bool = True
+    reentry_heavy_strength_sessions: int = 0
     default_run_surface: str = "outdoor"     # DECISION-012: runs outdoors; treadmill (owned) for ice, dark, intervals, walk-run
 
     # -------------------------------------------------------------------------
@@ -215,6 +219,12 @@ class AthleteProfile:
     planned_workout_target: str = "trainingpeaks"      # TrainingPeaks holds the plan only
     trainingpeaks_push_mode: str = "dry_run"           # DECISION-020: 'dry_run' | 'approve' | 'auto'
 
+    def heavy_strength_sessions(self, phase_required: int) -> int:
+        """Heavy-strength sessions/week for a phase, capped during re-entry (DECISION-023)."""
+        if self.reentry_phase:
+            return min(int(phase_required), int(self.reentry_heavy_strength_sessions))
+        return int(phase_required)
+
     def to_athlete_state(self):
         """Builds an AthletePhysiologicalState initialized with this profile."""
         from closed_loop_optimizer import AthletePhysiologicalState
@@ -259,6 +269,7 @@ class AthleteProfile:
 
         base_cfg.min_rest_days = self.min_rest_days
         base_cfg.max_rest_days = self.max_rest_days
+        base_cfg.required_heavy_strength_sessions = self.heavy_strength_sessions(base_cfg.required_heavy_strength_sessions)
 
         # Tier-0 spinal / neuromuscular ceilings and Tier-1 relaxation order (TASK-016/017)
         base_cfg.max_daily_axial_load = self.max_daily_axial_load

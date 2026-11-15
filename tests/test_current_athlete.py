@@ -59,12 +59,9 @@ def test_recovery_week_solves_with_one_maintenance_lift(default_library):
     assert len(lifts) == 1 and not lifts[0].is_heavy_strength
 
 
-@pytest.mark.xfail(
-    reason="AWAITING ATHLETE DECISION: profile daily axial 65 / neuro 75 caps exclude the library's only heavy "
-           "lift (STR_MS1_HEAVY, 85/85) while the heavy-strength floor is 1 (DECISION-006). Resolve by raising the "
-           "caps, allowing 0 heavy sessions during re-entry, or adding lighter heavy lifts (TASK-028).",
-    strict=True,
-)
 def test_current_athlete_build_week_solves(default_library):
+    """DECISION-023: with 0 heavy lifts allowed during re-entry, the profile build week solves."""
+    assert CURRENT_ATHLETE.reentry_phase and CURRENT_ATHLETE.heavy_strength_sessions(2) == 0
     sched, plans = _solve_profile_week(default_library, "base")
     assert plans, " | ".join(sched.last_diagnostics)
+    assert not [w for d in range(7) for w in plans[0]["schedule"][d] if w.is_heavy_strength]

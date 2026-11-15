@@ -48,6 +48,7 @@ one_liner: "Athlete inputs DECISION-001..020 are settled; src/athlete_profile.py
 | 020 | TrainingPeaks push mode: **dry run**. | `trainingpeaks_push_mode="dry_run"` |
 | 021 | **Lift + easy cardio combo:** a strength session may be followed right away, in the same window, by ≤20 min of strictly Z1/Z2 Bike or Run. Lift comes first. After heavy lower-body lifting, Bike only (no impact on a loaded spine, per `HEUR-004`). The pair counts as one window toward the day's cap. This is an exception to the 6h AMPK/mTOR rule (`INVARIANTS.md`). | `allow_lift_cardio_combo`, `combo_cardio_*` |
 | 022 | Equipment: pull-up bar ✔, treadmill ✔, Nordic anchor ✔, resistance bands ✘. Banded rows become DB rear-delt fly or prone Y-T-W. | `has_pullup_bar`, `has_treadmill`, `has_nordic_anchor`, `has_resistance_bands=False` |
+| 023 | **Re-entry heavy lifting:** keep the conservative daily axial 65 / neuro 75 caps. During re-entry, **0 heavy lifts/week** are allowed, overriding the DECISION-006 floor of 1. Maintenance and accessory lifting continues. Flip `reentry_phase` off to restore phase defaults. | `reentry_phase=True`, `reentry_heavy_strength_sessions=0` |
 
 **Enforcement Mechanism:** These profile fields are **not yet read by the solver** and must be wired in by the unified engine work: the 80/20 definition (013), ACWR caps and minute floors (014), relaxation order (006), the 3:1 season matrix (010) and two-window gating (004). Tracked in `TASK-016`, `TASK-018`, `TASK-019` and `TASK-026`.
 

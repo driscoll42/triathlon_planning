@@ -2231,9 +2231,13 @@ def generate_closed_loop_season_schedule(
                 race_distance=dist,
             )
         cfg.w_durability = durability_w
-        cfg.required_heavy_strength_sessions = req_strength
-        if req_strength == 0:
-            cfg.sport_freq_bounds["Strength"] = (0, 0)
+        if profile is not None:
+            # Profile governs strength: re-entry cap (DECISION-023) and maintenance sessions (DECISION-009)
+            cfg.required_heavy_strength_sessions = profile.heavy_strength_sessions(req_strength)
+        else:
+            cfg.required_heavy_strength_sessions = req_strength
+            if req_strength == 0:
+                cfg.sport_freq_bounds["Strength"] = (0, 0)
 
         # 2. Tier 2 Receding-Horizon Feedback & Recalibration
         pre_odi = athlete_state.orthopedic_decoupling_index
