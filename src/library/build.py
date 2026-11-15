@@ -32,7 +32,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from library.schema import WORKOUT_COLUMNS, validate_table
+from library.schema import WORKOUT_COLUMNS, ZONE_DISTANCE_COLUMNS, validate_table
 
 # Explicit, reviewed corrections to scraped rows whose zone minutes did not sum to their duration.
 ZONE_CORRECTIONS: Dict[str, Dict[str, float]] = {
@@ -100,15 +100,90 @@ def durability(sport: str, duration: float, high: float, code: str) -> float:
 
 def _blank_row() -> Dict[str, object]:
     row: Dict[str, object] = {c: None for c in WORKOUT_COLUMNS}
-    for c in ("zx_min", "zy_min", "normalized_power", "intensity_factor", "bb_sets", "db_sets",
+    for c in ("zx_min", "zy_min", *ZONE_DISTANCE_COLUMNS, "normalized_power", "intensity_factor", "bb_sets", "db_sets",
               "sets_anterior_chain", "sets_posterior_chain", "sets_push", "sets_pull"):
         row[c] = 0
     for c in ("is_hard_endurance", "is_heavy_run", "is_long_run", "is_heavy_strength", "is_anchor", "has_strides",
               "is_indoor_bike", "is_outdoor_bike", "is_test", "pool", "swim_threshold", "hi_torque_bike",
               "heavy_sq", "heavy_dl", "heavy_press", "lib_default", "lib_hybrid", "needs_review"):
         row[c] = False
-    row.update(split_group="ANY", preference_penalty=0.1, category="", distance_unit="", target_adaptations="", notes="")
+    row.update(split_group="ANY", preference_penalty=0.1, category="", distance_unit="", prescription="time",
+               target_adaptations="", notes="")
     return row
+
+
+# -----------------------------------------------------------------------------
+# Distance-prescribed workouts (TASK-012 runs in miles; TASK-013 swims)
+# -----------------------------------------------------------------------------
+_MILE_SEG = re.compile(r"([\d.]+)\s*miles?\s*(?:Zone\s*(\d)|(at race pace))", re.IGNORECASE)
+_MILE_REP = re.compile(r"(\d+)\s*x\s*\(([^)]*)\)", re.IGNORECASE)
+RACE_PACE_ZONE = 3  # "at race pace" (marathon pace, RLMS only) is treated as Zone 3
+
+
+def parse_mile_prescription(desc: str) -> List[float]:
+    """'1 mile Zone 1, 8 x (0.25 mile Zone 3/0.75 mile Zone 2), ...' -> miles in (Z1..Z5)."""
+    zd = [0.0] * 5
+
+    def add(text: str, mult: float) -> None:
+        for m in _MILE_SEG.finditer(text):
+            zone = int(m.group(2)) if m.group(2) else RACE_PACE_ZONE
+            zd[zone - 1] += mult * float(m.group(1))
+
+    for rep in _MILE_REP.finditer(desc):
+        add(rep.group(2), float(rep.group(1)))
+    add(_MILE_REP.sub(" ", desc), 1.0)
+    if sum(zd) <= 0:
+        raise ValueError(f"no mile segments parsed from {desc!r}")
+    return zd
+
+
+def run_zone_paces(easy_pace_min_per_mile: float) -> List[float]:
+    """Pace (min/mile) per zone: the athlete's easy pace is Zone 2; other zones scale by the
+    80/20 run power ratios (speed ~ power on flat ground)."""
+    return [easy_pace_min_per_mile * RUN_ZONE_IF[1] / m for m in RUN_ZONE_IF]
+
+
+def power_tss(zone_minutes: List[float], zone_if, cp: float):
+    """(NP, IF, TSS) from zone minutes, the same as clean_file.calculate_TSS."""
+    tot = sum(zone_minutes)
+    if tot <= 0:
+        return 0.0, 0.0, 0.0
+    np_ = (sum(((cp * m) ** 4) * t for m, t in zip(zone_if, zone_minutes)) / tot) ** 0.25
+    if_ = np_ / cp
+    return round(np_, 2), round(if_, 4), round(100.0 * if_ ** 2 * tot / 60.0, 2)
+
+
+def materialize_distance_row(row: Dict[str, object], *, easy_pace_min_per_mile: float, run_cp: float) -> Dict[str, object]:
+    """Recompute minutes, TSS, flags and loads of a distance-prescribed row from athlete thresholds."""
+    if row.get("prescription") != "distance":
+        return row
+    sport = row["sport"]
+    zd = [float(row[c] or 0.0) for c in ("z1_dist", "z2_dist", "z3_dist", "z4_dist", "z5_dist")]
+    if sport == "Run" and row.get("distance_unit") == "mile":
+        paces = run_zone_paces(easy_pace_min_per_mile)
+        z = [round(d * p, 3) for d, p in zip(zd, paces)]
+        np_, if_, tss = power_tss(z, RUN_ZONE_IF, run_cp)
+    else:
+        raise ValueError(f"{row['code']}: no materializer for {sport} in {row.get('distance_unit')!r}")
+    out = dict(row)
+    out.update(z1_min=z[0], z2_min=z[1], zx_min=0.0, z3_min=z[2], zy_min=0.0, z4_min=z[3], z5_min=z[4],
+               duration_min=round(sum(z), 3), tss=tss, intensity_factor=if_, normalized_power=np_)
+    flags = endurance_flags(sport, str(out["description"]), out["duration_min"], z)
+    out.update(flags)
+    out.update(endurance_loads(sport, tss, if_, out["duration_min"], z, bool(flags.get("has_strides"))))
+    return out
+
+
+def materialize(df: pd.DataFrame, profile) -> pd.DataFrame:
+    """Re-derive every distance-prescribed row for this athlete (load time, TASK-012/013)."""
+    mask = df["prescription"] == "distance"
+    if not mask.any():
+        return df
+    rows = [materialize_distance_row(r, easy_pace_min_per_mile=profile.easy_run_pace_min_per_mile,
+                                     run_cp=profile.run_cp) for r in df[mask].to_dict(orient="records")]
+    out = df.copy()
+    out.loc[mask, WORKOUT_COLUMNS] = pd.DataFrame(rows, index=df.index[mask])[WORKOUT_COLUMNS]
+    return out
 
 
 def endurance_flags(sport: str, desc: str, duration: float, z: List[float]) -> Dict[str, object]:
@@ -145,9 +220,12 @@ def endurance_loads(sport: str, tss: float, if_: float, duration: float, z: List
             "durability_score": durability(sport, duration, high, ""), "neuromuscular_load": neuro, "axial_load": axial}
 
 
-def derive_8020_rows(frames: Dict[str, pd.DataFrame], source_files: Dict[str, str]) -> pd.DataFrame:
+def derive_8020_rows(frames: Dict[str, pd.DataFrame], source_files: Dict[str, str], profile=None) -> pd.DataFrame:
     """Canonical rows for scraped 80/20 workouts (codes without '_'). Mile-prescribed long runs
-    (TSS 0) are skipped here; TASK-012 converts them via the athlete's easy pace."""
+    (scraped with TSS 0) become distance-prescribed rows materialized from the athlete's easy
+    pace (TASK-012)."""
+    if profile is None:
+        from athlete_profile import CURRENT_ATHLETE as profile
     rows = []
     for sport, df in frames.items():
         for r in df.to_dict(orient="records"):
@@ -155,8 +233,20 @@ def derive_8020_rows(frames: Dict[str, pd.DataFrame], source_files: Dict[str, st
             if "_" in code:
                 continue  # custom rows are authored separately
             tss = float(r.get("TSS") or 0.0)
-            if tss <= 0:
+            desc = str(r.get("Description") or "")
+            if tss <= 0 and sport == "Run" and "mile" in desc:
+                zd = parse_mile_prescription(desc)
+                row = _blank_row()
+                row.update(code=code, name=code, sport=sport, provenance="8020_library", source=source_files[sport],
+                           description=desc, prescription="distance", distance=round(sum(zd), 3), distance_unit="mile",
+                           z1_dist=zd[0], z2_dist=zd[1], z3_dist=zd[2], z4_dist=zd[3], z5_dist=zd[4], duration_min=1.0, tss=1.0,
+                           notes=("Mile-prescribed; minutes/TSS recomputed at load from easy_run_pace_min_per_mile (TASK-012)."
+                                  + (" 'Race pace' treated as Zone 3." if "race pace" in desc.lower() else "")))
+                rows.append(materialize_distance_row(row, easy_pace_min_per_mile=profile.easy_run_pace_min_per_mile,
+                                                     run_cp=profile.run_cp))
                 continue
+            if tss <= 0:
+                raise ValueError(f"{code}: TSS 0 and not a mile-prescribed run; cannot derive")
             row = _blank_row()
             z = [float(r.get(f"Zone {k}") or 0.0) for k in range(1, 6)]
             duration = float(r.get("Duration") or 0.0)

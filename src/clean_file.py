@@ -268,6 +268,8 @@ def create_workout_dataframe(raw_rows, wkt_type):
                     df.loc[index, triv.high_duration_head] += zone_time
 
         if has_mile:
+            # Mile-prescribed runs stay TSS 0 in the raw scrape cache; library.build converts them to
+            # distance-prescribed canonical rows materialized from the athlete's easy pace (TASK-012).
             df.loc[index, triv.tss] = 0.0
         else:
             z1 = float(df.loc[index, triv.zone_1])
@@ -363,6 +365,15 @@ def rebuild_all_files():
     swim_df = preserve_custom_rows(swim_df, triv.swim_file)
     swim_df.to_excel(triv.swim_file, engine='openpyxl')
     print(f"Created {triv.swim_file} with {len(swim_df)} workouts.")
+
+    # The xlsx files are the raw scrape cache. Push the fresh scrape into the canonical library,
+    # re-deriving 80/20 rows (including mile-prescribed long runs, TASK-012) and keeping every
+    # authored row untouched (ADR-014).
+    from library.build import refresh_from_8020_scrape
+    from library.loader import LIBRARY_PATH, load_library
+    canonical = refresh_from_8020_scrape(load_library(profile=None), triv.run_file, triv.bike_file, triv.swim_file)
+    canonical.to_csv(LIBRARY_PATH, index=False)
+    print(f"Refreshed {LIBRARY_PATH} ({len(canonical)} workouts).")
 
     return run_df, bike_df, swim_df
 

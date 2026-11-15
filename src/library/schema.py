@@ -21,6 +21,10 @@ import pandera.pandas as pa
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ZONE_COLUMNS = ["z1_min", "z2_min", "zx_min", "z3_min", "zy_min", "z4_min", "z5_min"]
+# Per-zone prescribed distance (in distance_unit) for distance-prescribed workouts (TASK-012/013).
+ZONE_DISTANCE_COLUMNS = ["z1_dist", "z2_dist", "zx_dist", "z3_dist", "zy_dist", "z4_dist", "z5_dist"]
+PRESCRIPTIONS = ("time", "distance")
+DISTANCE_UNITS = ("", "mile", "pool_units")
 ZONE_SUM_TOLERANCE_MIN = 1.0
 
 
@@ -68,8 +72,8 @@ BOOL_FLAGS = [
 
 WORKOUT_COLUMNS = [
     "code", "name", "sport", "category", "provenance", "source",
-    "duration_min", "distance", "distance_unit", "description",
-    *ZONE_COLUMNS,
+    "duration_min", "distance", "distance_unit", "prescription", "description",
+    *ZONE_COLUMNS, *ZONE_DISTANCE_COLUMNS,
     "tss", "intensity_factor", "normalized_power",
     "mechanical_strain", "ans_cost", "durability_score", "neuromuscular_load", "axial_load",
     *BOOL_FLAGS,
@@ -92,6 +96,7 @@ class Workout(BaseModel):
     duration_min: float = Field(gt=0)
     distance: Optional[float] = Field(default=None, ge=0)
     distance_unit: str = ""
+    prescription: str = "time"
     description: str = ""
     z1_min: float = Field(ge=0)
     z2_min: float = Field(ge=0)
@@ -100,6 +105,13 @@ class Workout(BaseModel):
     zy_min: float = Field(ge=0)
     z4_min: float = Field(ge=0)
     z5_min: float = Field(ge=0)
+    z1_dist: float = Field(ge=0)
+    z2_dist: float = Field(ge=0)
+    zx_dist: float = Field(ge=0)
+    z3_dist: float = Field(ge=0)
+    zy_dist: float = Field(ge=0)
+    z4_dist: float = Field(ge=0)
+    z5_dist: float = Field(ge=0)
     tss: float = Field(gt=0)
     intensity_factor: float = Field(ge=0)
     normalized_power: float = Field(ge=0)
@@ -157,6 +169,18 @@ class Workout(BaseModel):
         zsum = sum(self.zones7)
         if abs(zsum - self.duration_min) > ZONE_SUM_TOLERANCE_MIN:
             raise ValueError(f"{self.code}: zone minutes sum {zsum:.2f} != duration {self.duration_min:.2f} (+-1 min)")
+        zd = (self.z1_dist + self.z2_dist + self.zx_dist + self.z3_dist + self.zy_dist + self.z4_dist + self.z5_dist)
+        if self.prescription not in PRESCRIPTIONS:
+            raise ValueError(f"{self.code}: prescription must be one of {PRESCRIPTIONS}")
+        if self.distance_unit not in DISTANCE_UNITS:
+            raise ValueError(f"{self.code}: distance_unit must be one of {DISTANCE_UNITS}")
+        if self.prescription == "distance":
+            if not self.distance or abs(zd - self.distance) > 0.01 * self.distance + 1e-6:
+                raise ValueError(f"{self.code}: zone distances {zd:.3f} must sum to distance {self.distance}")
+            if not self.distance_unit:
+                raise ValueError(f"{self.code}: distance-prescribed workouts need a distance_unit")
+        elif zd > 0:
+            raise ValueError(f"{self.code}: time-prescribed workouts must not carry zone distances")
         s = self.sport
         if s != Sport.RUN.value and (self.is_heavy_run or self.is_long_run):
             raise ValueError(f"{self.code}: run-only flag on a {s} workout")
@@ -189,9 +213,11 @@ WORKOUT_TABLE_SCHEMA = pa.DataFrameSchema(
         "source": pa.Column(str),
         "duration_min": pa.Column(float, pa.Check.gt(0)),
         "distance": pa.Column(float, pa.Check.ge(0), nullable=True),
-        "distance_unit": pa.Column(str, nullable=True),
+        "distance_unit": pa.Column(str, pa.Check.isin(list(DISTANCE_UNITS)), nullable=True),
+        "prescription": pa.Column(str, pa.Check.isin(list(PRESCRIPTIONS))),
         "description": pa.Column(str, nullable=True),
         **{z: pa.Column(float, pa.Check.ge(0)) for z in ZONE_COLUMNS},
+        **{z: pa.Column(float, pa.Check.ge(0)) for z in ZONE_DISTANCE_COLUMNS},
         "tss": pa.Column(float, pa.Check.gt(0)),
         "intensity_factor": pa.Column(float, pa.Check.ge(0)),
         "normalized_power": pa.Column(float, pa.Check.ge(0)),

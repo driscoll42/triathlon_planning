@@ -23,7 +23,7 @@ def test_canonical_library_validates_and_has_expected_shape(lib):
     assert list(lib.columns) == WORKOUT_COLUMNS
     assert lib["code"].is_unique
     counts = lib.groupby("provenance").size().to_dict()
-    assert counts == {"8020_library": 451, "agent_authored": 35, "hand_coded_default": 24, "hand_coded_hybrid": 18}
+    assert counts == {"8020_library": 479, "agent_authored": 35, "hand_coded_default": 24, "hand_coded_hybrid": 18}
     assert lib["lib_default"].sum() == 26 and lib["lib_hybrid"].sum() == 18
 
 
@@ -80,9 +80,37 @@ def test_brick_run_flag_fixed_and_collisions_renamed(lib):
         assert t.loc[code + "_DEF", "provenance"] == "hand_coded_default"
 
 
-def test_mile_long_runs_not_yet_in_library(lib):
-    # TASK-012 converts RL*/RLFF*/RLSP*/RLMS from miles using the athlete's easy pace.
-    assert not lib["code"].str.match(r"^RL(\d|FF|SP|MS)").any()
+def test_all_28_mile_long_runs_recovered_as_distance_prescribed(lib):
+    rl = lib[lib["code"].str.match(r"^RL(\d|FF|SP|MS)")]
+    assert len(rl) == 28
+    assert (rl["prescription"] == "distance").all() and (rl["distance_unit"] == "mile").all()
+    assert (rl["tss"] > 0).all() and rl["is_long_run"].all()
+
+
+@pytest.mark.parametrize("desc, expected", [
+    ("1 mile Zone 1, 4.5 miles Zone 2, 0.5 mile Zone 1", [1.5, 4.5, 0, 0, 0]),
+    ("0.5 mile Zone 1, 1 mile Zone 2, 8 x (0.25 mile Zone 3/0.75 mile Zone 2) 0.5 mile Zone 1", [1.0, 7.0, 2.0, 0, 0]),
+    ("1.5 miles Zone 1, 16 miles at race pace, 1 mile Zone 2, 1.5 miles Zone 1", [3.0, 1.0, 16.0, 0, 0]),
+])
+def test_parse_mile_prescription(desc, expected):
+    from library.build import parse_mile_prescription
+
+    assert parse_mile_prescription(desc) == pytest.approx(expected)
+
+
+def test_long_run_duration_follows_athlete_easy_pace():
+    from dataclasses import replace
+    from athlete_profile import CURRENT_ATHLETE
+    from library.build import run_zone_paces
+
+    def rl1(profile):
+        return load_library(profile=profile).set_index("code").loc["RL1"]
+
+    slow, fast = replace(CURRENT_ATHLETE, easy_run_pace_min_per_mile=14.5), replace(CURRENT_ATHLETE, easy_run_pace_min_per_mile=10.0)
+    p = run_zone_paces(14.5)
+    assert rl1(slow)["duration_min"] == pytest.approx(1.5 * p[0] + 4.5 * p[1], abs=0.01)
+    assert rl1(slow)["z2_min"] == pytest.approx(4.5 * 14.5, abs=0.01)  # Zone 2 = easy pace
+    assert rl1(fast)["duration_min"] < rl1(slow)["duration_min"]
 
 
 # ----------------------------------------------------------------------------- schema rejects bad rows

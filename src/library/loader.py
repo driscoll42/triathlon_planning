@@ -30,10 +30,28 @@ def _load_cached(path: str, mtime: float) -> pd.DataFrame:
     return validate_table(df[WORKOUT_COLUMNS])
 
 
-def load_library(path: Optional[str] = None) -> pd.DataFrame:
-    """Validated canonical table (cached until the file changes). Returns a copy."""
+_CURRENT = object()
+
+
+def load_library(path: Optional[str] = None, profile=_CURRENT) -> pd.DataFrame:
+    """Validated canonical table (cached until the file changes). Returns a copy.
+
+    Distance-prescribed rows (mile long runs, TASK-012) are re-materialized for ``profile``
+    (default: CURRENT_ATHLETE) at load time, so durations and TSS follow the athlete's
+    current easy pace / thresholds. Pass ``profile=None`` for the stored values.
+    """
+    from library.build import materialize
+    from library.schema import Workout
+
     p = os.path.abspath(path or LIBRARY_PATH)
-    return _load_cached(p, os.path.getmtime(p)).copy()
+    df = _load_cached(p, os.path.getmtime(p)).copy()
+    if profile is _CURRENT:
+        from athlete_profile import CURRENT_ATHLETE as profile
+    if profile is not None:
+        df = materialize(df, profile)
+        for rec in df[df["prescription"] == "distance"].to_dict(orient="records"):
+            Workout(**{k: (None if (isinstance(v, float) and pd.isna(v)) else v) for k, v in rec.items()})
+    return df
 
 
 def select(df: pd.DataFrame, *, library: Optional[str] = None, provenance: Optional[Iterable[str]] = None,
