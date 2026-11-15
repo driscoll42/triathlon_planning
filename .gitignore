@@ -35,3 +35,6 @@ data/lifting/
 references/*.pdf
 references/*.epub
 references/*.azw3
+
+# Test caches
+.pytest_cache/

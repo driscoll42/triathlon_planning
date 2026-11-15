@@ -8,3 +8,4 @@ openpyxl
 highspy
 polars
 python-calamine
+pytest>=8

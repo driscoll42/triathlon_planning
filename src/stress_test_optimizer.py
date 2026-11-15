@@ -12,6 +12,7 @@ for _p in [_src_dir, _root_dir]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+import copy
 import time
 from dataclasses import replace
 import pandas as pd
@@ -41,6 +42,7 @@ def print_header(title: str):
 
 def run_scenario(name: str, library: list, cfg: MesoCycleTargetsAndConstraints, k_plans: int = 1, time_limit: float = 10.0):
     print(f"\n--- Running Scenario: {name} ---")
+    cfg_requested = copy.deepcopy(cfg)  # solver currently mutates cfg in place (TASK-013)
     t0 = time.time()
     sched = TriathlonMILPScheduler(library, cfg)
     try:
@@ -48,7 +50,7 @@ def run_scenario(name: str, library: list, cfg: MesoCycleTargetsAndConstraints, 
         dur = time.time() - t0
         if not plans:
             print(f"RESULT: FAILED / INFEASIBLE (No plans found in {dur:.2f}s)")
-            return {"status": "INFEASIBLE", "duration": dur, "plans": []}
+            return {"status": "INFEASIBLE", "duration": dur, "plans": [], "cfg": cfg, "cfg_requested": cfg_requested, "library": library}
         else:
             p = plans[0]
             slack_info = p.get('soft_slack_violations', {})
@@ -56,7 +58,7 @@ def run_scenario(name: str, library: list, cfg: MesoCycleTargetsAndConstraints, 
             gap = p.get('mip_gap')
             gap_str = f"{gap*100:.2f}%" if gap is not None else "n/a"
             print(f"RESULT: {p['status']} (Solved in {dur:.2f}s | Gap: {gap_str} | Obj: {p['objective']:.2f} | TSS: {p['total_tss']:.1f} | MechStrain: {p['total_mech_strain']:.1f} | LongRun: {p['max_single_run_ratio']*100:.1f}%{slack_str})")
-            return {"status": p["status"], "mip_gap": gap, "duration": dur, "plans": plans}
+            return {"status": p["status"], "mip_gap": gap, "duration": dur, "plans": plans, "cfg": cfg, "cfg_requested": cfg_requested, "library": library}
     except Exception as e:
         dur = time.time() - t0
         print(f"RESULT: ERROR ({e}) in {dur:.2f}s")
@@ -263,7 +265,8 @@ def stress_test_suite():
     # -------------------------------------------------------------------------
     print_header("SCENARIO 9: CLOSED-LOOP TIER 1 DAILY SICKNESS PERTURBATION")
     mpc = ClosedLoopMPCController()
-    wkt_hard = default_lib[6] # BIKE_ME3_OU (60m, 68 TSS, 245 ANS, Hard)
+    # Look up by code: index 6 is BIKE_AE2_Z2 (easy), which silently tested the wrong session (TASK-008)
+    wkt_hard = next(w for w in default_lib if w.code == "BIKE_ME3_OU")  # 60m, 68 TSS, 245 ANS, Hard
     
     # Athlete wakes up with acute illness: RMSSD drops to 18 (baseline 60), sleep 4.5h, soreness 7/10
     s_sick = mpc.calculate_morning_readiness(18.0, 60.0, 4.5, 7.0)
