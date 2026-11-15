@@ -6,7 +6,7 @@ The **Triathlon Workout & Season Planner** is a high-performance mathematical mo
 - **Primary Stack:** Python 3.14+, `highspy` (HiGHS C++ MILP solver), `pandas`, `numpy`, `openpyxl`.
 - **Integrations:** TrainingPeaks Private REST API, Garmin Health API / Connect, 80/20 Endurance Library scraper. *(Recorded-activity FIT parsing is specified in `SPEC.md`/`ADR-010` but **not yet implemented** — `TASK-024`.)*
 - **Lineage & Context Engine:** SQLite WAL + FTS5 BM25 (`docs/.context/lode.db`) managed via `scripts/lodectx.py`.
-- **Primary Data Sources:** `data/Bike.xlsx`, `data/Run.xlsx`, `data/Swim.xlsx`, `data/brick_workouts.csv`.
+- **Primary Data Sources:** `data/workout_library.csv` (single validated workout library, 7-zone, explicit flags; `ADR-014`) and `config/athlete_profile.yaml` (validated athlete profile). `data/{Run,Bike,Swim}.xlsx` are the raw 80/20 scrape cache, read only at build time.
 
 ## 2. Core Subsystems & Module Boundaries
 
@@ -23,9 +23,9 @@ The **Triathlon Workout & Season Planner** is a high-performance mathematical mo
 ## 3. Data Pipeline & Optimization Flow
 ```mermaid
 flowchart TD
-    A["Raw Workouts (data/*.xlsx, scraped)"] --> B["Workout Ingestion & Pruning (src/util.py)"]
+    A["Canonical Library (data/workout_library.csv, Pandera+Pydantic)"] --> B["library.loader + Pruning"]
     B --> C["Candidate Library (CandidateWorkout)"]
-    D["Athlete Profile (src/athlete_profile.py)"] --> E["MPC Controller & Targets (src/closed_loop_optimizer.py)"]
+    D["Athlete Profile (config/athlete_profile.yaml)"] --> E["MPC Controller & Targets (src/closed_loop_optimizer.py)"]
     C & E --> F["HiGHS MILP Formulation (highspy)"]
     F --> G["Status-Checked Solve (highs_runtime) / No-Good Cuts"]
     G --> H["Feasible Weekly Schedule (Top-K Plans)"]
@@ -38,7 +38,8 @@ flowchart TD
 - `tests/`: pytest suite (`python -m pytest`): stress-scenario safety assertions, profile contract, HiGHS runtime, workout loading. Known engine defects are strict/non-strict `xfail`s naming their owning task.
 - `config/`: Secure environment files (`.env.example`, `trainingpeak.env`, `garmin.env`). All secret `.env` files are gitignored.
 - `.agents/`: Agent charters and operational rules (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `rules/operating_charter.md`).
-- `data/`: Structured workout matrices (`Bike.xlsx`, `Run.xlsx`, `Swim.xlsx`, `brick_workouts.csv`), scrape caches (`workout_library.html`), JSON preview payloads (`parsed_workouts_preview.json`), and raw FIT downloads (`fit_files/`).
+- `data/`: `workout_library.csv` (canonical workout library), raw 80/20 scrape cache (`Run.xlsx`, `Bike.xlsx`, `Swim.xlsx`, `workout_library.html`), and gitignored telemetry (`garmin/`, `lifting/`, `fit_files/`).
+- `src/library/`: canonical workout schema (`schema.py`), build-time flag derivation and scrape refresh (`build.py`), loader (`loader.py`).
 - `docs/`: Progressive disclosure core, domain briefing lodes, ADRs, PRDs, heuristics, hardware/threshold specification (`SPEC.md`), and SQLite lineage DB (`.context/lode.db`).
 - `references/`: Empirical endurance literature, textbooks, and physiological research documents (large binaries gitignored).
 - `scripts/`: Operational tools, SQLite lineage engine (`lodectx.py`), core scaling benchmarks, and multi-plan simulation comparators.

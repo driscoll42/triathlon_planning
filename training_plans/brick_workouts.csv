@@ -1,7 +1,0 @@
-Code,Duration,Zone 1,Zone 2,Zone 3,Zone 4,Zone 5,Description
-BR1,90,30,60,0,0,0,"Bike 20 min Z1, 2 × (Run 10 min Z2 -> Bike 20 min Z2), 10 min Z1"
-BR2,120,30,90,0,0,0,"Bike 20 min Z1, 3 × (Run 10 min Z2 -> Bike 20 min Z2), 10 min Z1"
-BR3,61,15,0,46,0,0,"Bike 15 min Z1, 2 × (Run 7 min Z3/3 min Z1 -> Bike 10 min Z3/3 min Z1)"
-BR4,89,20,0,69,0,0,"Bike 15 min Z1, 3 × (Run 7 min Z3/3 min Z1 -> Bike 10 min Z3/3 min Z1), 5 min Z1"
-BR5,112,20,0,92,0,0,"Bike 15 min Z1, 4 × (Run 7 min Z3/3 min Z1 -> Bike 10 min Z3/3 min Z1), 5 min Z1"
-BR6,135,20,0,115,0,0,"Bike 15 min Z1, 5 × (Run 7 min Z3/3 min Z1 -> Bike 10 min Z3/3 min Z1), 5 min Z1"

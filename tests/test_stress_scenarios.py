@@ -48,8 +48,8 @@ def test_time_starvation_reports_dropped_anchor_instead_of_failing(stress_result
     _, plans = _plans(stress_results, "3_time_starvation_anchor")
     assert plans
     p = plans[0]
-    assert any(r["target"] == "anchor BIKE_DUR_OUT" for r in p["relaxations"])
-    assert any("BIKE_DUR_OUT" in m and "cannot be scheduled" in m for m in p["diagnostics"])
+    assert any(r["target"] == "anchor BIKE_DUR_OUT_DEF" for r in p["relaxations"])
+    assert any("BIKE_DUR_OUT_DEF" in m and "cannot be scheduled" in m for m in p["diagnostics"])
 
 
 @pytest.mark.parametrize("name", MILP_SCENARIOS + ["3_time_starvation_anchor"])

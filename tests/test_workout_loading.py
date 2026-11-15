@@ -13,7 +13,7 @@ def test_trivariables_has_column_aliases(attr):
 def test_load_workouts_filters_tss_by_tss_caps_not_time_caps():
     from util import load_workouts
 
-    wkend, wkday = load_workouts(triv.run_file, triv.bike_file, triv.swim_file)
+    wkend, wkday = load_workouts()
     assert wkend["TSS"].max() <= triv.max_tss_weekend
     assert wkday["TSS"].max() <= triv.max_tss_weekday
     assert wkend["Duration"].max() <= triv.max_time_weekend

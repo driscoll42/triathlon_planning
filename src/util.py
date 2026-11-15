@@ -5,89 +5,26 @@ import random
 from classes import triVariables as triv, workout
 
 
-def load_workouts(run_file=None, bike_file=None, swim_file=None, strength_file=None, include_strength=True):
-    import os
-    import numpy as np
+def load_workouts(include_strength=True, library_path=None):
+    """Weekend / weekday candidate frames (legacy Title-Case schema) from the canonical library.
 
-    if run_file is None:
-        run_file = getattr(triv, 'run_file', 'data/Run.xlsx')
-    if bike_file is None:
-        bike_file = getattr(triv, 'bike_file', 'data/Bike.xlsx')
-    if swim_file is None:
-        swim_file = getattr(triv, 'swim_file', 'data/Swim.xlsx')
+    Source: data/workout_library.csv, validated by Pandera + Pydantic (TASK-011). The former
+    file arguments (Run/Bike/Swim xlsx, brick and strength CSVs) were removed: those files were
+    duplicate sources. Hand-coded engine test libraries (provenance hand_coded_*) are excluded,
+    as before. Sports with a 0% target split in triVariables are skipped.
+    """
+    from library.loader import legacy_frame, load_library, select
 
-    df = pd.DataFrame()
+    sports = [s for s, pct in (("Run", triv.run_tgt_percent), ("Bike", triv.bike_tgt_percent),
+                               ("Swim", triv.swim_tgt_percent)) if pct > 0] + ["Brick"]
+    if include_strength:
+        sports.append("Strength")
+    lib = select(load_library(library_path), provenance=["8020_library", "agent_authored"], sports=sports)
+    df = legacy_frame(lib)
 
-    if getattr(triv, 'run_tgt_percent', 0.28) > 0 and os.path.exists(run_file):
-        run_df = pd.read_excel(run_file, index_col=0, engine='openpyxl')
-        df = pd.concat([df, run_df], ignore_index=True)
-    if getattr(triv, 'bike_tgt_percent', 0.40) > 0 and os.path.exists(bike_file):
-        bike_df = pd.read_excel(bike_file, index_col=0, engine='openpyxl')
-        df = pd.concat([df, bike_df], ignore_index=True)
-    if getattr(triv, 'swim_tgt_percent', 0.32) > 0 and os.path.exists(swim_file):
-        swim_df = pd.read_excel(swim_file, index_col=0, engine='openpyxl')
-        df = pd.concat([df, swim_df], ignore_index=True)
-
-    src_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(src_dir)
-    brick_candidates = [
-        os.path.join('data', 'brick_workouts.csv'),
-        os.path.join(root_dir, 'data', 'brick_workouts.csv'),
-        os.path.join('training_plans', 'brick_workouts.csv'),
-        os.path.join(root_dir, 'training_plans', 'brick_workouts.csv'),
-        os.path.join(src_dir, 'data', 'brick_workouts.csv'),
-    ]
-    brick_file = next((p for p in brick_candidates if os.path.exists(p)), 'data/brick_workouts.csv')
-    if os.path.exists(brick_file):
-        b_df = pd.read_csv(brick_file)
-        b_df['Type'] = 'Brick'
-        b_df['High Duration'] = b_df['Zone 3'] + b_df['Zone 4'] + b_df['Zone 5']
-        b_df['Low Duration'] = b_df['Zone 1'] + b_df['Zone 2']
-        multipliers = np.array([0.615, 0.79, 0.96, 1.09, 1.325])
-        tss_list, if_list = [], []
-        for _, r in b_df.iterrows():
-            z = np.array([r['Zone 1'], r['Zone 2'], r['Zone 3'], r['Zone 4'], r['Zone 5']])
-            tot = np.sum(z)
-            if tot > 0:
-                int_f = (np.sum((multipliers ** 4) * z) / tot) ** 0.25
-                t = 100.0 * (int_f ** 2) * (tot / 60.0)
-            else:
-                int_f = 0.7
-                t = 50.0
-            tss_list.append(t)
-            if_list.append(int_f)
-        b_df['TSS'] = tss_list
-        b_df['Intensity Factor'] = if_list
-        df = pd.concat([df, b_df], ignore_index=True)
-
-    strength_candidates = [
-        strength_file,
-        getattr(triv, 'strength_file', None),
-        os.path.join('data', 'strength_workouts.csv'),
-        os.path.join(root_dir, 'data', 'strength_workouts.csv'),
-        os.path.join(src_dir, 'data', 'strength_workouts.csv'),
-    ]
-    str_path = next((p for p in strength_candidates if p and os.path.exists(p)), None)
-    if include_strength and str_path and os.path.exists(str_path):
-        s_df = pd.read_csv(str_path)
-        if 'Type' not in s_df.columns:
-            s_df['Type'] = 'Strength'
-        if 'High Duration' not in s_df.columns:
-            s_df['High Duration'] = s_df.get('Zone 3', 0) + s_df.get('Zone 4', 0) + s_df.get('Zone 5', 0)
-        if 'Low Duration' not in s_df.columns:
-            s_df['Low Duration'] = s_df.get('Zone 1', 0) + s_df.get('Zone 2', 0)
-        df = pd.concat([df, s_df], ignore_index=True)
-
-    df = df[df['TSS'] != 0]
-    df = df[df['TSS'].notnull()]
-
-    wkend_wts_df = df[df['Duration'] <= triv.max_time_weekend]
-    wkend_wts_df = wkend_wts_df[wkend_wts_df['TSS'] <= triv.max_tss_weekend]
-
-    wkday_wts_df = df[df['Duration'] <= triv.max_time_weekday]
-    wkday_wts_df = wkday_wts_df[wkday_wts_df['TSS'] <= triv.max_tss_weekday]
-
-    return wkend_wts_df, wkday_wts_df
+    wkend_wts_df = df[(df['Duration'] <= triv.max_time_weekend) & (df['TSS'] <= triv.max_tss_weekend)]
+    wkday_wts_df = df[(df['Duration'] <= triv.max_time_weekday) & (df['TSS'] <= triv.max_tss_weekday)]
+    return wkend_wts_df.reset_index(drop=True), wkday_wts_df.reset_index(drop=True)
 
 
 def calculate_plan_score(wkt, verbose=False):

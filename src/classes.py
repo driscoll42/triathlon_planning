@@ -127,8 +127,9 @@ class triVariables:
     run_file = _resolve_data_path('Run.xlsx')
     bike_file = _resolve_data_path('Bike.xlsx')
     swim_file = _resolve_data_path('Swim.xlsx')
-    strength_file = _resolve_data_path('strength_workouts.csv')
-    brick_file = _resolve_data_path('brick_workouts.csv')
+    # Run/Bike/Swim xlsx are the raw 80/20 scrape cache, read only by library.build at build time.
+    # Runtime workouts come from data/workout_library.csv (library.loader, TASK-011).
+    library_file = _resolve_data_path('workout_library.csv')
 
     # Column name mappings
     tss = 'TSS'

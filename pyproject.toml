@@ -16,6 +16,9 @@ dependencies = [
     "requests",
     "beautifulsoup4",
     "python-dotenv",
+    "pydantic>=2",
+    "pandera>=0.20",
+    "PyYAML>=6",
 ]
 
 [project.optional-dependencies]

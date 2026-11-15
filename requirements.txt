@@ -9,3 +9,6 @@ highspy
 polars
 python-calamine
 pytest>=8
+pydantic>=2
+pandera>=0.20
+PyYAML>=6

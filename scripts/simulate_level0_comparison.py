@@ -169,12 +169,12 @@ def run_simulation():
         print(f"Generating Closed-Loop Season for {display_name} ({n_weeks} weeks, base={base_tss})...")
         novice_profile = AthleteProfile(
             name=f"Novice {display_name} Athlete",
-            initial_ctl=0.0,
-            initial_atl=0.0,
+            starting_ctl=0.0,
+            starting_atl=0.0,
             initial_metabolic_state=20.0,
-            initial_connective_state=20.0,
-            initial_acute_mech=10.0,
-            initial_chronic_mech=10.0,
+            initial_connective_tissue_state=20.0,
+            initial_running_acute_mech=10.0,
+            initial_running_chronic_mech=10.0,
             base_weekly_tss=base_tss,
         )
 

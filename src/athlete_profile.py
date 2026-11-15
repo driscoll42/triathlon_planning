@@ -8,8 +8,9 @@ The Closed-Loop Triathlon Training Optimizer and multi-month season planners rea
 directly from this configuration file.
 """
 
+import os
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 import numpy as np
 
 
@@ -218,6 +219,64 @@ class AthleteProfile:
     completed_activity_source: str = "garmin_connect"  # DECISION-019: authoritative for completed activities (raw FIT)
     planned_workout_target: str = "trainingpeaks"      # TrainingPeaks holds the plan only
     trainingpeaks_push_mode: str = "dry_run"           # DECISION-020: 'dry_run' | 'approve' | 'auto'
+
+    # -------------------------------------------------------------------------
+    # VALIDATION (TASK-010): runs on every construction, including YAML loads via Pydantic
+    # -------------------------------------------------------------------------
+    def __post_init__(self) -> None:
+        errors = self.validation_errors()
+        if errors:
+            sep = "\n  - "
+            raise ValueError("Invalid AthleteProfile:" + sep + sep.join(errors))
+
+    def validation_errors(self) -> List[str]:
+        from safety_constraints import DEFAULT_RELAXATION_ORDER, _APPEND, _PREPEND
+
+        e: List[str] = []
+        days7 = {"daily_time_caps": self.daily_time_caps, "two_session_windows": self.two_session_windows,
+                 **{f"facility_access[{k}]": v for k, v in self.facility_access.items()}}
+        for name, seq in days7.items():
+            if len(seq) != 7:
+                e.append(f"{name} must have 7 entries (Mon..Sun), got {len(seq)}")
+        if any(c < 0 for c in self.daily_time_caps):
+            e.append("daily_time_caps must be >= 0")
+        for sport in ("Swim", "Bike", "Run", "Strength"):
+            if sport not in self.facility_access:
+                e.append(f"facility_access missing {sport}")
+        for name in ("bike_cp", "run_cp", "swim_css", "easy_run_pace_min_per_mile", "anaerobic_work_capacity_w_prime"):
+            if getattr(self, name) <= 0:
+                e.append(f"{name} must be > 0")
+        # Single source of truth (ADR-009): the FTP aliases must equal the locked CP integers (removed in TASK-013)
+        if self.bike_ftp != self.bike_cp or self.run_ftp != self.run_cp:
+            e.append("bike_ftp/run_ftp must equal bike_cp/run_cp (single locked CP, ADR-009)")
+        for name in ("max_single_run_vol_ratio", "intensity_low_min", "intensity_low_target",
+                     "intensity_mod_high_max", "intensity_zone_x_max", "min_barbell_set_share"):
+            if not 0.0 <= getattr(self, name) <= 1.0:
+                e.append(f"{name} must be in [0, 1]")
+        if self.intensity_low_min + self.intensity_mod_high_max > 1.0 + 1e-9:
+            e.append("intensity_low_min + intensity_mod_high_max must be <= 1")
+        for name, split in (("target_sport_splits", self.target_sport_splits),
+                            ("target_bike_run_tss_splits", self.target_bike_run_tss_splits)):
+            if abs(sum(split.values()) - 1.0) > 0.01:
+                e.append(f"{name} must sum to 1.0 (got {sum(split.values()):.3f})")
+        for sport, (lo, hi) in self.sport_freq_bounds.items():
+            if not 0 <= lo <= hi <= 14:
+                e.append(f"sport_freq_bounds[{sport}] must satisfy 0 <= min <= max <= 14, got ({lo}, {hi})")
+        if not 0 <= self.min_rest_days <= self.max_rest_days <= 7:
+            e.append("rest days must satisfy 0 <= min_rest_days <= max_rest_days <= 7")
+        if any(d not in range(7) for d in list(self.pool_open_days) + list(self.outdoor_bike_days)):
+            e.append("pool_open_days / outdoor_bike_days must be weekday indexes 0..6")
+        if any(not self.facility_access.get("Swim", [False] * 7)[d] for d in self.pool_open_days if d in range(7)):
+            e.append("pool_open_days lists a day without Swim facility access")
+        vocab = set(DEFAULT_RELAXATION_ORDER) | set(_PREPEND) | set(_APPEND)
+        unknown = [c for c in self.tier1_relaxation_order if c not in vocab]
+        if unknown:
+            e.append(f"tier1_relaxation_order has unknown entries {unknown}")
+        if self.recovery_week_strength_sessions < 0 or self.reentry_heavy_strength_sessions < 0:
+            e.append("strength session counts must be >= 0")
+        if self.swim_pool_length not in ("25y", "25m", "50m"):
+            e.append("swim_pool_length must be one of 25y, 25m, 50m")
+        return e
 
     def heavy_strength_sessions(self, phase_required: int) -> int:
         """Heavy-strength sessions/week for a phase, capped during re-entry (DECISION-023)."""
@@ -453,5 +512,41 @@ class AthleteProfile:
         return zones
 
 
-# Default active athlete instance
-CURRENT_ATHLETE = AthleteProfile()
+# -----------------------------------------------------------------------------
+# YAML PERSISTENCE (TASK-010): config/athlete_profile.yaml is the athlete's source of truth
+# -----------------------------------------------------------------------------
+PROFILE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "athlete_profile.yaml")
+
+
+def load_athlete_profile(path: str = PROFILE_PATH) -> AthleteProfile:
+    """Load and validate a profile: every field required (no silent defaults), types checked by
+    Pydantic, semantic rules checked by AthleteProfile.__post_init__."""
+    import yaml
+    from pydantic import TypeAdapter
+
+    with open(path, encoding="utf-8") as fh:
+        data = yaml.safe_load(fh) or {}
+    expected = {f.name for f in fields(AthleteProfile)}
+    missing, extra = sorted(expected - set(data)), sorted(set(data) - expected)
+    if missing or extra:
+        raise ValueError(f"{path}: missing fields {missing}; unknown fields {extra}")
+    return TypeAdapter(AthleteProfile).validate_python(data)
+
+
+def save_athlete_profile(profile: AthleteProfile, path: str = PROFILE_PATH) -> None:
+    import yaml
+
+    data = asdict(profile)
+    data["sport_freq_bounds"] = {k: list(v) for k, v in data["sport_freq_bounds"].items()}
+    header = "".join(line + "\n" for line in (
+        "# Athlete profile: source of truth for CURRENT_ATHLETE (TASK-010).",
+        "# Field meanings and units: src/athlete_profile.py. Decisions: docs/lode/ADR-012.",
+        "# Validated on load (all fields required; Pydantic types + AthleteProfile.validation_errors()).",
+    ))
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(header)
+        yaml.safe_dump(data, fh, sort_keys=False, allow_unicode=True, default_flow_style=None, width=120)
+
+
+# Default active athlete instance (YAML when present; dataclass defaults otherwise)
+CURRENT_ATHLETE = load_athlete_profile() if os.path.exists(PROFILE_PATH) else AthleteProfile()

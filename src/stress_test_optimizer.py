@@ -27,10 +27,9 @@ from closed_loop_optimizer import (
     build_default_candidate_library,
     build_hybrid_candidate_library,
     HybridAthleteMILPOptimizer,
-    enrich_workouts_from_df,
     format_plan_to_dataframe,
 )
-from util import load_workouts
+from library.loader import load_candidates
 from classes import triVariables as triv
 
 
@@ -103,7 +102,7 @@ def stress_test_suite():
     # -------------------------------------------------------------------------
     # Scenario 3: Severe Time Starvation (Executive Schedule)
     # Weekdays: 45m cap. Weekend: 90m cap.
-    # Note: Default anchor BIKE_DUR_OUT is 180m, which exceeds 90m!
+    # Note: Default anchor BIKE_DUR_OUT_DEF is 180m, which exceeds 90m!
     # -------------------------------------------------------------------------
     # Let's see what happens if anchor duration exceeds weekend cap:
     cfg_time_starved = MesoCycleTargetsAndConstraints(
@@ -172,7 +171,7 @@ def stress_test_suite():
         CandidateWorkout(
             w.id, w.code, w.name, w.sport, w.duration, w.aerobic_tss, w.mechanical_strain,
             w.ans_cost, w.durability_score, w.zone_durations, w.is_hard_endurance,
-            w.is_heavy_run, w.is_heavy_strength, (w.code == "BIKE_DUR_OUT"), w.has_strides, w.is_indoor_bike, w.preference_penalty
+            w.is_heavy_run, w.is_heavy_strength, (w.code == "BIKE_DUR_OUT_DEF"), w.has_strides, w.is_indoor_bike, w.preference_penalty
         ) for w in default_lib
     ]
     res5 = run_scenario("5. Orthopedic Rehab Runner (Run Mech <= 160, 75% Bike)", lib_rehab, cfg_rehab)
@@ -226,15 +225,16 @@ def stress_test_suite():
 
     # -------------------------------------------------------------------------
     # Scenario 8: Large Library Stress Test (Hundreds of Workouts)
-    # Ingests Bike.xlsx, Run.xlsx, Swim.xlsx, Strength, and enriches them
+    # Loads the canonical library (80/20 + agent-authored rows, explicit flags; TASK-011)
     # -------------------------------------------------------------------------
     print_header("SCENARIO 8: LARGE WORKOUT LIBRARY SCALE TEST")
     try:
         triv.set_distance_profile('olympic')
-        we_df, wd_df = load_workouts(triv.run_file, triv.bike_file, triv.swim_file)
-        combined_raw = pd.concat([we_df, wd_df], ignore_index=True).drop_duplicates(subset=['Code'])
-        enriched_large_lib = enrich_workouts_from_df(combined_raw)
-        print(f"Successfully loaded and enriched {len(enriched_large_lib)} real-world workouts.")
+        enriched_large_lib = [
+            w for w in load_candidates(provenance=["8020_library", "agent_authored"])
+            if w.duration <= triv.max_time_weekend and w.aerobic_tss <= triv.max_tss_weekend
+        ]
+        print(f"Successfully loaded {len(enriched_large_lib)} real-world workouts from the canonical library.")
 
         from closed_loop_optimizer import prune_candidate_library
         no_anchor_lib = [replace(w, is_anchor=False, is_indoor_bike=True) for w in enriched_large_lib]

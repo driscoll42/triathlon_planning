@@ -33,7 +33,6 @@ from closed_loop_optimizer import (
     build_default_candidate_library,
     build_hybrid_candidate_library,
     HybridAthleteMILPOptimizer,
-    enrich_workouts_from_df,
     format_plan_to_dataframe,
     generate_closed_loop_season_schedule,
 )
@@ -474,7 +473,7 @@ def run_hybrid_athlete_demo():
 if __name__ == '__main__':
     # Initialize 3-sport Olympic profile with 85/15 default
     triv.set_distance_profile('olympic')
-    wkend_wts_df, wkday_wts_df = load_workouts(triv.run_file, triv.bike_file, triv.swim_file)
+    wkend_wts_df, wkday_wts_df = load_workouts()
 
     # 1. 16-Week Olympic Schedule (Level 0 Equivalent) with 85/15 default & periodization
     olympic_daily_df, olympic_summary_df = run_16_week_olympic_schedule(df=wkend_wts_df)

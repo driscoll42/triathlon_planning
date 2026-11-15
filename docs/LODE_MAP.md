@@ -34,6 +34,7 @@
 - **`ADR-011`** (`physiology`): Integrate Closed-Loop Critical Power Retesting Engine with Dual Telemetry Triggers and Mesocycle Synchronization
 - **`ADR-012`** (`mpc`): Lock Athlete Decision Record for Nov 2026 Re-Entry and Olympic Season
 - **`ADR-013`** (`optimizer`): Enforce Three-Tier Lexicographic Constraint Hierarchy with Shared Tier-0 Safety Layer
+- **`ADR-014`** (`workouts`): Adopt Single Validated Canonical Workout Library and YAML Athlete Profile
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`
