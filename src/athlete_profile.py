@@ -260,6 +260,12 @@ class AthleteProfile:
         base_cfg.min_rest_days = self.min_rest_days
         base_cfg.max_rest_days = self.max_rest_days
 
+        # Tier-0 spinal / neuromuscular ceilings and Tier-1 relaxation order (TASK-016/017)
+        base_cfg.max_daily_axial_load = self.max_daily_axial_load
+        base_cfg.max_weekly_axial_load = self.max_weekly_axial_load
+        base_cfg.max_daily_neuro_load = self.max_daily_neuro_load
+        base_cfg.tier1_relaxation_order = list(self.tier1_relaxation_order)
+
         # Orthopedic rehab adjustment
         if self.orthopedic_status.upper() in ("ACHILLES_REHAB", "RESTRICTED_RUN"):
             base_cfg.max_weekly_run_mech_strain = min(base_cfg.max_weekly_run_mech_strain, 180.0)
@@ -283,6 +289,13 @@ class AthleteProfile:
             "max_weekly_axial": self.max_weekly_axial_load,
             "max_daily_axial": self.max_daily_axial_load,
             "max_daily_neuro": self.max_daily_neuro_load,
+            # Tier-0 / Tier-1 inputs for the shared safety layer (TASK-016/017)
+            "weekday_single_workout_cap": self.weekday_single_workout_cap,
+            "max_48h_ans_cost": self.max_48h_ans_cost,
+            "sport_freq_bounds": dict(self.sport_freq_bounds),
+            "min_rest_days": self.min_rest_days,
+            "max_rest_days": self.max_rest_days,
+            "tier1_relaxation_order": list(self.tier1_relaxation_order),
             "readiness_alpha": [1.0] * 7,
             "weights": {
                 "w_tss_neg": 150.0,

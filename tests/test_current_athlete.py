@@ -33,14 +33,38 @@ def test_profile_reflects_decisions():
     assert p.combo_cardio_max_minutes <= 20 and p.allow_lift_cardio_combo  # DECISION-021
 
 
-@pytest.mark.xfail(
-    reason="TASK-016/TASK-026: default library anchors (180m ride, 75m long run) cannot fit 45-75 min days; "
-           "planner needs profile-driven candidates + Tier-1 slacks instead of the fallback.",
-    strict=True,
-)
-def test_current_athlete_week_solves_without_fallback(default_library):
+def _solve_profile_week(default_library, phase):
     from closed_loop_optimizer import TriathlonMILPScheduler
 
-    cfg = CURRENT_ATHLETE.to_mesocycle_config("base")
-    plans = TriathlonMILPScheduler(default_library, cfg).solve_top_k_plans(k_plans=1, time_limit=5.0)
-    assert plans, "CURRENT_ATHLETE base week is infeasible -> season planner would use the fallback"
+    sched = TriathlonMILPScheduler(default_library, CURRENT_ATHLETE.to_mesocycle_config(phase))
+    return sched, sched.solve_top_k_plans(k_plans=1, time_limit=5.0)
+
+
+@pytest.mark.parametrize("phase", ["base", "Build (+10%)", "Recovery Deload (-20%)"])
+def test_profile_week_either_solves_or_explains_why(default_library, phase):
+    """TASK-016: never a silent fallback. Either a plan (relaxations named) or plain-English reasons."""
+    sched, plans = _solve_profile_week(default_library, phase)
+    if plans:
+        assert plans[0]["status"] in {"OPTIMAL", "TIME_LIMIT_FEASIBLE"}
+        for r in plans[0]["relaxations"]:
+            assert r["message"]
+    else:
+        assert sched.last_diagnostics, "infeasible week with no explanation"
+
+
+def test_recovery_week_solves_with_one_maintenance_lift(default_library):
+    _, plans = _solve_profile_week(default_library, "Recovery Deload (-20%)")
+    assert plans
+    lifts = [w for d in range(7) for w in plans[0]["schedule"][d] if w.sport == "Strength"]
+    assert len(lifts) == 1 and not lifts[0].is_heavy_strength
+
+
+@pytest.mark.xfail(
+    reason="AWAITING ATHLETE DECISION: profile daily axial 65 / neuro 75 caps exclude the library's only heavy "
+           "lift (STR_MS1_HEAVY, 85/85) while the heavy-strength floor is 1 (DECISION-006). Resolve by raising the "
+           "caps, allowing 0 heavy sessions during re-entry, or adding lighter heavy lifts (TASK-028).",
+    strict=True,
+)
+def test_current_athlete_build_week_solves(default_library):
+    sched, plans = _solve_profile_week(default_library, "base")
+    assert plans, " | ".join(sched.last_diagnostics)

@@ -33,6 +33,7 @@
 - **`ADR-010`** (`integrations`): Adopt Multi-Device Hardware Telemetry Rules and FIT Ingestion Invariants
 - **`ADR-011`** (`physiology`): Integrate Closed-Loop Critical Power Retesting Engine with Dual Telemetry Triggers and Mesocycle Synchronization
 - **`ADR-012`** (`mpc`): Lock Athlete Decision Record for Nov 2026 Re-Entry and Olympic Season
+- **`ADR-013`** (`optimizer`): Enforce Three-Tier Lexicographic Constraint Hierarchy with Shared Tier-0 Safety Layer
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`

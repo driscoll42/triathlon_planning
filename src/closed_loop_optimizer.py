@@ -24,9 +24,27 @@ from typing import Dict, List, Optional, Tuple, Any
 import math
 import numpy as np
 import pandas as pd
+import copy
+import logging
+
 import highspy
 
 from highs_runtime import apply_threads, run_and_check
+from safety_constraints import (
+    DEFAULT_RELAXATION_ORDER,
+    LexState,
+    ModelHooks,
+    SafetyLimits,
+    Tier1Registry,
+    add_tier0_safety,
+    add_tier1_targets,
+    classify_workouts,
+    explain_feasibility,
+    lexicographic_solve,
+    run_share_report,
+)
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -101,6 +119,7 @@ class MesoCycleTargetsAndConstraints:
     max_daily_axial_load: float = 120.0          # Daily lumbar L1-S1 spinal load ceiling
     max_weekly_axial_load: float = 320.0         # Weekly lumbar L1-S1 spinal load ceiling
     max_daily_neuro_load: float = 130.0          # Daily central neuromuscular load ceiling (ADR-008)
+    max_weekly_neuro_load: float = 360.0         # Weekly neuromuscular load ceiling (ADR-008)
     readiness_alpha: List[float] = field(default_factory=lambda: [1.0] * 7)
     pool_open_days: List[int] = field(default_factory=lambda: [0, 2, 4])
     outdoor_bike_days: List[int] = field(default_factory=lambda: [5, 6])
@@ -111,6 +130,10 @@ class MesoCycleTargetsAndConstraints:
     max_48h_ans_cost: float = 700.0              # Rolling 48h autonomic strain cap (calibrated safe)
     max_48h_mech_strain: float = 260.0           # Rolling 48h mechanical strain cap
     max_weekly_run_mech_strain: float = 350.0    # EWMA CMS bound (ACWR <= 1.30)
+    # Pigeonhole single-run caps for weeks with < 4 runs (32% unattainable); explicit & reported (ADR-013)
+    pigeonhole_run_share: Dict[int, float] = field(default_factory=lambda: {3: 0.40, 2: 0.60})
+    # Tier-1 relaxation order, cheapest first (DECISION-006); see safety_constraints.Tier1Registry
+    tier1_relaxation_order: List[str] = field(default_factory=lambda: list(DEFAULT_RELAXATION_ORDER))
 
     # Weekly Frequency Bounds
     sport_freq_bounds: Dict[str, Tuple[int, int]] = field(default_factory=lambda: {
@@ -140,9 +163,8 @@ class MesoCycleTargetsAndConstraints:
     w_sets_pos: float = 100.0
     w_tiz: float = 1.0
 
-    # Solver Infeasibility Recovery:
-    # If True, soft goal slacks with heavy penalty (w=500.0) are added to 48h rolling caps
-    # so solver never aborts on tight boundary conflicts, while strongly discouraging violations.
+    # DEPRECATED no-op (TASK-016): rolling 48h caps and the single-run cap are Tier-0 hard constraints
+    # and are never softened. Unmeetable *targets* surface as named Tier-1 relaxations instead.
     enable_soft_48h_slacks: bool = True
 
 
@@ -668,12 +690,17 @@ def enrich_workouts_from_df(df: pd.DataFrame, base_id: int = 100) -> List[Candid
 class TriathlonMILPScheduler:
     """
     Production Mixed-Integer Linear Programming (MILP) 7-Day Triathlon Scheduler.
-    Implements:
-    - Clean row management and exact linearizations
-    - Dual-load modeling and Keep-Hard-Days-Hard strength stacking
-    - Canonical No-Good Integer Cuts for sequential Top-K distinct plans
-    - Dual-mode safety: Hard 48h caps with automatic high-penalty slack relaxation
-      to prevent infeasibility deadlock under conflicting user calendar bounds.
+
+    Constraint hierarchy (ADR-013, TASK-016/017):
+    - Tier 0 (hard, never relaxed): daily time caps, facility/modality gating, workout uniqueness,
+      rolling 48h TSS/ANS/strain caps, axial/neuromuscular caps, single-run share cap (32% with
+      >= 4 runs, explicit pigeonhole cap below), hard/easy adjacency, 48h heavy-run separation,
+      heavy strength +-24h vs threshold/long runs, biomechanical antagonism matrix.
+      Shared with HybridAthleteMILPOptimizer via ``safety_constraints``.
+    - Tier 1 (named, reported slacks, lexicographic by relaxation order): anchors, min sport
+      frequencies, strides, heavy-strength count (floor 1), rest days (floor 1).
+    - Tier 2 (goal programming): TSS, zones, sport splits, bike/run TSS split, durability.
+    Top-K distinct plans via canonical No-Good cuts. The caller's config is never mutated.
     """
 
     def __init__(
@@ -682,53 +709,54 @@ class TriathlonMILPScheduler:
         config: MesoCycleTargetsAndConstraints
     ) -> None:
         self.workouts = list(workouts)
-        self.cfg = config
+        self.cfg = copy.deepcopy(config)  # never mutate the caller's config (TASK-013)
         self.num_workouts = len(self.workouts)
         self.days = list(range(7))
         self.weekdays = [0, 1, 2, 3, 4]
         self.weekends = [5, 6]
         self.sports = ["Swim", "Bike", "Run", "Strength"]
         self.zones = [1, 2, 3, 4, 5]
+        self.notes: List[str] = []
+        self.last_diagnostics: List[str] = []
+        self.last_status: Optional[str] = None
 
         if self.cfg.sport_freq_bounds is None:
-            self.cfg.sport_freq_bounds = {
-                "Swim": (2, 2),
-                "Bike": (3, 4),
-                "Run": (4, 5),
-                "Strength": (1, 2),
-            }
+            self.cfg.sport_freq_bounds = {"Swim": (2, 2), "Bike": (3, 4), "Run": (4, 5), "Strength": (1, 2)}
 
-        # 1. Sanitize facility access vs sport frequency bounds:
+        # Tier-2 only: a sport with no facility access gets a 0% duration-split target, redistributed
+        # proportionally across the other sports. Frequency minimums are NOT touched; an unmeetable
+        # minimum becomes a reported Tier-1 relaxation.
         for s in self.sports:
-            avail_days = sum(self.cfg.facility_access.get(s, [True]*7))
-            f_min, f_max = self.cfg.sport_freq_bounds.get(s, (0, 7))
-            if f_min > avail_days:
-                self.cfg.sport_freq_bounds[s] = (0, avail_days)
-            if avail_days == 0 and s in self.cfg.target_sport_duration_splits:
+            if sum(self.cfg.facility_access.get(s, [True] * 7)) == 0 and \
+                    self.cfg.target_sport_duration_splits.get(s, 0.0) > 0:
                 zero_split = self.cfg.target_sport_duration_splits[s]
                 self.cfg.target_sport_duration_splits[s] = 0.0
                 rem_sum = sum(v for k, v in self.cfg.target_sport_duration_splits.items() if k != s)
                 if rem_sum > 0:
                     for k in self.cfg.target_sport_duration_splits:
                         if k != s:
-                            self.cfg.target_sport_duration_splits[k] += zero_split * (self.cfg.target_sport_duration_splits[k] / rem_sum)
+                            self.cfg.target_sport_duration_splits[k] += zero_split * (
+                                self.cfg.target_sport_duration_splits[k] / rem_sum)
+                self.notes.append(f"No {s} access this week: its {zero_split:.0%} duration-split target was "
+                                  f"redistributed to the other sports.")
 
-        # 2. Sanitize anchors that cannot physically fit into any day's time cap
-        sanitized_workouts = []
-        for w in self.workouts:
-            if w.is_anchor:
-                can_fit = False
-                for d in self.days:
-                    if w.duration <= self.cfg.daily_time_caps[d]:
-                        if d in self.weekends or w.duration <= self.cfg.weekday_single_workout_cap:
-                            if self.cfg.facility_access.get(w.sport, [True]*7)[d]:
-                                if w.sport != "Bike" or d in self.weekends or w.is_indoor_bike:
-                                    can_fit = True
-                                    break
-                if not can_fit:
-                    w = replace(w, is_anchor=False)
-            sanitized_workouts.append(w)
-        self.workouts = sanitized_workouts
+        self.limits = SafetyLimits.from_config(self.cfg)
+        self.sets = classify_workouts(self.workouts)
+
+    def _allowed(self, i: int, d: int) -> bool:
+        """Unary Tier-0 gating: time cap, facility access, outdoor-bike weekend rule."""
+        w = self.workouts[i]
+        if w.duration > self.cfg.daily_time_caps[d] + 1e-9:
+            return False
+        sports = ["Bike", "Run"] if w.sport == "Brick" else [w.sport]
+        if not all(self.cfg.facility_access.get(s, [True] * 7)[d] for s in sports):
+            return False
+        if w.sport == "Bike" and d in self.weekdays and not w.is_indoor_bike:
+            return False
+        return True
+
+    def explain_feasibility(self) -> List[str]:
+        return self.notes + explain_feasibility(self.workouts, self.cfg, self.limits, self._allowed, self.sets)
 
     @staticmethod
     def _add_clean_row(
@@ -741,6 +769,8 @@ class TriathlonMILPScheduler:
         """Consolidates duplicate column indices, sorts, and adds clean row to HiGHS."""
         filtered = [(col, val) for col, val in sorted(col_coeff_map.items()) if abs(val) > tol]
         if not filtered:
+            if lower_bound > tol or upper_bound < -tol:
+                raise ValueError(f"Empty row with infeasible bounds [{lower_bound}, {upper_bound}]")
             return
         indices = np.array([col for col, _ in filtered], dtype=np.int32)
         values = np.array([val for _, val in filtered], dtype=np.double)
@@ -748,8 +778,9 @@ class TriathlonMILPScheduler:
 
     def solve_top_k_plans(self, k_plans: int = 3, time_limit: float = 10.0) -> List[Dict[str, Any]]:
         """
-        Builds and solves the MILP to global optimality, sequentially applying
-        canonical No-Good Integer Cuts to extract the top K distinct weekly schedules.
+        Builds the 3-tier MILP and solves it lexicographically (Tier-1 slack first, then Tier-2 goals),
+        applying canonical No-Good Integer Cuts to extract the top K distinct weekly schedules.
+        Returns [] when Tier 0 is infeasible; see ``self.last_diagnostics`` for the plain-English reason.
         """
         inf = highspy.kHighsInf
         h = highspy.Highs()
@@ -757,6 +788,9 @@ class TriathlonMILPScheduler:
         if time_limit is not None and time_limit > 0:
             h.setOptionValue("time_limit", float(time_limit))
         h.changeObjectiveSense(highspy.ObjSense.kMinimize)
+
+        diagnostics = self.explain_feasibility()
+        self.last_diagnostics = diagnostics
 
         col_counter = 0
         def add_var(lb: float, ub: float, cost: float, is_integer: bool) -> int:
@@ -769,6 +803,9 @@ class TriathlonMILPScheduler:
             col_counter += 1
             return idx
 
+        def add_row(coeff_map: Dict[int, float], lb: float, ub: float) -> None:
+            self._add_clean_row(h, coeff_map, lb, ub)
+
         # ---------------------------------------------------------------------
         # 1. DECISION VARIABLES
         # ---------------------------------------------------------------------
@@ -779,7 +816,7 @@ class TriathlonMILPScheduler:
         for i, w in enumerate(self.workouts):
             for d in self.days:
                 net_cost = (
-                    -self.cfg.w_durability * (w.durability_score / max_durab)
+                    -self.cfg.w_durability * (w.durability_score / max(max_durab, 1e-9))
                     + self.cfg.w_friction * w.preference_penalty
                 )
                 x_vars[(i, d)] = add_var(0.0, 1.0, net_cost, is_integer=True)
@@ -790,19 +827,16 @@ class TriathlonMILPScheduler:
             for d in self.days:
                 y_vars[(s, d)] = add_var(0.0, 1.0, 0.0, is_integer=True)
 
-        # Auxiliary binary variables: double session w_double[d], rest day u_rest[d],
-        # daily hard indicator h_hard[d], and brick indicator b_brick[d]
+        # Double session w_double[d], rest day u_rest[d], brick indicator b_brick[d]
         w_double: Dict[int, int] = {}
         u_rest: Dict[int, int] = {}
-        h_hard: Dict[int, int] = {}
         b_brick: Dict[int, int] = {}
         for d in self.days:
             w_double[d] = add_var(0.0, 1.0, self.cfg.w_double_session, is_integer=True)
             u_rest[d] = add_var(0.0, 1.0, 0.0, is_integer=True)
-            h_hard[d] = add_var(0.0, 1.0, 0.0, is_integer=True)
             b_brick[d] = add_var(0.0, 1.0, 0.0, is_integer=True)
 
-        # Continuous non-negative slack/surplus variables for Goal Programming
+        # Tier-2 goal-programming deviations
         tss_scale = self.cfg.w_tss / max(self.cfg.target_weekly_tss, 1.0)
         e_tss_pos = add_var(0.0, inf, tss_scale, is_integer=False)
         e_tss_neg = add_var(0.0, inf, tss_scale, is_integer=False)
@@ -828,194 +862,85 @@ class TriathlonMILPScheduler:
             e_stss_pos[s] = add_var(0.0, inf, stss_scale, is_integer=False)
             e_stss_neg[s] = add_var(0.0, inf, stss_scale, is_integer=False)
 
-        # Infeasibility Recovery: High-penalty slacks for rolling 48h caps (w=500.0)
-        s_48h_ans: Dict[int, int] = {}
-        s_48h_tss: Dict[int, int] = {}
-        s_48h_mech: Dict[int, int] = {}
-        if self.cfg.enable_soft_48h_slacks:
-            for d in range(6):
-                s_48h_ans[d] = add_var(0.0, inf, 500.0 / 650.0, is_integer=False)
-                s_48h_tss[d] = add_var(0.0, inf, 500.0 / 295.0, is_integer=False)
-                s_48h_mech[d] = add_var(0.0, inf, 500.0 / 260.0, is_integer=False)
+        hooks = ModelHooks(
+            x=lambda i, d: x_vars[(i, d)],
+            add_row=add_row,
+            add_var=lambda lb, ub, integer: add_var(lb, ub, 0.0, integer),
+            allowed=self._allowed,
+        )
 
         # ---------------------------------------------------------------------
-        # 2. STRUCTURAL & PHYSIOLOGICAL CONSTRAINTS
+        # 2. TIER 0 — STRUCTURAL & ORTHOPEDIC HARD CONSTRAINTS
         # ---------------------------------------------------------------------
+        # Workout library uniqueness (<= 1 per week; anchors handled in Tier 1)
+        for i in range(self.num_workouts):
+            add_row({x_vars[(i, d)]: 1.0 for d in self.days}, 0.0, 1.0)
 
-        # C1: Workout library uniqueness (<= 1 per week) and Anchor enforcement (== 1)
-        for i, w in enumerate(self.workouts):
-            lb_val = 1.0 if w.is_anchor else 0.0
-            row_map = {x_vars[(i, d)]: 1.0 for d in self.days}
-            self._add_clean_row(h, row_map, lb_val, 1.0)
-
-        # C2: Daily duration ceilings, weekday single-session caps, & facility gating
+        # Daily duration ceilings
         for d in self.days:
-            dur_map = {x_vars[(i, d)]: self.workouts[i].duration for i in range(self.num_workouts)}
-            self._add_clean_row(h, dur_map, 0.0, self.cfg.daily_time_caps[d])
+            add_row({x_vars[(i, d)]: self.workouts[i].duration for i in range(self.num_workouts)},
+                    0.0, self.cfg.daily_time_caps[d])
 
-            for i, w in enumerate(self.workouts):
-                # Weekday single-session morning ceiling
-                if d in self.weekdays and w.duration > self.cfg.weekday_single_workout_cap:
-                    self._add_clean_row(h, {x_vars[(i, d)]: 1.0}, 0.0, 0.0)
-
-                # Facility access gating
-                if not self.cfg.facility_access.get(w.sport, [True]*7)[d]:
-                    self._add_clean_row(h, {x_vars[(i, d)]: 1.0}, 0.0, 0.0)
-
-                # Cycling modality gating: outdoor rides restricted to weekends
-                if w.sport == "Bike" and d in self.weekdays and not w.is_indoor_bike:
-                    self._add_clean_row(h, {x_vars[(i, d)]: 1.0}, 0.0, 0.0)
-
-        # C3: Auxiliary variable linking
+        # Auxiliary linking, session partition (<= 2 sessions/day; weekend brick may add a third leg)
         for d in self.days:
             for s in self.sports:
                 s_map = {x_vars[(i, d)]: 1.0 for i, w in enumerate(self.workouts) if w.sport == s}
                 s_map[y_vars[(s, d)]] = -1.0
-                self._add_clean_row(h, s_map, 0.0, 0.0)
+                add_row(s_map, 0.0, 0.0)
 
-            # Session count partition: sum_i x[i,d] + u_rest[d] - w_double[d] == 1
-            # On weekends, if a Bike+Run brick is performed, allows triple session (Swim + Bike + Brick Run)
             part_map = {x_vars[(i, d)]: 1.0 for i in range(self.num_workouts)}
             part_map[u_rest[d]] = 1.0
             part_map[w_double[d]] = -1.0
             if d in self.weekends:
                 part_map[b_brick[d]] = -1.0
-            self._add_clean_row(h, part_map, 1.0, 1.0)
+            add_row(part_map, 1.0, 1.0)
+            add_row({u_rest[d]: 1.0, w_double[d]: 1.0}, 0.0, 1.0)
 
-            # Mutual exclusion of rest day and double session
-            self._add_clean_row(h, {u_rest[d]: 1.0, w_double[d]: 1.0}, 0.0, 1.0)
+            add_row({y_vars[("Bike", d)]: 1.0, y_vars[("Run", d)]: 1.0, b_brick[d]: -1.0}, -inf, 1.0)
+            add_row({b_brick[d]: 1.0, y_vars[("Bike", d)]: -1.0}, -inf, 0.0)
+            add_row({b_brick[d]: 1.0, y_vars[("Run", d)]: -1.0}, -inf, 0.0)
 
-            # Brick indicator linking
-            self._add_clean_row(h, {y_vars[("Bike", d)]: 1.0, y_vars[("Run", d)]: 1.0, b_brick[d]: -1.0}, -inf, 1.0)
-            self._add_clean_row(h, {b_brick[d]: 1.0, y_vars[("Bike", d)]: -1.0}, -inf, 0.0)
-            self._add_clean_row(h, {b_brick[d]: 1.0, y_vars[("Run", d)]: -1.0}, -inf, 0.0)
-
-        # C4: Weekly sport frequency bounds, Heavy Strength count, Strides, & Rest Days
-        for s, (f_min, f_max) in self.cfg.sport_freq_bounds.items():
-            freq_map = {y_vars[(s, d)]: 1.0 for d in self.days}
-            self._add_clean_row(h, freq_map, float(f_min), float(f_max))
-
-        heavy_str_ids = [i for i, w in enumerate(self.workouts) if w.is_heavy_strength]
-        str_map = {x_vars[(i, d)]: 1.0 for i in heavy_str_ids for d in self.days}
-        self._add_clean_row(
-            h, str_map,
-            float(self.cfg.required_heavy_strength_sessions),
-            float(self.cfg.required_heavy_strength_sessions)
-        )
-
-        stride_ids = [i for i, w in enumerate(self.workouts) if w.has_strides]
-        stride_map = {x_vars[(i, d)]: 1.0 for i in stride_ids for d in self.days}
-        self._add_clean_row(h, stride_map, float(self.cfg.min_stride_sessions), float(self.cfg.max_stride_sessions))
-
-        rest_map = {u_rest[d]: 1.0 for d in self.days}
-        self._add_clean_row(h, rest_map, float(self.cfg.min_rest_days), float(self.cfg.max_rest_days))
-
-        # C5: Hard/Easy Rule, Same-Day Strength Stacking, & Adjacency Locks
-        hard_end_ids = [i for i, w in enumerate(self.workouts) if w.is_hard_endurance]
-        heavy_run_ids = [i for i, w in enumerate(self.workouts) if w.is_heavy_run]
-
+        S = self.sets
         for d in self.days:
-            # At most 1 hard endurance workout on day d
-            he_map = {x_vars[(i, d)]: 1.0 for i in hard_end_ids}
-            self._add_clean_row(h, he_map, 0.0, 1.0)
-
-            # Link hard endurance and heavy strength to daily hard indicator h_hard[d]
-            for i in hard_end_ids + heavy_str_ids:
-                self._add_clean_row(h, {x_vars[(i, d)]: 1.0, h_hard[d]: -1.0}, -inf, 0.0)
-
-            # Same-day lockout between Heavy Strength and Heavy Run
-            sr_same = {x_vars[(i, d)]: 1.0 for i in heavy_str_ids + heavy_run_ids}
-            self._add_clean_row(h, sr_same, 0.0, 1.0)
-
+            # At most 1 hard endurance workout per day
+            add_row({x_vars[(i, d)]: 1.0 for i, w in enumerate(self.workouts) if w.is_hard_endurance}, 0.0, 1.0)
+            # Heavy strength (any heavy lower lift) never shares a day with a threshold/long run
+            add_row({x_vars[(i, d)]: 1.0 for i in S.heavy_strength + S.heavy_or_long_runs}, 0.0, 1.0)
         for d in range(6):
-            # No consecutive Hard Days across any sport
-            self._add_clean_row(h, {h_hard[d]: 1.0, h_hard[d + 1]: 1.0}, 0.0, 1.0)
+            # Conservative +-24h buffer between ANY heavy strength and threshold/long runs (superset of HEUR-004)
+            r = {x_vars[(i, d)]: 1.0 for i in S.heavy_strength}
+            r.update({x_vars[(j, d + 1)]: 1.0 for j in S.heavy_or_long_runs})
+            add_row(r, 0.0, 1.0)
+            r = {x_vars[(i, d)]: 1.0 for i in S.heavy_or_long_runs}
+            r.update({x_vars[(j, d + 1)]: 1.0 for j in S.heavy_strength})
+            add_row(r, 0.0, 1.0)
 
-            # No back-to-back Heavy Run days (>= 48h orthopedic separation)
-            hr_adj = {x_vars[(i, d)]: 1.0 for i in heavy_run_ids}
-            hr_adj.update({x_vars[(j, d + 1)]: 1.0 for j in heavy_run_ids})
-            self._add_clean_row(h, hr_adj, 0.0, 1.0)
-
-            # No Heavy Run within 24h AFTER a Heavy Leg Strength session
-            str_run_adj = {x_vars[(i, d)]: 1.0 for i in heavy_str_ids}
-            str_run_adj.update({x_vars[(j, d + 1)]: 1.0 for j in heavy_run_ids})
-            self._add_clean_row(h, str_run_adj, 0.0, 1.0)
-
-            # Bi-directional Protection: No Heavy Strength within 24h AFTER a Heavy Run
-            run_str_adj = {x_vars[(i, d)]: 1.0 for i in heavy_run_ids}
-            run_str_adj.update({x_vars[(j, d + 1)]: 1.0 for j in heavy_str_ids})
-            self._add_clean_row(h, run_str_adj, 0.0, 1.0)
-
-            # Rolling 48-hour Stress Caps (with optional soft slack to avoid deadlock)
-            tss_48h = {}
-            ans_48h = {}
-            mech_48h = {}
-            for i, w in enumerate(self.workouts):
-                tss_48h[x_vars[(i, d)]] = w.aerobic_tss
-                tss_48h[x_vars[(i, d + 1)]] = w.aerobic_tss
-                ans_48h[x_vars[(i, d)]] = w.ans_cost
-                ans_48h[x_vars[(i, d + 1)]] = w.ans_cost
-                mech_48h[x_vars[(i, d)]] = w.mechanical_strain
-                mech_48h[x_vars[(i, d + 1)]] = w.mechanical_strain
-
-            if self.cfg.enable_soft_48h_slacks:
-                tss_48h[s_48h_tss[d]] = -1.0
-                ans_48h[s_48h_ans[d]] = -1.0
-                mech_48h[s_48h_mech[d]] = -1.0
-
-            self._add_clean_row(h, tss_48h, 0.0, self.cfg.max_48h_aerobic_tss)
-            self._add_clean_row(h, ans_48h, 0.0, self.cfg.max_48h_ans_cost)
-            self._add_clean_row(h, mech_48h, 0.0, self.cfg.max_48h_mech_strain)
+        # Shared Tier-0 safety layer: gating, 48h caps, axial/neuro, hard/easy, HEUR-004, antagonism, run share
+        add_tier0_safety(hooks, self.workouts, self.limits, S)
 
         # Weekly running mechanical strain ceiling (ACWR & ODI guardrail)
-        run_ids = [i for i, w in enumerate(self.workouts) if w.sport == "Run"]
-        wk_run_mech = {x_vars[(i, d)]: self.workouts[i].mechanical_strain for i in run_ids for d in self.days}
-        self._add_clean_row(h, wk_run_mech, 0.0, self.cfg.max_weekly_run_mech_strain)
+        add_row({x_vars[(i, d)]: self.workouts[i].mechanical_strain for i in S.runs for d in self.days},
+                0.0, self.cfg.max_weekly_run_mech_strain)
 
         # ---------------------------------------------------------------------
-        # 3. EXACT LINEARIZATION OF NON-LINEAR FRACTIONAL CONSTRAINTS
+        # 3. TIER 1 — NAMED, REPORTED SLACKS (lexicographic by relaxation order)
         # ---------------------------------------------------------------------
+        reg = Tier1Registry(hooks, getattr(self.cfg, "tier1_relaxation_order", None))
+        add_tier1_targets(
+            reg, self.workouts, self.cfg, S,
+            x=lambda i, d: x_vars[(i, d)],
+            sport_day=lambda s, d: y_vars[(s, d)] if s in self.sports else None,
+            rest_day=lambda d: u_rest[d],
+        )
 
-        # L1: Single-Session Run Volume Cap (<= 32% of realized weekly run volume)
-        # Dynamically condition rho on weekly run frequency bounds to avoid Pigeonhole infeasibility:
-        # Mathematical proof: Any schedule with N runs has max single run share >= 1/N.
-        # If N <= 3, requiring <= 32% guarantees mathematical infeasibility.
-        min_runs = self.cfg.sport_freq_bounds.get("Run", (4, 5))[0]
-        max_runs = self.cfg.sport_freq_bounds.get("Run", (4, 5))[1]
-        rho = self.cfg.max_single_run_vol_ratio
-        if max_runs < 4:
-            rho = max(rho, 1.15 / max(max_runs, 1))
-        elif min_runs < 4:
-            rho = max(rho, 1.05 / max(min_runs, 1))
-
-        # Add soft slacks for L1 if enabled
-        s_run_cap: Dict[Tuple[int, int], int] = {}
-        if self.cfg.enable_soft_48h_slacks:
-            for d in self.days:
-                for i in run_ids:
-                    s_run_cap[(i, d)] = add_var(0.0, inf, 150.0 / 60.0, is_integer=False)
-
-        for d in self.days:
-            for i in run_ids:
-                cap_map: Dict[int, float] = {}
-                for d_prime in self.days:
-                    for j in run_ids:
-                        var_col = x_vars[(j, d_prime)]
-                        coeff = -rho * self.workouts[j].duration
-                        if j == i and d_prime == d:
-                            coeff += self.workouts[i].duration
-                        cap_map[var_col] = coeff
-                if self.cfg.enable_soft_48h_slacks:
-                    cap_map[s_run_cap[(i, d)]] = -1.0
-                self._add_clean_row(h, cap_map, -inf, 0.0)
-
-        # L2: Weekly Aerobic TSS Goal Balance
+        # ---------------------------------------------------------------------
+        # 4. TIER 2 — GOAL PROGRAMMING
+        # ---------------------------------------------------------------------
         tss_goal_map = {x_vars[(i, d)]: self.workouts[i].aerobic_tss for i in range(self.num_workouts) for d in self.days}
         tss_goal_map[e_tss_neg] = 1.0
         tss_goal_map[e_tss_pos] = -1.0
-        self._add_clean_row(h, tss_goal_map, self.cfg.target_weekly_tss, self.cfg.target_weekly_tss)
+        add_row(tss_goal_map, self.cfg.target_weekly_tss, self.cfg.target_weekly_tss)
 
-        # L3: Linearized Time-in-Zone (TiZ) Percentage Allocations
         for z in self.zones:
             p_z = self.cfg.target_zone_pcts.get(z, 0.0)
             z_map: Dict[int, float] = {}
@@ -1025,9 +950,8 @@ class TriathlonMILPScheduler:
                     z_map[x_vars[(i, d)]] = net_z_minutes
             z_map[e_zone_neg[z]] = 1.0
             z_map[e_zone_pos[z]] = -1.0
-            self._add_clean_row(h, z_map, 0.0, 0.0)
+            add_row(z_map, 0.0, 0.0)
 
-        # L4: Linearized Sport Duration Splits
         for s in self.sports:
             r_s = self.cfg.target_sport_duration_splits.get(s, 0.0)
             sd_map: Dict[int, float] = {}
@@ -1038,9 +962,8 @@ class TriathlonMILPScheduler:
                     sd_map[x_vars[(i, d)]] = net_s_dur
             sd_map[e_sdur_neg[s]] = 1.0
             sd_map[e_sdur_pos[s]] = -1.0
-            self._add_clean_row(h, sd_map, 0.0, 0.0)
+            add_row(sd_map, 0.0, 0.0)
 
-        # L5: Linearized Bike vs. Run TSS Split
         for s in ["Bike", "Run"]:
             r_tss = self.cfg.target_bike_run_tss_splits.get(s, 0.5)
             st_map: Dict[int, float] = {}
@@ -1052,71 +975,65 @@ class TriathlonMILPScheduler:
                         st_map[x_vars[(i, d)]] = net_s_tss
             st_map[e_stss_neg[s]] = 1.0
             st_map[e_stss_pos[s]] = -1.0
-            self._add_clean_row(h, st_map, 0.0, 0.0)
+            add_row(st_map, 0.0, 0.0)
 
         # ---------------------------------------------------------------------
-        # 4. SEQUENTIAL SOLVE WITH CANONICAL NO-GOOD INTEGER CUTS
+        # 5. LEXICOGRAPHIC SOLVE WITH CANONICAL NO-GOOD INTEGER CUTS
         # ---------------------------------------------------------------------
         h.setOptionValue("mip_rel_gap", 0.01)
         h.setOptionValue("mip_heuristic_effort", 0.20)
         apply_threads(h)
 
         plans: List[Dict[str, Any]] = []
+        lex = LexState()
 
         for k in range(k_plans):
-            res = run_and_check(h)
+            res = lexicographic_solve(h, reg.costs(), lex)
+            if k == 0:
+                self.last_status = res.status
             if not res.has_solution:
+                if k == 0:
+                    if res.status == "INFEASIBLE" and not diagnostics:
+                        self.last_diagnostics = diagnostics + [
+                            "Tier-0 safety caps cannot all be satisfied together (no single obvious cause found pre-solve; "
+                            "check 48h TSS/ANS/strain, axial/neuro caps and day caps against the library)."]
+                    logger.warning("TriathlonMILPScheduler: no plan (%s). %s", res.status, " | ".join(self.last_diagnostics))
                 break
 
             col_vals = res.col_value
-
             active_cols: List[int] = []
-            inactive_cols: List[int] = []
             schedule_by_day: Dict[int, List[CandidateWorkout]] = {d: [] for d in self.days}
-
             for (i, d), col_idx in x_vars.items():
                 if col_vals[col_idx] > 0.5:
                     active_cols.append(col_idx)
                     schedule_by_day[d].append(self.workouts[i])
-                else:
-                    inactive_cols.append(col_idx)
 
             total_tss = sum(w.aerobic_tss for d in self.days for w in schedule_by_day[d])
             total_mech = sum(w.mechanical_strain for d in self.days for w in schedule_by_day[d])
             total_dur = sum(w.duration for d in self.days for w in schedule_by_day[d])
             total_ans = sum(w.ans_cost for d in self.days for w in schedule_by_day[d])
-            run_dur = sum(w.duration for d in self.days for w in schedule_by_day[d] if w.sport == "Run")
-            max_run = max([w.duration for d in self.days for w in schedule_by_day[d] if w.sport == "Run"] + [0.0])
-
-            # Check if any soft slacks were triggered
-            soft_slack_violations = {}
-            if self.cfg.enable_soft_48h_slacks:
-                for d in range(6):
-                    v_ans = col_vals[s_48h_ans[d]]
-                    v_tss = col_vals[s_48h_tss[d]]
-                    v_mech = col_vals[s_48h_mech[d]]
-                    if v_ans > 1e-3 or v_tss > 1e-3 or v_mech > 1e-3:
-                        soft_slack_violations[d] = {"ans_excess": round(v_ans, 1), "tss_excess": round(v_tss, 1), "mech_excess": round(v_mech, 1)}
+            run_share = run_share_report(schedule_by_day, self.limits)
 
             plans.append({
                 "rank": k + 1,
                 "status": res.status,
                 "mip_gap": res.mip_gap,
                 "objective": res.objective,
+                "tier1_penalty": lex.tier1_penalty,
+                "relaxations": reg.report(col_vals),
+                "diagnostics": list(diagnostics),
+                "run_share": run_share,
                 "total_tss": total_tss,
                 "total_mech_strain": total_mech,
                 "total_duration": total_dur,
                 "total_ans_cost": total_ans,
-                "max_single_run_ratio": (max_run / run_dur) if run_dur > 0 else 0.0,
+                "max_single_run_ratio": run_share["max_single_run_share"],
                 "schedule": schedule_by_day,
-                "soft_slack_violations": soft_slack_violations,
+                "soft_slack_violations": {},  # Tier-0 caps are hard since TASK-016; kept for compatibility
             })
 
-            # Sparse Canonical No-Good Integer Cut:
-            # sum_{col in Active} x_col <= |Active| - 1
-            # (Cutting the active combination prevents repeat schedules without polluting the matrix with 1,400 negative non-zeros!)
-            cut_map: Dict[int, float] = {col: 1.0 for col in active_cols}
-            self._add_clean_row(h, cut_map, -inf, float(len(active_cols) - 1))
+            # Sparse Canonical No-Good Integer Cut: sum_{col in Active} x_col <= |Active| - 1
+            add_row({col: 1.0 for col in active_cols}, -inf, float(len(active_cols) - 1))
 
         return plans
 
@@ -1185,11 +1102,34 @@ class HybridAthleteMILPOptimizer:
         self.sports = ["Swim", "Bike", "Run", "Strength"]
         self.muscles = ["Posterior_Chain", "Anterior_Chain", "Push", "Pull"]
         self.zones = [1, 2, 3, 4, 5]
+        self.limits = SafetyLimits.from_config(self.config)
+        self.sets = classify_workouts(self.library)
+        self.last_diagnostics: List[str] = []
+        self.last_status: Optional[str] = None
 
     def _get_cfg_val(self, key: str, default: Any) -> Any:
         if isinstance(self.config, dict):
             return self.config.get(key, default)
         return getattr(self.config, key, default)
+
+    def _allowed(self, i: int, d: int) -> bool:
+        """Unary Tier-0 gating: daily time cap, pool days, outdoor-ride days, optional facility access."""
+        w = self.library[i]
+        caps = self._get_cfg_val("daily_duration_caps", self._get_cfg_val("daily_time_caps", [120, 120, 75, 120, 120, 220, 180]))
+        if float(getattr(w, "duration", 0.0)) > float(caps[d]) + 1e-9:
+            return False
+        flg = getattr(w, "flags", {}) or {}
+        if flg.get("pool", 0) == 1 and d not in set(self._get_cfg_val("pool_open_days", [0, 2, 4])):
+            return False
+        if flg.get("outdoor_bike", 0) == 1 and d not in set(self._get_cfg_val("outdoor_bike_days", [5, 6])):
+            return False
+        access = self._get_cfg_val("facility_access", None)
+        if access and not access.get(w.sport, [True] * 7)[d]:
+            return False
+        return True
+
+    def explain_feasibility(self) -> List[str]:
+        return explain_feasibility(self.library, self.config, self.limits, self._allowed, self.sets)
 
     def _get_zone_minutes(self, w: Any) -> Dict[int, float]:
         zm = getattr(w, "zone_minutes", None)
@@ -1332,8 +1272,6 @@ class HybridAthleteMILPOptimizer:
 
         # C3: Daily Duration Ceilings, Max 2 Workouts/Day, Max 1 Workout/Sport/Day
         daily_caps = self._get_cfg_val("daily_duration_caps", self._get_cfg_val("daily_time_caps", [120, 120, 75, 120, 120, 220, 180]))
-        readiness_alpha = self._get_cfg_val("readiness_alpha", [1.0] * 7)
-        max_daily_neuro = float(self._get_cfg_val("max_daily_neuro", self._get_cfg_val("max_daily_neuro_load", 130.0)))
 
         for d in self.days:
             add_sparse_row(
@@ -1343,29 +1281,12 @@ class HybridAthleteMILPOptimizer:
             )
             add_sparse_row({x_idx[(i, d)]: 1.0 for i in range(self.N)}, 0.0, 2.0)
 
-            add_sparse_row(
-                {x_idx[(i, d)]: float(getattr(self.library[i], "neuromuscular_load", 0.0)) for i in range(self.N)},
-                0.0,
-                max_daily_neuro * float(readiness_alpha[d]),
-            )
-
             for s in self.sports:
                 add_sparse_row(
                     {x_idx[(i, d)]: 1.0 for i in range(self.N) if getattr(self.library[i], "sport", "") == s},
                     0.0,
                     1.0,
                 )
-
-        # C4: Facility Gating (Pool open days & Weekend outdoor road cycling)
-        pool_days = set(self._get_cfg_val("pool_open_days", [0, 2, 4]))
-        outdoor_days = set(self._get_cfg_val("outdoor_bike_days", [5, 6]))
-        for i, w in enumerate(self.library):
-            flg = getattr(w, "flags", {}) or {}
-            for d in self.days:
-                if flg.get("pool", 0) == 1 and d not in pool_days:
-                    add_sparse_row({x_idx[(i, d)]: 1.0}, 0.0, 0.0)
-                if flg.get("outdoor_bike", 0) == 1 and d not in outdoor_days:
-                    add_sparse_row({x_idx[(i, d)]: 1.0}, 0.0, 0.0)
 
         # C5: Auxiliary Variable Linking (y_{s,d}, u_{m,d}, w_d, r_d, b_d)
         for d in self.days:
@@ -1392,60 +1313,33 @@ class HybridAthleteMILPOptimizer:
             add_sparse_row({b_idx[d]: 1.0, y_idx[("Bike", d)]: -1.0}, -inf, 0.0)
             add_sparse_row({b_idx[d]: 1.0, y_idx[("Run", d)]: -1.0}, -inf, 0.0)
 
-        add_sparse_row({r_idx[d]: 1.0 for d in self.days}, 1.0, 2.0)
+        # Rest day is exact: r_d = 1 iff no workout on day d (r_d + x_id <= 1 above; here r_d + sum_i x_id >= 1)
+        for d in self.days:
+            row_rest = {x_idx[(i, d)]: 1.0 for i in range(self.N)}
+            row_rest[r_idx[d]] = 1.0
+            add_sparse_row(row_rest, 1.0, inf)
 
-        # C6: Biomechanical Conflict Prevention Matrix
-        dl_ids = [i for i, w in enumerate(self.library) if (getattr(w, "flags", {}) or {}).get("heavy_dl", 0) == 1]
-        sq_ids = [i for i, w in enumerate(self.library) if (getattr(w, "flags", {}) or {}).get("heavy_sq", 0) == 1]
-        pr_ids = [i for i, w in enumerate(self.library) if (getattr(w, "flags", {}) or {}).get("heavy_press", 0) == 1]
-        hrun_ids = [i for i, w in enumerate(self.library) if (getattr(w, "flags", {}) or {}).get("heavy_run", 0) == 1]
-        lrun_ids = [i for i, w in enumerate(self.library) if (getattr(w, "flags", {}) or {}).get("long_run", 0) == 1]
-        htbike_ids = [i for i, w in enumerate(self.library) if (getattr(w, "flags", {}) or {}).get("hi_torque_bike", 0) == 1]
-        swth_ids = [i for i, w in enumerate(self.library) if (getattr(w, "flags", {}) or {}).get("swim_th", 0) == 1]
         str_ids = [i for i, w in enumerate(self.library) if getattr(w, "sport", "") == "Strength"]
 
-        for d in self.days:
-            # Rule 6a: Heavy Deadlift vs Heavy Run or Long Run (Same Day & +-24h Buffer on Heavy Run)
-            add_sparse_row({x_idx[(i, d)]: 1.0 for i in dl_ids + hrun_ids + lrun_ids}, 0.0, 1.0)
-            if d < 6:
-                row_next = {x_idx[(i, d)]: 1.0 for i in dl_ids}
-                for j in hrun_ids:
-                    row_next[x_idx[(j, d + 1)]] = 1.0
-                add_sparse_row(row_next, 0.0, 1.0)
+        # C6/C7a: Shared Tier-0 safety layer (TASK-017): unary gating, 48h TSS/ANS/strain, daily+weekly
+        # axial & neuromuscular caps, hard/easy adjacency, 48h heavy-run separation, deadlift +-24h vs
+        # threshold AND long runs, antagonism matrix, non-consecutive strength, single-run share on ALL runs.
+        def hy_add_var(lb: float, ub: float, integer: bool) -> int:
+            h.addVar(float(lb), float(ub))
+            col = h.getNumCol() - 1
+            if integer:
+                h.changeColIntegrality(col, highspy.HighsVarType.kInteger)
+            return col
 
-                row_prev = {x_idx[(i, d + 1)]: 1.0 for i in dl_ids}
-                for j in hrun_ids:
-                    row_prev[x_idx[(j, d)]] = 1.0
-                add_sparse_row(row_prev, 0.0, 1.0)
+        hooks = ModelHooks(x=lambda i, d: x_idx[(i, d)], add_row=add_sparse_row, add_var=hy_add_var,
+                           allowed=self._allowed)
+        add_tier0_safety(hooks, self.library, self.limits, self.sets)
 
-            # Rule 6b: Heavy Squat vs High-Torque Bike or Heavy Run (Same Day)
-            add_sparse_row({x_idx[(i, d)]: 1.0 for i in sq_ids + htbike_ids}, 0.0, 1.0)
-            add_sparse_row({x_idx[(i, d)]: 1.0 for i in sq_ids + hrun_ids}, 0.0, 1.0)
-
-            # Rule 6c: Heavy OHP/Bench Press vs Swim CSS Threshold (Same Day)
-            add_sparse_row({x_idx[(i, d)]: 1.0 for i in pr_ids + swth_ids}, 0.0, 1.0)
-
-            # Rule 6d: Non-consecutive Strength Days (Minimum 48h inter-lift recovery)
-            if d < 6:
-                row_str = {x_idx[(i, d)]: 1.0 for i in str_ids}
-                for i in str_ids:
-                    row_str[x_idx[(i, d + 1)]] = 1.0
-                add_sparse_row(row_str, 0.0, 1.0)
-
-        # C7: Exact Linearizations
-        # 7a: Single-Session Long Run Cap (<= 32% of total weekly run duration)
-        run_ids = [i for i, w in enumerate(self.library) if getattr(w, "sport", "") == "Run"]
-        phi_lr = float(self._get_cfg_val("long_run_cap_ratio", self._get_cfg_val("max_single_run_vol_ratio", 0.32)))
-        for i_lr in lrun_ids:
-            dur_lr = float(getattr(self.library[i_lr], "duration", 60.0))
-            for d in self.days:
-                row_lr = {
-                    x_idx[(j, d_p)]: -phi_lr * float(getattr(self.library[j], "duration", 60.0))
-                    for j in run_ids
-                    for d_p in self.days
-                }
-                row_lr[x_idx[(i_lr, d)]] += dur_lr
-                add_sparse_row(row_lr, -inf, 0.0)
+        # Tier-1: sport minimum frequencies and rest days (named, reported slacks)
+        reg = Tier1Registry(hooks, self._get_cfg_val("tier1_relaxation_order", None))
+        add_tier1_targets(reg, self.library, self.config, self.sets, x=lambda i, d: x_idx[(i, d)],
+                          sport_day=lambda s_, d: y_idx.get((s_, d)), rest_day=lambda d: r_idx[d],
+                          rest_bounds_default=(1, 2))  # original hybrid rest-day window
 
         # 7b: Barbell Main Lifts Share (>= 60% of total weekly strength sets)
         beta_bb = float(self._get_cfg_val("min_barbell_set_share", 0.60))
@@ -1479,21 +1373,6 @@ class HybridAthleteMILPOptimizer:
         add_sparse_row(row_tiz_low, 0.0, inf)
         add_sparse_row(row_tiz_hi, -inf, 0.0)
 
-        # 7d: Daily and Weekly Axial Spinal Loading Ceilings
-        max_weekly_axial = float(self._get_cfg_val("max_weekly_axial", self._get_cfg_val("max_weekly_axial_load", 320.0)))
-        max_daily_axial = float(self._get_cfg_val("max_daily_axial", self._get_cfg_val("max_daily_axial_load", 120.0)))
-        add_sparse_row(
-            {x_idx[(i, d)]: float(getattr(self.library[i], "axial_load", 0.0)) for i in range(self.N) for d in self.days},
-            0.0,
-            max_weekly_axial,
-        )
-        for d in self.days:
-            add_sparse_row(
-                {x_idx[(i, d)]: float(getattr(self.library[i], "axial_load", 0.0)) for i in range(self.N)},
-                0.0,
-                max_daily_axial,
-            )
-
         # C8: Goal Programming Target Equations
         for s in self.sports:
             row_tss = {e_tss_neg[s]: 1.0, e_tss_pos[s]: -1.0}
@@ -1514,10 +1393,18 @@ class HybridAthleteMILPOptimizer:
             add_sparse_row(row_m, t_m, t_m)
 
         apply_threads(h)
+        h.setOptionValue("mip_rel_gap", 0.01)
+        diagnostics = self.explain_feasibility()
+        self.last_diagnostics = diagnostics
+        lex = LexState()
         solutions = []
         for k in range(k_solutions):
-            res = run_and_check(h)
+            res = lexicographic_solve(h, reg.costs(), lex)
+            if k == 0:
+                self.last_status = res.status
             if not res.has_solution:
+                if k == 0:
+                    logger.warning("HybridAthleteMILPOptimizer: no plan (%s). %s", res.status, " | ".join(diagnostics))
                 break
 
             sol = res.col_value
@@ -1548,6 +1435,10 @@ class HybridAthleteMILPOptimizer:
                 "status": res.status,
                 "mip_gap": res.mip_gap,
                 "objective_value": res.objective,
+                "tier1_penalty": lex.tier1_penalty,
+                "relaxations": reg.report(sol),
+                "diagnostics": list(diagnostics),
+                "run_share": run_share_report(schedule_by_day, self.limits),
                 "total_tss": total_tss_solved,
                 "total_axial_load": total_axial_solved,
                 "total_duration": total_dur_solved,
@@ -2351,9 +2242,11 @@ def generate_closed_loop_season_schedule(
 
         # Receding-Horizon Progression Guard:
         # Prevent acute mechanical & TSS shock (>15% in masters, >25% in regular) if previous week had lower volume
-        if len(season_summary_rows) > 0:
-            last_solved_tss = season_summary_rows[-1]["Solved_TSS"]
-            last_mech = season_summary_rows[-1]["Total_Mech_Strain"]
+        solved_rows = [r for r in season_summary_rows if r.get("Solved_TSS", 0.0) > 0]
+        if solved_rows:
+            # Ramp guard references the last week that actually solved (an infeasible rest week is 0 TSS)
+            last_solved_tss = solved_rows[-1]["Solved_TSS"]
+            last_mech = solved_rows[-1]["Total_Mech_Strain"]
             max_ramp = 1.15 if athlete_state.masters_mode else 1.25
             if target_tss > last_solved_tss * max_ramp:
                 target_tss = round(last_solved_tss * max_ramp, 0)
@@ -2393,16 +2286,18 @@ def generate_closed_loop_season_schedule(
         scheduler = TriathlonMILPScheduler(lib, cfg)
         plans = scheduler.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
 
-        used_fallback = not plans
-        if not plans:
-            print(f"Week {week_num:02d} ({phase_name} - {step_type}): INFEASIBLE at TSS {target_tss}! Soft recovery triggered.")
-            # Fallback to recovery config
-            cfg_fb = ClosedLoopMPCController.configure_mesocycle_phase("recovery", base_tss=target_tss * 0.8, race_distance=dist)
-            cfg_fb.enable_soft_48h_slacks = True
-            scheduler_fb = TriathlonMILPScheduler(lib, cfg_fb)
-            plans = scheduler_fb.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
-
         plan = plans[0] if plans else None
+        if plan is None:
+            # TASK-016: no profile-discarding fallback. An unsolvable week is reported with its plain-English
+            # Tier-0 diagnostics and treated as a rest week; it is never silently replaced by another config.
+            reasons = scheduler.last_diagnostics or [f"Solver status {scheduler.last_status}"]
+            print(f"Week {week_num:02d} ({phase_name} - {step_type}): INFEASIBLE at TSS {target_tss} "
+                  f"({scheduler.last_status}). Reasons: " + " | ".join(reasons))
+            plan = {
+                "status": scheduler.last_status or "INFEASIBLE", "mip_gap": None, "relaxations": [],
+                "diagnostics": reasons, "schedule": {d: [] for d in range(7)}, "total_tss": 0.0,
+                "total_mech_strain": 0.0, "total_ans_cost": 0.0, "max_single_run_ratio": 0.0,
+            }
         if plan:
             # Advance physiological states day by day
             for d in range(7):
@@ -2414,8 +2309,9 @@ def generate_closed_loop_season_schedule(
                 d_swim = sum(w.aerobic_tss for w in wkts if w.sport == "Swim")
                 athlete_state.step_day(d_aerobic, d_mech, d_bike, d_run, d_swim)
 
-            df_week = format_plan_to_dataframe(plan, week_num=week_num, phase_name=phase_name)
-            all_daily_rows.append(df_week)
+            if any(plan["schedule"][d] for d in range(7)):
+                df_week = format_plan_to_dataframe(plan, week_num=week_num, phase_name=phase_name)
+                all_daily_rows.append(df_week)
 
             tot_ans = plan.get("total_ans_cost", 0.0)
             tot_durability = sum(w.durability_score for day_wkts in plan["schedule"].values() for w in day_wkts)
@@ -2438,7 +2334,8 @@ def generate_closed_loop_season_schedule(
                 "Recalibration": recal_action if not pert_info else f"{recal_action} + {pert_info}",
                 "Solve_Status": plan.get("status"),
                 "MIP_Gap": plan.get("mip_gap"),
-                "Fallback": used_fallback,  # True => primary week infeasible; profile-ignoring recovery config used (TASK-016)
+                "Relaxations": "; ".join(r["message"] for r in plan.get("relaxations", [])),
+                "Diagnostics": "; ".join(plan.get("diagnostics", [])),
             })
 
             print(f"Week {week_num:02d} [{phase_name:<20} | {step_type:<22}]: TSS={plan['total_tss']:>5.1f} | Mech={plan['total_mech_strain']:>5.1f} | ANS={tot_ans:>6.1f} | CTL={athlete_state.total_ctl:>4.1f} | TSB={athlete_state.total_tsb:>5.1f} | ODI={athlete_state.orthopedic_decoupling_index:.2f} ({recal_action})")
