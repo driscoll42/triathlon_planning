@@ -330,7 +330,7 @@ def stress_test_suite():
         "p_high_max": 0.20,
         "max_weekly_axial": 320.0,
         "max_daily_axial": 120.0,
-        "max_daily_neuro": 140.0,
+        "max_daily_neuro": 130.0,
         "readiness_alpha": [1.0] * 7,
         "weights": {
             "w_tss_neg": 150.0, "w_tss_pos": 100.0,

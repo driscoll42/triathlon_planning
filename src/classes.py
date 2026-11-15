@@ -187,7 +187,7 @@ class HybridVariables:
     # Axial Spinal (L1-S1) & Neuromuscular Load Ceilings
     max_daily_axial_load = 120.0
     max_weekly_axial_load = 320.0
-    max_daily_neuro_load = 140.0
+    max_daily_neuro_load = 130.0  # ADR-008 / INVARIANTS.md (TASK-009)
 
     # Orthopedic Safety & Polarized Endurance Ratios
     max_single_run_vol_ratio = 0.32  # <= 32% of realized weekly run duration

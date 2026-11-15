@@ -4,7 +4,7 @@
 The **Triathlon Workout & Season Planner** is a high-performance mathematical modeling and closed-loop scheduling platform. It combines empirical **80/20 endurance principles** (Seiler, Fitzgerald, Friel) and **Hybrid Athlete strength science** with **Mixed-Integer Linear Programming (MILP)** and **Model Predictive Control (MPC)** to synthesize optimal, injury-resistant multi-sport schedules balancing Running, Cycling, Swimming, and Barbell/Dumbbell lifting.
 
 - **Primary Stack:** Python 3.14+, `highspy` (HiGHS C++ MILP solver), `pandas`, `numpy`, `openpyxl`.
-- **Integrations:** TrainingPeaks Private REST API, Garmin Health API / Connect, 80/20 Endurance Library scraper, FIT file parser.
+- **Integrations:** TrainingPeaks Private REST API, Garmin Health API / Connect, 80/20 Endurance Library scraper. *(Recorded-activity FIT parsing is specified in `SPEC.md`/`ADR-010` but **not yet implemented** — `TASK-024`.)*
 - **Lineage & Context Engine:** SQLite WAL + FTS5 BM25 (`docs/.context/lode.db`) managed via `scripts/lodectx.py`.
 - **Primary Data Sources:** `data/Bike.xlsx`, `data/Run.xlsx`, `data/Swim.xlsx`, `data/brick_workouts.csv`.
 
@@ -16,7 +16,7 @@ The **Triathlon Workout & Season Planner** is a high-performance mathematical mo
 | `mpc` | [`src/closed_loop_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py) | 3-tier closed-loop Model Predictive Control: Tier 1 Garmin morning readiness scalar ($\alpha_d$), Tier 2 e1RM Kalman filtering, Tier 3 3:1 mesocycle wave undulation. |
 | `physiology` | [`src/athlete_profile.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/athlete_profile.py), [`src/classes.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/classes.py) | Dual-load modeling (Aerobic TSS vs Mechanical Strain), ANS costing ($e^{0.65(z-1)}$), asynchronous tissue remodeling ($\tau=35d$ vs $\tau=120d$), and movement-pattern tracking (Anterior/Posterior Chain, Push, Pull). |
 | `workouts` | [`src/util.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/util.py), [`src/classes.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/classes.py) | 80/20 workout library loading, canonical 80/20 7-zone power/pace/CSS conversions, duration and TSS standardization, brick synthesis, and hybrid strength library (15 blueprint templates). |
-| `integrations` | [`src/sync_8020_to_tp.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/sync_8020_to_tp.py), [`src/clean_file.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/clean_file.py) | TrainingPeaks private API sync, workout structure serialization, HTML scraping, multi-device FIT parser (Stryd CIQ developer power, Swim active lengths, 300s ride deduplication, Neo 2T slope mode). |
+| `integrations` | [`src/sync_8020_to_tp.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/sync_8020_to_tp.py), [`src/clean_file.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/clean_file.py) | TrainingPeaks private API sync, workout structure serialization, and 80/20 HTML library scraping (`clean_file.py` parses workout *definitions*, not recorded activities). Multi-device activity FIT parser (Stryd CIQ developer power, swim active lengths, 300s dedup) is **planned, not implemented** (`TASK-024`, input `data/garmin/activities/fit_files/`). |
 | `safety` | [`src/closed_loop_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py) | Single-run volume ceiling ($\le 32\%$), 24h deadlift-run buffer, axial spinal load caps ($X_{\text{day}} \le 120, X_{\text{wk}} \le 320$), neuromuscular fatigue caps, rolling 48h mechanical strain caps, mechanical ACWR $\le 1.30$, ODI $\le 1.35$. |
 | `perf` | [`src/stress_test_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/stress_test_optimizer.py) | Parallel core scaling benchmarks (1-32 cores), solver timeout enforcement, and scenario resilience testing (11 stress scenarios). |
 
@@ -27,14 +27,15 @@ flowchart TD
     B --> C["Candidate Library (CandidateWorkout)"]
     D["Athlete Profile (src/athlete_profile.py)"] --> E["MPC Controller & Targets (src/closed_loop_optimizer.py)"]
     C & E --> F["HiGHS MILP Formulation (highspy)"]
-    F --> G["Parallel Multi-Seed Race / No-Good Cuts"]
+    F --> G["Status-Checked Solve (highs_runtime) / No-Good Cuts"]
     G --> H["Feasible Weekly Schedule (Top-K Plans)"]
     H --> I["Biomechanics & Remodeling Validation (ACWR, ODI)"]
     I --> J["TrainingPeaks REST API Sync (src/sync_8020_to_tp.py)"]
 ```
 
 ## 4. Directory & Repository Topology
-- `src/`: Core Python platform package (`classes.py`, `closed_loop_optimizer.py`, `highs_optimization.py`, `athlete_profile.py`, `main.py`, `stress_test_optimizer.py`, `clean_file.py`, `sync_8020_to_tp.py`, `util.py`, `__init__.py`).
+- `src/`: Core Python platform package (`classes.py`, `closed_loop_optimizer.py`, `highs_optimization.py`, `athlete_profile.py`, `main.py`, `stress_test_optimizer.py`, `clean_file.py`, `sync_8020_to_tp.py`, `util.py`, `highs_runtime.py` (process-wide HiGHS threads + status-checked solves), `__init__.py`).
+- `tests/`: pytest suite (`python -m pytest`): stress-scenario safety assertions, profile contract, HiGHS runtime, workout loading. Known engine defects are strict/non-strict `xfail`s naming their owning task.
 - `config/`: Secure environment files (`.env.example`, `trainingpeak.env`, `garmin.env`). All secret `.env` files are gitignored.
 - `.agents/`: Agent charters and operational rules (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `rules/operating_charter.md`).
 - `data/`: Structured workout matrices (`Bike.xlsx`, `Run.xlsx`, `Swim.xlsx`, `brick_workouts.csv`), scrape caches (`workout_library.html`), JSON preview payloads (`parsed_workouts_preview.json`), and raw FIT downloads (`fit_files/`).

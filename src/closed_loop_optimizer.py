@@ -100,7 +100,7 @@ class MesoCycleTargetsAndConstraints:
     min_barbell_set_share: float = 0.60          # >= 60% of strength sets via Olympic Barbell
     max_daily_axial_load: float = 120.0          # Daily lumbar L1-S1 spinal load ceiling
     max_weekly_axial_load: float = 320.0         # Weekly lumbar L1-S1 spinal load ceiling
-    max_daily_neuro_load: float = 140.0          # Daily central neuromuscular load ceiling
+    max_daily_neuro_load: float = 130.0          # Daily central neuromuscular load ceiling (ADR-008)
     readiness_alpha: List[float] = field(default_factory=lambda: [1.0] * 7)
     pool_open_days: List[int] = field(default_factory=lambda: [0, 2, 4])
     outdoor_bike_days: List[int] = field(default_factory=lambda: [5, 6])
@@ -1333,7 +1333,7 @@ class HybridAthleteMILPOptimizer:
         # C3: Daily Duration Ceilings, Max 2 Workouts/Day, Max 1 Workout/Sport/Day
         daily_caps = self._get_cfg_val("daily_duration_caps", self._get_cfg_val("daily_time_caps", [120, 120, 75, 120, 120, 220, 180]))
         readiness_alpha = self._get_cfg_val("readiness_alpha", [1.0] * 7)
-        max_daily_neuro = float(self._get_cfg_val("max_daily_neuro", self._get_cfg_val("max_daily_neuro_load", 140.0)))
+        max_daily_neuro = float(self._get_cfg_val("max_daily_neuro", self._get_cfg_val("max_daily_neuro_load", 130.0)))
 
         for d in self.days:
             add_sparse_row(

@@ -22,6 +22,8 @@ from highs_optimization import (
     generate_16_week_olympic_schedule,
     get_periodized_zone_ratios,
     evaluate_plan_with_original_score,
+    prepare_workout_df,
+    filter_viable_workouts,
 )
 from closed_loop_optimizer import (
     TriathlonMILPScheduler,
@@ -175,8 +177,11 @@ def run_random_method(wkend_wts_df, wkday_wts_df, total_to_run=10000, num_cores=
     return random_df, dur
 
 
-def print_comparison(highs_df, highs_time, random_df, random_time, total_random_runs, num_cores):
-    """Prints a clear side-by-side comparison between HiGHS and Random."""
+def print_comparison(highs_df, highs_time, random_df, random_time, total_random_runs, num_cores, candidate_df=None):
+    """Prints a clear side-by-side comparison between HiGHS and Random.
+
+    All figures are measured from this run (TASK-009); no hardcoded benchmark claims.
+    """
     print(f"\n=======================================================")
     print(f"  SIDE-BY-SIDE COMPARISON (Hardware: {mp.cpu_count()} CPUs, using {num_cores} cores)")
     print(f"=======================================================")
@@ -197,8 +202,21 @@ def print_comparison(highs_df, highs_time, random_df, random_time, total_random_
     print(f"{'Top Original Score':<30} | {f'{rnd_top:.2f}':<22} | {f'{highs_top:.2f}':<25}")
     print(f"{'Mean Score':<30} | {f'{rnd_mean:.2f}':<22} | {f'{highs_mean:.2f}':<25}")
     print(f"{'Plans with Score >= 90':<30} | {f'{rnd_ge90:,} / {total_random_runs:,} ({100*rnd_ge90/total_random_runs:.2f}%)':<22} | {f'{highs_ge90} / {highs_total} ({100*highs_ge90/highs_total:.1f}%)':<25}")
-    print(f"{'Guaranteed Feasibility':<30} | {'Trial & Error (46% valid)':<22} | {'Strict Hard Constraints':<25}")
-    print(f"{'Candidate Pre-Filtering':<30} | {'None (draws all 293)':<22} | {'Pruned 61 unviable items':<25}")
+    rnd_valid_pct = 100 * len(random_df) / total_random_runs if total_random_runs else 0.0
+    if not highs_df.empty and 'Status' in highs_df.columns:
+        status_counts = highs_df['Status'].value_counts()
+        highs_status = ", ".join(f"{n} {s}" for s, n in status_counts.items())
+    else:
+        highs_status = "no plans"
+    print(f"{'Feasibility / Solve Status':<30} | {f'Trial & Error ({rnd_valid_pct:.0f}% valid)':<22} | {highs_status:<25}")
+    if not highs_df.empty and 'MIP Gap' in highs_df.columns and highs_df['MIP Gap'].notna().any():
+        worst_gap = f"{100 * highs_df['MIP Gap'].max():.1f}%"
+        print(f"{'Worst MIP Gap':<30} | {'n/a':<22} | {worst_gap:<25}")
+    if candidate_df is not None:
+        prepared = prepare_workout_df(candidate_df)
+        kept = filter_viable_workouts(prepared, target_tss=triv.target_tss, num_workouts=6)
+        n_all, n_pruned = len(prepared), len(prepared) - len(kept)
+        print(f"{'Candidate Pre-Filtering':<30} | {f'None (draws all {n_all})':<22} | {f'Pruned {n_pruned} unviable items':<25}")
     print(f"{'Day-by-Day Scheduling':<30} | {'None (unordered bag)':<22} | {'Mon-Sun + Hard/Easy Rule':<25}")
     print(f"{'Multi-Week Step Cycles':<30} | {'Manual':<22} | {'Automatic (Load/Deload)':<25}")
     print("-" * 83)
@@ -492,7 +510,8 @@ if __name__ == '__main__':
         random_df=random_df,
         random_time=random_time,
         total_random_runs=total_random_runs,
-        num_cores=30
+        num_cores=30,
+        candidate_df=wkend_wts_df,
     )
 
     # 6. Production Closed-Loop Triathlon Training Optimizer (Dual-Load & 3-Tier MPC)
