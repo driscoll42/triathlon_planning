@@ -1,0 +1,41 @@
+# Triathlon Workout & Season Planner — Lode Map & Progressive Disclosure Index (`docs/LODE_MAP.md`)
+
+> **Startup Core (< 7,500 tokens):** `.agents/GEMINI.md` + `docs/STATE_SUMMARY.md` + `docs/LODE_MAP.md` + `docs/INVARIANTS.md` + `docs/TASKS.md`.
+> **On-Demand Domain Briefing:** Run `python3 scripts/lodectx.py brief <domain>` before modifying any subsystem.
+> **Canonical Templates & Scaffolding:** `python3 scripts/lodectx.py init <prd|adr|exp|heur>` & `python3 scripts/lodectx.py ingest <path>`.
+
+## 1. Domain Lode Routing Table
+| Domain | Lode File | Briefing CLI | Scope |
+| :--- | :--- | :--- | :--- |
+| `general` | `docs/domains/general.md` | `python3 scripts/lodectx.py brief general` | Cross-cutting architecture, tooling, environment, and repository standards |
+| `optimizer` | `docs/domains/optimizer.md` | `python3 scripts/lodectx.py brief optimizer` | HiGHS Mixed-Integer Linear Programming (MILP) solver, multiseed races, and objective weighting |
+| `mpc` | `docs/domains/mpc.md` | `python3 scripts/lodectx.py brief mpc` | Closed-loop Model Predictive Control (MPC), receding-horizon updates, and mesocycle step-cycles |
+| `physiology` | `docs/domains/physiology.md` | `python3 scripts/lodectx.py brief physiology` | Dual-load modeling (Aerobic TSS vs Mechanical Strain), ANS costing, and tissue remodeling |
+| `workouts` | `docs/domains/workouts.md` | `python3 scripts/lodectx.py brief workouts` | 80/20 workout library loading, sport schemas, zone calculations, and brick workout generation |
+| `integrations` | `docs/domains/integrations.md` | `python3 scripts/lodectx.py brief integrations` | TrainingPeaks private REST API syncing, FIT file parsing, and 8020 workout scraping |
+| `safety` | `docs/domains/safety.md` | `python3 scripts/lodectx.py brief safety` | Orthopedic guardrails, mechanical ACWR bounds, rolling strain caps, and injury protocols |
+| `perf` | `docs/domains/perf.md` | `python3 scripts/lodectx.py brief perf` | Multiprocessing parallelism, CPU core scaling, timeout bounds, and solver benchmark budgets |
+
+## 2. Engineering PRDs (`docs/specs/`)
+- **`PRD-001`** (`optimizer`): Brick Transition Modeling and Same-Day Strength Stacking — Model same-day multi-discipline transitions and strength stacking within the HiGHS MILP constraint matrix.
+- **`PRD-002`** (`optimizer`): Dual-Objective Hybrid Athlete MILP and MPC Optimization — Optimize concurrent triathlon and heavy barbell/dumbbell strength training via HiGHS MILP and 3-Tier closed-loop MPC.
+
+## 3. Architectural Decisions Index (`ADR`)
+- **`ADR-001`** (`general`): Adopt Progressive Disclosure & SQLite Lineage Architecture
+- **`ADR-002`** (`optimizer`): Adopt HiGHS Mixed-Integer Linear Programming Solver via highspy
+- **`ADR-003`** (`safety`): Enforce Single-Run Volume Ceiling at 32 Percent of Weekly Running Duration
+- **`ADR-004`** (`physiology`): Decouple Aerobic TSS and Mechanical Strain with Asynchronous Tissue Remodeling
+- **`ADR-005`** (`mpc`): Implement Three-Tier Closed-Loop Model Predictive Control with Daily Readiness Scaling
+- **`ADR-006`** (`perf`): Adopt 15-Seed Parallel HiGHS Race with Per-Worker Timeout Limits
+- **`ADR-007`** (`general`): Modularize Repository Layout, Data Assets, and Reference Artifacts
+- **`ADR-008`** (`optimizer`): Adopt Dual-Objective Hybrid Athlete Optimization with Equipment Partitioning and Biomechanical Conflict Matrix
+- **`ADR-009`** (`physiology`): Adopt Canonical 80/20 7-Zone Power System and Two-Point Critical Power Protocol
+- **`ADR-010`** (`integrations`): Adopt Multi-Device Hardware Telemetry Rules and FIT Ingestion Invariants
+- **`ADR-011`** (`physiology`): Integrate Closed-Loop Critical Power Retesting Engine with Dual Telemetry Triggers and Mesocycle Synchronization
+- **`ADR-012`** (`mpc`): Lock Athlete Decision Record for Nov 2026 Re-Entry and Olympic Season
+
+## 4. Operational Heuristics Index by Domain (`HEUR`)
+- **`workouts`:** `HEUR-003`
+- **`integrations`:** `HEUR-005`, `HEUR-006`, `HEUR-007`
+- **`safety`:** `HEUR-002`, `HEUR-004`
+- **`perf`:** `HEUR-001`

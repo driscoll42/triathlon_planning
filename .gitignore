@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+# Environment & Secrets
+*.env
+config/*.env
+config/.env*
+!config/.env.example
+!.env.example
+
+# Virtual Environment
+.venv/
+env/
+venv/
+
+# SQLite WAL and temporary files
+docs/.context/*.db-shm
+docs/.context/*.db-wal
+
+# IDE
+.idea/
+.vscode/
+
+# Scratch & Temporary
+scratch/
+*.tmp
+
+# Raw Downloaded FIT Files & Scrape Caches
+data/fit_files/
+data/garmin/
+data/lifting/
+
+# Large Reference Binaries (Books)
+references/*.pdf
+references/*.epub
+references/*.azw3

@@ -5,18 +5,78 @@ import random
 from classes import triVariables as triv, workout
 
 
-def load_workouts(run_file, bike_file, swim_file):
+def load_workouts(run_file=None, bike_file=None, swim_file=None, strength_file=None, include_strength=True):
+    import os
+    import numpy as np
+
+    if run_file is None:
+        run_file = getattr(triv, 'run_file', 'data/Run.xlsx')
+    if bike_file is None:
+        bike_file = getattr(triv, 'bike_file', 'data/Bike.xlsx')
+    if swim_file is None:
+        swim_file = getattr(triv, 'swim_file', 'data/Swim.xlsx')
+
     df = pd.DataFrame()
 
-    if triv.run_tgt_percent > 0:
+    if getattr(triv, 'run_tgt_percent', 0.28) > 0 and os.path.exists(run_file):
         run_df = pd.read_excel(run_file, index_col=0, engine='openpyxl')
         df = pd.concat([df, run_df], ignore_index=True)
-    if triv.bike_tgt_percent > 0:
+    if getattr(triv, 'bike_tgt_percent', 0.40) > 0 and os.path.exists(bike_file):
         bike_df = pd.read_excel(bike_file, index_col=0, engine='openpyxl')
         df = pd.concat([df, bike_df], ignore_index=True)
-    if triv.swim_tgt_percent > 0:
+    if getattr(triv, 'swim_tgt_percent', 0.32) > 0 and os.path.exists(swim_file):
         swim_df = pd.read_excel(swim_file, index_col=0, engine='openpyxl')
         df = pd.concat([df, swim_df], ignore_index=True)
+
+    src_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(src_dir)
+    brick_candidates = [
+        os.path.join('data', 'brick_workouts.csv'),
+        os.path.join(root_dir, 'data', 'brick_workouts.csv'),
+        os.path.join('training_plans', 'brick_workouts.csv'),
+        os.path.join(root_dir, 'training_plans', 'brick_workouts.csv'),
+        os.path.join(src_dir, 'data', 'brick_workouts.csv'),
+    ]
+    brick_file = next((p for p in brick_candidates if os.path.exists(p)), 'data/brick_workouts.csv')
+    if os.path.exists(brick_file):
+        b_df = pd.read_csv(brick_file)
+        b_df['Type'] = 'Brick'
+        b_df['High Duration'] = b_df['Zone 3'] + b_df['Zone 4'] + b_df['Zone 5']
+        b_df['Low Duration'] = b_df['Zone 1'] + b_df['Zone 2']
+        multipliers = np.array([0.615, 0.79, 0.96, 1.09, 1.325])
+        tss_list, if_list = [], []
+        for _, r in b_df.iterrows():
+            z = np.array([r['Zone 1'], r['Zone 2'], r['Zone 3'], r['Zone 4'], r['Zone 5']])
+            tot = np.sum(z)
+            if tot > 0:
+                int_f = (np.sum((multipliers ** 4) * z) / tot) ** 0.25
+                t = 100.0 * (int_f ** 2) * (tot / 60.0)
+            else:
+                int_f = 0.7
+                t = 50.0
+            tss_list.append(t)
+            if_list.append(int_f)
+        b_df['TSS'] = tss_list
+        b_df['Intensity Factor'] = if_list
+        df = pd.concat([df, b_df], ignore_index=True)
+
+    strength_candidates = [
+        strength_file,
+        getattr(triv, 'strength_file', None),
+        os.path.join('data', 'strength_workouts.csv'),
+        os.path.join(root_dir, 'data', 'strength_workouts.csv'),
+        os.path.join(src_dir, 'data', 'strength_workouts.csv'),
+    ]
+    str_path = next((p for p in strength_candidates if p and os.path.exists(p)), None)
+    if include_strength and str_path and os.path.exists(str_path):
+        s_df = pd.read_csv(str_path)
+        if 'Type' not in s_df.columns:
+            s_df['Type'] = 'Strength'
+        if 'High Duration' not in s_df.columns:
+            s_df['High Duration'] = s_df.get('Zone 3', 0) + s_df.get('Zone 4', 0) + s_df.get('Zone 5', 0)
+        if 'Low Duration' not in s_df.columns:
+            s_df['Low Duration'] = s_df.get('Zone 1', 0) + s_df.get('Zone 2', 0)
+        df = pd.concat([df, s_df], ignore_index=True)
 
     df = df[df['TSS'] != 0]
     df = df[df['TSS'].notnull()]
@@ -45,8 +105,8 @@ def calculate_plan_score(wkt, verbose=False):
                           round(exer.tss_percent, 2), 'Total', exer.name, 'TSS:', exer.tss)
         spt_tss_tgt_score *= triv.rbs_tss_split_weight * exer.tgt_percent
 
-        exer.high_dur_percent = ((0.0 or exer.high_dur) / exer.dur or 0.0)
-        exer.low_dur_percent = exer.low_dur / exer.dur
+        exer.high_dur_percent = (exer.high_dur / exer.dur) if exer.dur > 0 else 0.0
+        exer.low_dur_percent = (exer.low_dur / exer.dur) if exer.dur > 0 else 0.0
 
         spt_high_tgt_score = 1.0 - abs(1.0 - exer.high_dur_percent / triv.high_tgt)
         spt_low_tgt_score = 1.0 - abs(1.0 - exer.low_dur_percent / triv.low_tgt)
@@ -58,14 +118,11 @@ def calculate_plan_score(wkt, verbose=False):
         dur_split_tgt_score = (
                                       spt_high_tgt_score + spt_low_tgt_score) / 2 * exer.tgt_percent * triv.rbs_dur_tgt_split_weight
 
-        exer.zone_3_percent = exer.zone_3 / exer.high_dur
-        if pd.isna(exer.zone_3_percent): exer.zone_3_percent = 0.0
+        exer.zone_3_percent = (exer.zone_3 / exer.high_dur) if exer.high_dur > 0 else 0.0
         spt_z3_tgt_score = 1.0 - abs(1.0 - exer.zone_3_percent / triv.zone_3_tgt)
-        exer.zone_4_percent = exer.zone_4 / exer.high_dur
-        if pd.isna(exer.zone_4_percent): exer.zone_4_percent = 0.0
+        exer.zone_4_percent = (exer.zone_4 / exer.high_dur) if exer.high_dur > 0 else 0.0
         spt_z4_tgt_score = 1.0 - abs(1.0 - exer.zone_4_percent / triv.zone_4_tgt)
-        exer.zone_5_percent = exer.zone_5 / exer.high_dur
-        if pd.isna(exer.zone_5_percent): exer.zone_5_percent = 0.0
+        exer.zone_5_percent = (exer.zone_5 / exer.high_dur) if exer.high_dur > 0 else 0.0
         spt_z5_tgt_score = 1.0 - abs(1.0 - exer.zone_5_percent / triv.zone_5_tgt)
 
         if verbose: print(exer.name, 'Zone 3 TGT Score:', round(spt_z3_tgt_score, 2), exer.name, 'Zone 3 %:',
@@ -147,15 +204,15 @@ def generate_random_workout_plan(wkend_wts_df, wkday_wts_df, num_gen, verbose=Fa
         wkts = pd.DataFrame()
         tot_wkts = 0
         if triv.run_tgt_percent > 0:
-            wkts = wkts.append(wkday_wts_df[wkday_wts_df['Type'] == 'Run'].sample())
+            wkts = pd.concat([wkts, wkday_wts_df[wkday_wts_df['Type'] == 'Run'].sample()], ignore_index=True)
             tot_wkts += 1
             wkt.run.tgt_percent = triv.run_tgt_percent
         if triv.bike_tgt_percent > 0:
-            wkts = wkts.append(wkday_wts_df[wkday_wts_df['Type'] == 'Bike'].sample())
+            wkts = pd.concat([wkts, wkday_wts_df[wkday_wts_df['Type'] == 'Bike'].sample()], ignore_index=True)
             tot_wkts += 1
             wkt.bike.tgt_percent = triv.bike_tgt_percent
         if triv.swim_tgt_percent > 0:
-            wkts = wkts.append(wkday_wts_df[wkday_wts_df['Type'] == 'Swim'].sample())
+            wkts = pd.concat([wkts, wkday_wts_df[wkday_wts_df['Type'] == 'Swim'].sample()], ignore_index=True)
             tot_wkts += 1
             wkt.swim.tgt_percent = triv.swim_tgt_percent
 
@@ -206,7 +263,7 @@ def generate_random_workout_plan(wkend_wts_df, wkday_wts_df, num_gen, verbose=Fa
                 replace_workout['TSS/Min'] = replace_workout[triv.tss].div(triv.max_time_weekday)
 
             wkts = wkts.drop(replace_day)
-            wkts = wkts.append(replace_workout, ignore_index=True)
+            wkts = pd.concat([wkts, replace_workout], ignore_index=True)
 
             wkt.total_tss = wkts[triv.tss].sum()
             wkt.duration = wkts[triv.duration].sum()
@@ -302,7 +359,7 @@ def generate_random_workout_plan(wkend_wts_df, wkday_wts_df, num_gen, verbose=Fa
                         '% Low Swim Dur'  : round(wkt.swim.low_dur_percent, 2),
                         'Z3/4/5 Swim Dist': f"{int(100 * wkt.swim.zone_3_percent)}/{int(100 * wkt.swim.zone_4_percent)}/{int(100 * wkt.swim.zone_5_percent)}",
                         }
-            wkts_df = wkts_df.append(wkt_dict, ignore_index=True)
+            wkts_df = pd.concat([wkts_df, pd.DataFrame([wkt_dict])], ignore_index=True)
 
     if triv.run_tgt_percent == 0.0:
         wkts_df = wkts_df.drop(columns=['% Run Dur', '% Run TSS', '% High Run Dur', '% Low Run Dur', 'Z3/4/5 Run Dist'])

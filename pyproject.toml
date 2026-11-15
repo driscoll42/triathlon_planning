@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "triathlon-planner"
+version = "0.2.0"
+description = "Triathlon Workout & Season Planner with HiGHS MILP and Closed-Loop Model Predictive Control"
+readme = "ReadMe.md"
+requires-python = ">=3.10"
+dependencies = [
+    "highspy",
+    "pandas",
+    "numpy",
+    "openpyxl",
+    "requests",
+    "beautifulsoup4",
+    "python-dotenv",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

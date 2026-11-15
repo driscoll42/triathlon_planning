@@ -1,0 +1,180 @@
+Week,Mesocycle,Step_Type,Day,Sport,Code,Description,Duration_min,TSS,Mechanical_Strain,Axial_Load,Neuromuscular_Load,BB_Sets,DB_Sets
+1,Mesocycle 1 (Adaptation),Base Load,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+1,Mesocycle 1 (Adaptation),Base Load,Tue,Bike,BK_AERO_35,"Aerobic Base Spin (35m Z2, 90 RPM cadence focus)",35.0,22.8,0.0,0.0,15.0,0,0
+1,Mesocycle 1 (Adaptation),Base Load,Tue,Strength,STR_SES_A,"Full-Body Strength A: Back Box Squat (2x5 @ 50% 1RM), Flat Bench Press (3x5 @ 50%), DB Rows (3x8 w/ 40lb DBs), Pallof Press (3x30s)",45.0,30.0,0.0,45.0,50.0,6,4
+1,Mesocycle 1 (Adaptation),Base Load,Wed,Run,RN_SES_1_16,"Walk/Jog Intervals (16m): 5m walk, 5x (1m jog / 1m walk), 5m walk cooldown",16.0,12.8,16.0,0.0,20.0,0,0
+1,Mesocycle 1 (Adaptation),Base Load,Thu,Bike,BK_QUAL_40,Aerobic Endurance Spin (40m Z2),40.0,21.6,0.0,0.0,25.0,0,0
+1,Mesocycle 1 (Adaptation),Base Load,Thu,Run,RN_SES_2_15,"Walk/Jog Intervals (15m): 5m walk, 4x (1m jog / 1m walk), 5m walk cooldown",15.0,12.0,14.2,0.0,20.0,0,0
+1,Mesocycle 1 (Adaptation),Base Load,Fri,Strength,STR_SES_B,"Full-Body Strength B: Barbell RDL (2x5 @ 50% 1RM), DB Standing OHP (3x8 w/ 30lb DBs), DB Split Squats (2x6/leg), Lat Pulldown (3x8), Bird-Dogs",45.0,32.0,0.0,55.0,55.0,7,4
+1,Mesocycle 1 (Adaptation),Base Load,Sat,Bike,BK_LONG_60,Weekend Long Endurance Ride (60m Z2 Non-Impact Base),60.0,40.8,0.0,0.0,20.0,0,0
+1,Mesocycle 1 (Adaptation),Base Load,Sun,Run,RN_LONG_18,"Walk/Jog Long Touch (18m): 5m walk, 6x (1m jog / 1m walk), 5m walk cooldown",18.0,15.3,19.4,0.0,25.0,0,0
+2,Mesocycle 1 (Adaptation),Build 1,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+2,Mesocycle 1 (Adaptation),Build 1,Tue,Bike,BK_AERO_37,"Aerobic Base Spin (37m Z2, 90 RPM cadence focus)",37.0,24.1,0.0,0.0,15.0,0,0
+2,Mesocycle 1 (Adaptation),Build 1,Tue,Strength,STR_SES_A,"Full-Body Strength A: Back Box Squat (2x5 @ 50% 1RM), Flat Bench Press (3x5 @ 50%), DB Rows (3x8 w/ 40lb DBs), Pallof Press (3x30s)",45.0,30.0,0.0,45.0,50.0,6,4
+2,Mesocycle 1 (Adaptation),Build 1,Wed,Run,RN_SES_1_17,"Walk/Jog Intervals (17m): 5m walk, 5x (1m jog / 1m walk), 5m walk cooldown",17.0,13.6,17.0,0.0,20.0,0,0
+2,Mesocycle 1 (Adaptation),Build 1,Thu,Bike,BK_QUAL_42,Aerobic Endurance Spin (42m Z2),42.0,22.6,0.0,0.0,25.0,0,0
+2,Mesocycle 1 (Adaptation),Build 1,Thu,Run,RN_SES_2_16,"Walk/Jog Intervals (16m): 5m walk, 4x (1m jog / 1m walk), 5m walk cooldown",16.0,12.8,15.2,0.0,20.0,0,0
+2,Mesocycle 1 (Adaptation),Build 1,Fri,Strength,STR_SES_B,"Full-Body Strength B: Barbell RDL (2x5 @ 50% 1RM), DB Standing OHP (3x8 w/ 30lb DBs), DB Split Squats (2x6/leg), Lat Pulldown (3x8), Bird-Dogs",45.0,32.0,0.0,55.0,55.0,7,4
+2,Mesocycle 1 (Adaptation),Build 1,Sat,Bike,BK_LONG_66,Weekend Long Endurance Ride (66m Z2 Non-Impact Base),66.0,44.9,0.0,0.0,20.0,0,0
+2,Mesocycle 1 (Adaptation),Build 1,Sun,Run,RN_LONG_19,"Walk/Jog Long Touch (19m): 5m walk, 6x (1m jog / 1m walk), 5m walk cooldown",19.0,16.1,20.5,0.0,25.0,0,0
+3,Mesocycle 1 (Adaptation),Overload,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+3,Mesocycle 1 (Adaptation),Overload,Tue,Bike,BK_AERO_39,"Aerobic Base Spin (39m Z2, 90 RPM cadence focus)",39.0,25.4,0.0,0.0,15.0,0,0
+3,Mesocycle 1 (Adaptation),Overload,Tue,Strength,STR_SES_A,"Full-Body Strength A: Back Box Squat (2x5 @ 50% 1RM), Flat Bench Press (3x5 @ 50%), DB Rows (3x8 w/ 40lb DBs), Pallof Press (3x30s)",45.0,30.0,0.0,45.0,50.0,6,4
+3,Mesocycle 1 (Adaptation),Overload,Wed,Run,RN_SES_1_17,"Walk/Jog Intervals (17m): 5m walk, 5x (1m jog / 1m walk), 5m walk cooldown",17.0,13.6,17.0,0.0,20.0,0,0
+3,Mesocycle 1 (Adaptation),Overload,Thu,Bike,BK_QUAL_45,Aerobic Endurance Spin (45m Z2),45.0,24.3,0.0,0.0,25.0,0,0
+3,Mesocycle 1 (Adaptation),Overload,Thu,Run,RN_SES_2_16,"Walk/Jog Intervals (16m): 5m walk, 4x (1m jog / 1m walk), 5m walk cooldown",16.0,12.8,15.2,0.0,20.0,0,0
+3,Mesocycle 1 (Adaptation),Overload,Fri,Strength,STR_SES_B,"Full-Body Strength B: Barbell RDL (2x5 @ 50% 1RM), DB Standing OHP (3x8 w/ 30lb DBs), DB Split Squats (2x6/leg), Lat Pulldown (3x8), Bird-Dogs",45.0,32.0,0.0,55.0,55.0,7,4
+3,Mesocycle 1 (Adaptation),Overload,Sat,Bike,BK_LONG_74,Weekend Long Endurance Ride (74m Z2 Non-Impact Base),74.0,50.3,0.0,0.0,20.0,0,0
+3,Mesocycle 1 (Adaptation),Overload,Sun,Run,RN_LONG_20,"Walk/Jog Long Touch (20m): 5m walk, 6x (1m jog / 1m walk), 5m walk cooldown",20.0,17.0,21.6,0.0,25.0,0,0
+4,Mesocycle 1 (Adaptation),Recovery Deload,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+4,Mesocycle 1 (Adaptation),Recovery Deload,Tue,Bike,BK_AERO_35,"Aerobic Base Spin (35m Z2, 90 RPM cadence focus)",35.0,22.8,0.0,0.0,15.0,0,0
+4,Mesocycle 1 (Adaptation),Recovery Deload,Tue,Strength,STR_SES_A,"Full-Body Strength A: Back Box Squat (2x5 @ 50% 1RM), Flat Bench Press (3x5 @ 50%), DB Rows (3x8 w/ 40lb DBs), Pallof Press (3x30s)",30.0,15.0,0.0,20.0,25.0,3,2
+4,Mesocycle 1 (Adaptation),Recovery Deload,Wed,Run,RN_SES_1_14,"Walk/Jog Intervals (14m): 5m walk, 5x (1m jog / 1m walk), 5m walk cooldown",14.0,11.2,14.0,0.0,20.0,0,0
+4,Mesocycle 1 (Adaptation),Recovery Deload,Thu,Bike,BK_QUAL_35,Aerobic Endurance Spin (35m Z2),35.0,18.9,0.0,0.0,25.0,0,0
+4,Mesocycle 1 (Adaptation),Recovery Deload,Thu,Run,RN_SES_2_12,"Walk/Jog Intervals (12m): 5m walk, 4x (1m jog / 1m walk), 5m walk cooldown",12.0,9.6,11.4,0.0,20.0,0,0
+4,Mesocycle 1 (Adaptation),Recovery Deload,Fri,Strength,STR_SES_B,"Full-Body Strength B: Barbell RDL (2x5 @ 50% 1RM), DB Standing OHP (3x8 w/ 30lb DBs), DB Split Squats (2x6/leg), Lat Pulldown (3x8), Bird-Dogs",30.0,15.0,0.0,20.0,25.0,3,2
+4,Mesocycle 1 (Adaptation),Recovery Deload,Sat,Bike,BK_LONG_52,Weekend Long Endurance Ride (52m Z2 Non-Impact Base),52.0,35.4,0.0,0.0,20.0,0,0
+4,Mesocycle 1 (Adaptation),Recovery Deload,Sun,Run,RN_LONG_16,"Walk/Jog Long Touch (16m): 5m walk, 6x (1m jog / 1m walk), 5m walk cooldown",16.0,13.6,17.3,0.0,25.0,0,0
+5,Mesocycle 2 (Foundation),Base Load,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+5,Mesocycle 2 (Foundation),Base Load,Tue,Bike,BK_AERO_40,"Aerobic Base Spin (40m Z2, 90 RPM cadence focus)",40.0,26.0,0.0,0.0,15.0,0,0
+5,Mesocycle 2 (Foundation),Base Load,Tue,Strength,STR_SES_A,"Linear Progression A: Barbell Back Squat (3x5 @ 65% 1RM), Barbell Bench Press (3x5 @ 65%), DB Rows (3x8 w/ 50lb DBs), Ab Wheel (3x8)",45.0,30.0,0.0,45.0,50.0,6,4
+5,Mesocycle 2 (Foundation),Base Load,Wed,Run,RN_SES_1_18,Easy Aerobic Run (18m): Continuous Zone 2 conversational jog on flat/treadmill,18.0,14.4,18.0,0.0,20.0,0,0
+5,Mesocycle 2 (Foundation),Base Load,Thu,Bike,BK_QUAL_46,Aerobic Endurance Spin (46m Z2),46.0,24.8,0.0,0.0,25.0,0,0
+5,Mesocycle 2 (Foundation),Base Load,Thu,Run,RN_SES_2_16,Easy Aerobic Run (16m): Continuous Zone 2 jog + 3x 15s gentle cadence strides,16.0,12.8,15.2,0.0,20.0,0,0
+5,Mesocycle 2 (Foundation),Base Load,Fri,Strength,STR_SES_B,"Linear Progression B: Barbell Deadlift (1x5 @ 70% 1RM), Barbell OHP (3x5 @ 65%), Bulgarian Split Squats (3x6/leg w/ 35lb DBs), Neutral Pull-Ups",45.0,32.0,0.0,55.0,55.0,7,4
+5,Mesocycle 2 (Foundation),Base Load,Sat,Bike,BK_LONG_76,Weekend Long Endurance Ride (76m Z2 Non-Impact Base),76.0,51.7,0.0,0.0,20.0,0,0
+5,Mesocycle 2 (Foundation),Base Load,Sun,Run,RN_LONG_20,"Long Aerobic Run (20m): Zone 2 aerobic running, strictly controlled heart rate",20.0,17.0,21.6,0.0,25.0,0,0
+6,Mesocycle 2 (Foundation),Build 1,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+6,Mesocycle 2 (Foundation),Build 1,Tue,Bike,BK_AERO_42,"Aerobic Base Spin (42m Z2, 90 RPM cadence focus)",42.0,27.3,0.0,0.0,15.0,0,0
+6,Mesocycle 2 (Foundation),Build 1,Tue,Strength,STR_SES_A,"Linear Progression A: Barbell Back Squat (3x5 @ 65% 1RM), Barbell Bench Press (3x5 @ 65%), DB Rows (3x8 w/ 50lb DBs), Ab Wheel (3x8)",45.0,30.0,0.0,45.0,50.0,6,4
+6,Mesocycle 2 (Foundation),Build 1,Wed,Run,RN_SES_1_18,Easy Aerobic Run (18m): Continuous Zone 2 conversational jog on flat/treadmill,18.0,14.4,18.0,0.0,20.0,0,0
+6,Mesocycle 2 (Foundation),Build 1,Thu,Bike,BK_QUAL_48,Aerobic Endurance Spin (48m Z2),48.0,25.9,0.0,0.0,25.0,0,0
+6,Mesocycle 2 (Foundation),Build 1,Thu,Run,RN_SES_2_17,Easy Aerobic Run (17m): Continuous Zone 2 jog + 3x 15s gentle cadence strides,17.0,13.6,16.1,0.0,20.0,0,0
+6,Mesocycle 2 (Foundation),Build 1,Fri,Strength,STR_SES_B,"Linear Progression B: Barbell Deadlift (1x5 @ 70% 1RM), Barbell OHP (3x5 @ 65%), Bulgarian Split Squats (3x6/leg w/ 35lb DBs), Neutral Pull-Ups",45.0,32.0,0.0,55.0,55.0,7,4
+6,Mesocycle 2 (Foundation),Build 1,Sat,Bike,BK_LONG_83,Weekend Long Endurance Ride (83m Z2 Non-Impact Base),83.0,56.4,0.0,0.0,20.0,0,0
+6,Mesocycle 2 (Foundation),Build 1,Sun,Run,RN_LONG_22,"Long Aerobic Run (22m): Zone 2 aerobic running, strictly controlled heart rate",22.0,18.7,23.8,0.0,25.0,0,0
+7,Mesocycle 2 (Foundation),Overload,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+7,Mesocycle 2 (Foundation),Overload,Tue,Bike,BK_AERO_45,"Aerobic Base Spin (45m Z2, 90 RPM cadence focus)",45.0,29.2,0.0,0.0,15.0,0,0
+7,Mesocycle 2 (Foundation),Overload,Tue,Strength,STR_SES_A,"Linear Progression A: Barbell Back Squat (3x5 @ 65% 1RM), Barbell Bench Press (3x5 @ 65%), DB Rows (3x8 w/ 50lb DBs), Ab Wheel (3x8)",45.0,30.0,0.0,45.0,50.0,6,4
+7,Mesocycle 2 (Foundation),Overload,Wed,Run,RN_SES_1_19,Easy Aerobic Run (19m): Continuous Zone 2 conversational jog on flat/treadmill,19.0,15.2,19.0,0.0,20.0,0,0
+7,Mesocycle 2 (Foundation),Overload,Thu,Bike,BK_QUAL_51,Aerobic Endurance Spin (51m Z2),51.0,27.5,0.0,0.0,25.0,0,0
+7,Mesocycle 2 (Foundation),Overload,Thu,Run,RN_SES_2_18,Easy Aerobic Run (18m): Continuous Zone 2 jog + 3x 15s gentle cadence strides,18.0,14.4,17.1,0.0,20.0,0,0
+7,Mesocycle 2 (Foundation),Overload,Fri,Strength,STR_SES_B,"Linear Progression B: Barbell Deadlift (1x5 @ 70% 1RM), Barbell OHP (3x5 @ 65%), Bulgarian Split Squats (3x6/leg w/ 35lb DBs), Neutral Pull-Ups",45.0,32.0,0.0,55.0,55.0,7,4
+7,Mesocycle 2 (Foundation),Overload,Sat,Bike,BK_LONG_91,Weekend Long Endurance Ride (91m Z2 Non-Impact Base),91.0,61.9,0.0,0.0,20.0,0,0
+7,Mesocycle 2 (Foundation),Overload,Sun,Run,RN_LONG_22,"Long Aerobic Run (22m): Zone 2 aerobic running, strictly controlled heart rate",22.0,18.7,23.8,0.0,25.0,0,0
+8,Mesocycle 2 (Foundation),Recovery Deload,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+8,Mesocycle 2 (Foundation),Recovery Deload,Tue,Bike,BK_AERO_35,"Aerobic Base Spin (35m Z2, 90 RPM cadence focus)",35.0,22.8,0.0,0.0,15.0,0,0
+8,Mesocycle 2 (Foundation),Recovery Deload,Tue,Strength,STR_SES_A,"Linear Progression A: Barbell Back Squat (3x5 @ 65% 1RM), Barbell Bench Press (3x5 @ 65%), DB Rows (3x8 w/ 50lb DBs), Ab Wheel (3x8)",30.0,15.0,0.0,20.0,25.0,3,2
+8,Mesocycle 2 (Foundation),Recovery Deload,Wed,Run,RN_SES_1_14,Easy Aerobic Run (14m): Continuous Zone 2 conversational jog on flat/treadmill,14.0,11.2,14.0,0.0,20.0,0,0
+8,Mesocycle 2 (Foundation),Recovery Deload,Thu,Bike,BK_QUAL_35,Aerobic Endurance Spin (35m Z2),35.0,18.9,0.0,0.0,25.0,0,0
+8,Mesocycle 2 (Foundation),Recovery Deload,Thu,Run,RN_SES_2_12,Easy Aerobic Run (12m): Continuous Zone 2 jog + 3x 15s gentle cadence strides,12.0,9.6,11.4,0.0,20.0,0,0
+8,Mesocycle 2 (Foundation),Recovery Deload,Fri,Strength,STR_SES_B,"Linear Progression B: Barbell Deadlift (1x5 @ 70% 1RM), Barbell OHP (3x5 @ 65%), Bulgarian Split Squats (3x6/leg w/ 35lb DBs), Neutral Pull-Ups",30.0,15.0,0.0,20.0,25.0,3,2
+8,Mesocycle 2 (Foundation),Recovery Deload,Sat,Bike,BK_LONG_55,Weekend Long Endurance Ride (55m Z2 Non-Impact Base),55.0,37.4,0.0,0.0,20.0,0,0
+8,Mesocycle 2 (Foundation),Recovery Deload,Sun,Run,RN_LONG_16,"Long Aerobic Run (16m): Zone 2 aerobic running, strictly controlled heart rate",16.0,13.6,17.3,0.0,25.0,0,0
+9,Mesocycle 3 (Expansion),Base Load,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+9,Mesocycle 3 (Expansion),Base Load,Tue,Bike,BK_AERO_44,"Aerobic Base Spin (44m Z2, 90 RPM cadence focus)",44.0,28.6,0.0,0.0,15.0,0,0
+9,Mesocycle 3 (Expansion),Base Load,Tue,Strength,STR_SES_A,"HLM Heavy Day: Barbell Back Squat (3x5 @ 75% 1RM), Barbell Bench (3x5 @ 75%), Barbell Bent Row (3x6), Hanging Knee Raises (3x10)",45.0,30.0,0.0,45.0,50.0,6,4
+9,Mesocycle 3 (Expansion),Base Load,Wed,Run,RN_SES_1_19,"Aerobic Base Run (19m): Zone 2 steady jog, 160-165 SPM cadence",19.0,15.2,19.0,0.0,20.0,0,0
+9,Mesocycle 3 (Expansion),Base Load,Thu,Bike,BK_QUAL_50,Quality/Tempo Bike (50m),50.0,35.2,0.0,0.0,25.0,0,0
+9,Mesocycle 3 (Expansion),Base Load,Thu,Run,RN_SES_2_18,Aerobic Run + Strides (18m): 20m Z2 + 4x 20s relaxed strides (Zone 4) w/ 60s walk rec,18.0,14.4,17.1,0.0,20.0,0,0
+9,Mesocycle 3 (Expansion),Base Load,Fri,Strength,STR_SES_B,"HLM Intensity Day: Barbell Deadlift (1x5 @ 80% 1RM), Barbell OHP (3x5 @ 75%), DB Bulgarian Split Squats (3x6/leg w/ 50lb DBs), Chins (3x6)",45.0,32.0,0.0,55.0,55.0,7,4
+9,Mesocycle 3 (Expansion),Base Load,Sat,Bike,BK_LONG_89,Weekend Long Endurance Ride (89m Z2 Non-Impact Base),89.0,60.5,0.0,0.0,20.0,0,0
+9,Mesocycle 3 (Expansion),Base Load,Sun,Run,RN_LONG_22,"Weekend Long Run (22m): Steady Zone 2 aerobic durability, 40h after Fri Deadlift",22.0,18.7,23.8,0.0,25.0,0,0
+10,Mesocycle 3 (Expansion),Build 1,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+10,Mesocycle 3 (Expansion),Build 1,Tue,Bike,BK_AERO_47,"Aerobic Base Spin (47m Z2, 90 RPM cadence focus)",47.0,30.6,0.0,0.0,15.0,0,0
+10,Mesocycle 3 (Expansion),Build 1,Tue,Strength,STR_SES_A,"HLM Heavy Day: Barbell Back Squat (3x5 @ 75% 1RM), Barbell Bench (3x5 @ 75%), Barbell Bent Row (3x6), Hanging Knee Raises (3x10)",45.0,30.0,0.0,45.0,50.0,6,4
+10,Mesocycle 3 (Expansion),Build 1,Wed,Run,RN_SES_1_20,"Aerobic Base Run (20m): Zone 2 steady jog, 160-165 SPM cadence",20.0,16.0,20.0,0.0,20.0,0,0
+10,Mesocycle 3 (Expansion),Build 1,Thu,Bike,BK_QUAL_53,Quality/Tempo Bike (53m),53.0,37.3,0.0,0.0,25.0,0,0
+10,Mesocycle 3 (Expansion),Build 1,Thu,Run,RN_SES_2_18,Aerobic Run + Strides (18m): 20m Z2 + 4x 20s relaxed strides (Zone 4) w/ 60s walk rec,18.0,14.4,17.1,0.0,20.0,0,0
+10,Mesocycle 3 (Expansion),Build 1,Fri,Strength,STR_SES_B,"HLM Intensity Day: Barbell Deadlift (1x5 @ 80% 1RM), Barbell OHP (3x5 @ 75%), DB Bulgarian Split Squats (3x6/leg w/ 50lb DBs), Chins (3x6)",45.0,32.0,0.0,55.0,55.0,7,4
+10,Mesocycle 3 (Expansion),Build 1,Sat,Bike,BK_LONG_98,Weekend Long Endurance Ride (98m Z2 Non-Impact Base),98.0,66.6,0.0,0.0,20.0,0,0
+10,Mesocycle 3 (Expansion),Build 1,Sun,Run,RN_LONG_24,"Weekend Long Run (24m): Steady Zone 2 aerobic durability, 40h after Fri Deadlift",24.0,20.4,25.9,0.0,25.0,0,0
+11,Mesocycle 3 (Expansion),Overload,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+11,Mesocycle 3 (Expansion),Overload,Tue,Bike,BK_AERO_49,"Aerobic Base Spin (49m Z2, 90 RPM cadence focus)",49.0,31.9,0.0,0.0,15.0,0,0
+11,Mesocycle 3 (Expansion),Overload,Tue,Strength,STR_SES_A,"HLM Heavy Day: Barbell Back Squat (3x5 @ 75% 1RM), Barbell Bench (3x5 @ 75%), Barbell Bent Row (3x6), Hanging Knee Raises (3x10)",45.0,30.0,0.0,45.0,50.0,6,4
+11,Mesocycle 3 (Expansion),Overload,Wed,Run,RN_SES_1_21,"Aerobic Base Run (21m): Zone 2 steady jog, 160-165 SPM cadence",21.0,16.8,21.0,0.0,20.0,0,0
+11,Mesocycle 3 (Expansion),Overload,Thu,Bike,BK_QUAL_55,Quality/Tempo Bike (55m),55.0,38.7,0.0,0.0,25.0,0,0
+11,Mesocycle 3 (Expansion),Overload,Thu,Run,RN_SES_2_19,Aerobic Run + Strides (19m): 20m Z2 + 4x 20s relaxed strides (Zone 4) w/ 60s walk rec,19.0,15.2,18.1,0.0,20.0,0,0
+11,Mesocycle 3 (Expansion),Overload,Fri,Strength,STR_SES_B,"HLM Intensity Day: Barbell Deadlift (1x5 @ 80% 1RM), Barbell OHP (3x5 @ 75%), DB Bulgarian Split Squats (3x6/leg w/ 50lb DBs), Chins (3x6)",45.0,32.0,0.0,55.0,55.0,7,4
+11,Mesocycle 3 (Expansion),Overload,Sat,Bike,BK_LONG_106,Weekend Long Endurance Ride (106m Z2 Non-Impact Base),106.0,72.1,0.0,0.0,20.0,0,0
+11,Mesocycle 3 (Expansion),Overload,Sun,Run,RN_LONG_24,"Weekend Long Run (24m): Steady Zone 2 aerobic durability, 40h after Fri Deadlift",24.0,20.4,25.9,0.0,25.0,0,0
+12,Mesocycle 3 (Expansion),Recovery Deload,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+12,Mesocycle 3 (Expansion),Recovery Deload,Tue,Bike,BK_AERO_35,"Aerobic Base Spin (35m Z2, 90 RPM cadence focus)",35.0,22.8,0.0,0.0,15.0,0,0
+12,Mesocycle 3 (Expansion),Recovery Deload,Tue,Strength,STR_SES_A,"HLM Heavy Day: Barbell Back Squat (3x5 @ 75% 1RM), Barbell Bench (3x5 @ 75%), Barbell Bent Row (3x6), Hanging Knee Raises (3x10)",30.0,15.0,0.0,20.0,25.0,3,2
+12,Mesocycle 3 (Expansion),Recovery Deload,Wed,Run,RN_SES_1_14,"Aerobic Base Run (14m): Zone 2 steady jog, 160-165 SPM cadence",14.0,11.2,14.0,0.0,20.0,0,0
+12,Mesocycle 3 (Expansion),Recovery Deload,Thu,Bike,BK_QUAL_35,Aerobic Endurance Spin (35m Z2),35.0,24.6,0.0,0.0,25.0,0,0
+12,Mesocycle 3 (Expansion),Recovery Deload,Thu,Run,RN_SES_2_12,Aerobic Run + Strides (12m): 20m Z2 + 4x 20s relaxed strides (Zone 4) w/ 60s walk rec,12.0,9.6,11.4,0.0,20.0,0,0
+12,Mesocycle 3 (Expansion),Recovery Deload,Fri,Strength,STR_SES_B,"HLM Intensity Day: Barbell Deadlift (1x5 @ 80% 1RM), Barbell OHP (3x5 @ 75%), DB Bulgarian Split Squats (3x6/leg w/ 50lb DBs), Chins (3x6)",30.0,15.0,0.0,20.0,25.0,3,2
+12,Mesocycle 3 (Expansion),Recovery Deload,Sat,Bike,BK_LONG_57,Weekend Long Endurance Ride (57m Z2 Non-Impact Base),57.0,38.8,0.0,0.0,20.0,0,0
+12,Mesocycle 3 (Expansion),Recovery Deload,Sun,Run,RN_LONG_16,"Weekend Long Run (16m): Steady Zone 2 aerobic durability, 40h after Fri Deadlift",16.0,13.6,17.3,0.0,25.0,0,0
+13,Mesocycle 4 (Sub-Threshold),Base Load,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+13,Mesocycle 4 (Sub-Threshold),Base Load,Tue,Bike,BK_AERO_48,"Aerobic Base Spin (48m Z2, 90 RPM cadence focus)",48.0,31.2,0.0,0.0,15.0,0,0
+13,Mesocycle 4 (Sub-Threshold),Base Load,Tue,Strength,STR_SES_A,"Texas Volume Day: Barbell Back Squat (4x5 @ 75% 1RM), Barbell Bench (4x5 @ 75%), DB Row (3x8 w/ 65lb DB), Core Rollouts",45.0,30.0,0.0,45.0,50.0,6,4
+13,Mesocycle 4 (Sub-Threshold),Base Load,Wed,Run,RN_SES_1_21,Aerobic Base Run (21m): Zone 2 steady jog,21.0,16.8,21.0,0.0,20.0,0,0
+13,Mesocycle 4 (Sub-Threshold),Base Load,Thu,Bike,BK_QUAL_54,Quality/Tempo Bike (54m),54.0,38.0,0.0,0.0,25.0,0,0
+13,Mesocycle 4 (Sub-Threshold),Base Load,Thu,Run,RN_SES_2_19,"Sub-Threshold Tempo Run (19m): 10m warmup, 2x 8m Zone 3 Tempo w/ 2m jog rec, 5m cooldown",19.0,15.2,18.1,0.0,20.0,0,0
+13,Mesocycle 4 (Sub-Threshold),Base Load,Fri,Strength,STR_SES_B,"Texas Intensity Day: Barbell Deadlift (1x3 @ 85% 1RM), Barbell OHP (3x3 @ 82.5%), Single-Leg DB RDL (3x6/leg w/ 55lb DBs), Weighted Chins",45.0,32.0,0.0,55.0,55.0,7,4
+13,Mesocycle 4 (Sub-Threshold),Base Load,Sat,Bike,BK_LONG_102,Weekend Long Endurance Ride (102m Z2 Non-Impact Base),102.0,69.4,0.0,0.0,20.0,0,0
+13,Mesocycle 4 (Sub-Threshold),Base Load,Sun,Run,RN_LONG_24,"Weekend Long Run (24m): Zone 2 durability, strictly capped duration",24.0,20.4,25.9,0.0,25.0,0,0
+14,Mesocycle 4 (Sub-Threshold),Build 1,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+14,Mesocycle 4 (Sub-Threshold),Build 1,Tue,Bike,BK_AERO_51,"Aerobic Base Spin (51m Z2, 90 RPM cadence focus)",51.0,33.1,0.0,0.0,15.0,0,0
+14,Mesocycle 4 (Sub-Threshold),Build 1,Tue,Strength,STR_SES_A,"Texas Volume Day: Barbell Back Squat (4x5 @ 75% 1RM), Barbell Bench (4x5 @ 75%), DB Row (3x8 w/ 65lb DB), Core Rollouts",45.0,30.0,0.0,45.0,50.0,6,4
+14,Mesocycle 4 (Sub-Threshold),Build 1,Wed,Run,RN_SES_1_21,Aerobic Base Run (21m): Zone 2 steady jog,21.0,16.8,21.0,0.0,20.0,0,0
+14,Mesocycle 4 (Sub-Threshold),Build 1,Thu,Bike,BK_QUAL_57,Quality/Tempo Bike (57m),57.0,40.1,0.0,0.0,25.0,0,0
+14,Mesocycle 4 (Sub-Threshold),Build 1,Thu,Run,RN_SES_2_20,"Sub-Threshold Tempo Run (20m): 10m warmup, 2x 8m Zone 3 Tempo w/ 2m jog rec, 5m cooldown",20.0,16.0,19.0,0.0,20.0,0,0
+14,Mesocycle 4 (Sub-Threshold),Build 1,Fri,Strength,STR_SES_B,"Texas Intensity Day: Barbell Deadlift (1x3 @ 85% 1RM), Barbell OHP (3x3 @ 82.5%), Single-Leg DB RDL (3x6/leg w/ 55lb DBs), Weighted Chins",45.0,32.0,0.0,55.0,55.0,7,4
+14,Mesocycle 4 (Sub-Threshold),Build 1,Sat,Bike,BK_LONG_111,Weekend Long Endurance Ride (111m Z2 Non-Impact Base),111.0,75.5,0.0,0.0,20.0,0,0
+14,Mesocycle 4 (Sub-Threshold),Build 1,Sun,Run,RN_LONG_26,"Weekend Long Run (26m): Zone 2 durability, strictly capped duration",26.0,22.1,28.1,0.0,25.0,0,0
+15,Mesocycle 4 (Sub-Threshold),Peak Overload,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+15,Mesocycle 4 (Sub-Threshold),Peak Overload,Tue,Bike,BK_AERO_53,"Aerobic Base Spin (53m Z2, 90 RPM cadence focus)",53.0,34.5,0.0,0.0,15.0,0,0
+15,Mesocycle 4 (Sub-Threshold),Peak Overload,Tue,Strength,STR_SES_A,"Texas Volume Day: Barbell Back Squat (4x5 @ 75% 1RM), Barbell Bench (4x5 @ 75%), DB Row (3x8 w/ 65lb DB), Core Rollouts",45.0,30.0,0.0,45.0,50.0,6,4
+15,Mesocycle 4 (Sub-Threshold),Peak Overload,Wed,Run,RN_SES_1_22,Aerobic Base Run (22m): Zone 2 steady jog,22.0,17.6,22.0,0.0,20.0,0,0
+15,Mesocycle 4 (Sub-Threshold),Peak Overload,Thu,Bike,BK_QUAL_60,Quality/Tempo Bike (60m),60.0,42.2,0.0,0.0,25.0,0,0
+15,Mesocycle 4 (Sub-Threshold),Peak Overload,Thu,Run,RN_SES_2_20,"Sub-Threshold Tempo Run (20m): 10m warmup, 2x 8m Zone 3 Tempo w/ 2m jog rec, 5m cooldown",20.0,16.0,19.0,0.0,20.0,0,0
+15,Mesocycle 4 (Sub-Threshold),Peak Overload,Fri,Strength,STR_SES_B,"Texas Intensity Day: Barbell Deadlift (1x3 @ 85% 1RM), Barbell OHP (3x3 @ 82.5%), Single-Leg DB RDL (3x6/leg w/ 55lb DBs), Weighted Chins",45.0,32.0,0.0,55.0,55.0,7,4
+15,Mesocycle 4 (Sub-Threshold),Peak Overload,Sat,Bike,BK_LONG_118,Weekend Long Endurance Ride (118m Z2 Non-Impact Base),118.0,80.2,0.0,0.0,20.0,0,0
+15,Mesocycle 4 (Sub-Threshold),Peak Overload,Sun,Run,RN_LONG_26,"Weekend Long Run (26m): Zone 2 durability, strictly capped duration",26.0,22.1,28.1,0.0,25.0,0,0
+16,Mesocycle 4 (Sub-Threshold),Recovery Deload,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+16,Mesocycle 4 (Sub-Threshold),Recovery Deload,Tue,Bike,BK_AERO_35,"Aerobic Base Spin (35m Z2, 90 RPM cadence focus)",35.0,22.8,0.0,0.0,15.0,0,0
+16,Mesocycle 4 (Sub-Threshold),Recovery Deload,Tue,Strength,STR_SES_A,"Texas Volume Day: Barbell Back Squat (4x5 @ 75% 1RM), Barbell Bench (4x5 @ 75%), DB Row (3x8 w/ 65lb DB), Core Rollouts",30.0,15.0,0.0,20.0,25.0,3,2
+16,Mesocycle 4 (Sub-Threshold),Recovery Deload,Wed,Run,RN_SES_1_14,Aerobic Base Run (14m): Zone 2 steady jog,14.0,11.2,14.0,0.0,20.0,0,0
+16,Mesocycle 4 (Sub-Threshold),Recovery Deload,Thu,Bike,BK_QUAL_35,Aerobic Endurance Spin (35m Z2),35.0,24.6,0.0,0.0,25.0,0,0
+16,Mesocycle 4 (Sub-Threshold),Recovery Deload,Thu,Run,RN_SES_2_12,"Sub-Threshold Tempo Run (12m): 10m warmup, 2x 8m Zone 3 Tempo w/ 2m jog rec, 5m cooldown",12.0,9.6,11.4,0.0,20.0,0,0
+16,Mesocycle 4 (Sub-Threshold),Recovery Deload,Fri,Strength,STR_SES_B,"Texas Intensity Day: Barbell Deadlift (1x3 @ 85% 1RM), Barbell OHP (3x3 @ 82.5%), Single-Leg DB RDL (3x6/leg w/ 55lb DBs), Weighted Chins",30.0,15.0,0.0,20.0,25.0,3,2
+16,Mesocycle 4 (Sub-Threshold),Recovery Deload,Sat,Bike,BK_LONG_59,Weekend Long Endurance Ride (59m Z2 Non-Impact Base),59.0,40.1,0.0,0.0,20.0,0,0
+16,Mesocycle 4 (Sub-Threshold),Recovery Deload,Sun,Run,RN_LONG_16,"Weekend Long Run (16m): Zone 2 durability, strictly capped duration",16.0,13.6,17.3,0.0,25.0,0,0
+17,Mesocycle 5 (Peak & Test),Peak Volume 1,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+17,Mesocycle 5 (Peak & Test),Peak Volume 1,Tue,Bike,BK_AERO_54,"Aerobic Base Spin (54m Z2, 90 RPM cadence focus)",54.0,35.1,0.0,0.0,15.0,0,0
+17,Mesocycle 5 (Peak & Test),Peak Volume 1,Tue,Strength,STR_SES_A,"Peak Volume Day: Barbell Back Squat (3x5 @ 77.5% 1RM), Barbell Bench (3x5 @ 77.5%), Heavy DB Row (3x6 w/ 75lb DBs)",45.0,30.0,0.0,45.0,50.0,6,4
+17,Mesocycle 5 (Peak & Test),Peak Volume 1,Wed,Run,RN_SES_1_22,Aerobic Base Run (22m): Zone 2 steady,22.0,17.6,22.0,0.0,20.0,0,0
+17,Mesocycle 5 (Peak & Test),Peak Volume 1,Thu,Bike,BK_QUAL_61,Quality/Tempo Bike (61m),61.0,37.7,0.0,0.0,25.0,0,0
+17,Mesocycle 5 (Peak & Test),Peak Volume 1,Thu,Run,RN_SES_2_20,"Aerobic Tempo Run (20m): 10m warmup, 2x 10m Z3 Tempo w/ 2m jog rec, 5m cooldown",20.0,16.0,19.0,0.0,20.0,0,0
+17,Mesocycle 5 (Peak & Test),Peak Volume 1,Fri,Strength,STR_SES_B,"Peak Intensity Day: Barbell Deadlift (1x3 @ 87.5% 1RM), Barbell OHP (3x3 @ 85%), DB Split Squat (2x6/leg), Chins",45.0,32.0,0.0,55.0,55.0,7,4
+17,Mesocycle 5 (Peak & Test),Peak Volume 1,Sat,Bike,BK_LONG_122,Weekend Long Endurance Ride (122m Z2 Non-Impact Base),122.0,83.0,0.0,0.0,20.0,0,0
+17,Mesocycle 5 (Peak & Test),Peak Volume 1,Sun,Run,RN_LONG_27,Peak Weekend Long Run (27m): Zone 2 steady aerobic benchmark,27.0,22.9,29.2,0.0,25.0,0,0
+18,Mesocycle 5 (Peak & Test),Peak Volume 2,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+18,Mesocycle 5 (Peak & Test),Peak Volume 2,Tue,Bike,BK_AERO_56,"Aerobic Base Spin (56m Z2, 90 RPM cadence focus)",56.0,36.4,0.0,0.0,15.0,0,0
+18,Mesocycle 5 (Peak & Test),Peak Volume 2,Tue,Strength,STR_SES_A,"Peak Volume Day: Barbell Back Squat (3x5 @ 77.5% 1RM), Barbell Bench (3x5 @ 77.5%), Heavy DB Row (3x6 w/ 75lb DBs)",45.0,30.0,0.0,45.0,50.0,6,4
+18,Mesocycle 5 (Peak & Test),Peak Volume 2,Wed,Run,RN_SES_1_23,Aerobic Base Run (23m): Zone 2 steady,23.0,18.4,23.0,0.0,20.0,0,0
+18,Mesocycle 5 (Peak & Test),Peak Volume 2,Thu,Bike,BK_QUAL_63,Quality/Tempo Bike (63m),63.0,39.0,0.0,0.0,25.0,0,0
+18,Mesocycle 5 (Peak & Test),Peak Volume 2,Thu,Run,RN_SES_2_21,"Aerobic Tempo Run (21m): 10m warmup, 2x 10m Z3 Tempo w/ 2m jog rec, 5m cooldown",21.0,16.8,19.9,0.0,20.0,0,0
+18,Mesocycle 5 (Peak & Test),Peak Volume 2,Fri,Strength,STR_SES_B,"Peak Intensity Day: Barbell Deadlift (1x3 @ 87.5% 1RM), Barbell OHP (3x3 @ 85%), DB Split Squat (2x6/leg), Chins",45.0,32.0,0.0,55.0,55.0,7,4
+18,Mesocycle 5 (Peak & Test),Peak Volume 2,Sat,Bike,BK_LONG_128,Weekend Long Endurance Ride (128m Z2 Non-Impact Base),128.0,87.0,0.0,0.0,20.0,0,0
+18,Mesocycle 5 (Peak & Test),Peak Volume 2,Sun,Run,RN_LONG_28,Peak Weekend Long Run (28m): Zone 2 steady aerobic benchmark,28.0,23.8,30.2,0.0,25.0,0,0
+19,Mesocycle 5 (Peak & Test),Benchmark Testing,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+19,Mesocycle 5 (Peak & Test),Benchmark Testing,Tue,Bike,BK_AERO_60,"Aerobic Base Spin (60m Z2, 90 RPM cadence focus)",60.0,80.0,0.0,0.0,15.0,0,0
+19,Mesocycle 5 (Peak & Test),Benchmark Testing,Tue,Strength,STR_SES_A,BENCHMARK STRENGTH TEST 1: Barbell Back Squat 5RM Ramp Test + Barbell Bench Press 5RM Ramp Test,45.0,30.0,0.0,45.0,50.0,6,4
+19,Mesocycle 5 (Peak & Test),Benchmark Testing,Wed,Rest,REST,Rest / Recovery Walk,0.0,0.0,0.0,0.0,0.0,0,0
+19,Mesocycle 5 (Peak & Test),Benchmark Testing,Thu,Bike,BK_QUAL_45,Aerobic Endurance Spin (45m Z2),45.0,22.0,0.0,0.0,25.0,0,0
+19,Mesocycle 5 (Peak & Test),Benchmark Testing,Fri,Strength,STR_SES_B,BENCHMARK STRENGTH TEST 2: Barbell Deadlift 5RM Ramp Test + Barbell Overhead Press 5RM Ramp Test,45.0,28.0,0.0,60.0,65.0,7,4
+19,Mesocycle 5 (Peak & Test),Benchmark Testing,Sat,Bike,BK_LONG_40,Weekend Long Endurance Ride (40m Z2 Non-Impact Base),40.0,18.0,0.0,0.0,20.0,0,0
+19,Mesocycle 5 (Peak & Test),Benchmark Testing,Sun,Run,RN_LONG_45,"5K RUN BENCHMARK TIME TRIAL: 15m warmup jog, 5.0 km Continuous Best-Effort Pacing, 10m walk cooldown",45.0,50.0,55.0,0.0,25.0,0,0
+20,Mesocycle 5 (Peak & Test),Graduation Deload,Mon,Rest,REST,"Full Rest & Regeneration Mobility (Couch stretch, 90/90 hip flow, thoracic rolling)",0.0,0.0,0.0,0.0,0.0,0,0
+20,Mesocycle 5 (Peak & Test),Graduation Deload,Tue,Bike,BK_AERO_35,"Aerobic Base Spin (35m Z2, 90 RPM cadence focus)",35.0,22.8,0.0,0.0,15.0,0,0
+20,Mesocycle 5 (Peak & Test),Graduation Deload,Tue,Strength,STR_SES_A,"Regeneration Strength: Bodyweight & Band Flow, 90/90 Hips, Light Goblet Squats (2x8 w/ 35lb DB), Face Pulls",30.0,15.0,0.0,20.0,25.0,3,2
+20,Mesocycle 5 (Peak & Test),Graduation Deload,Wed,Run,RN_SES_1_14,Active Recovery Jog (14m): Zone 1/2 very light,14.0,11.2,14.0,0.0,20.0,0,0
+20,Mesocycle 5 (Peak & Test),Graduation Deload,Thu,Bike,BK_QUAL_35,Aerobic Endurance Spin (35m Z2),35.0,21.7,0.0,0.0,25.0,0,0
+20,Mesocycle 5 (Peak & Test),Graduation Deload,Thu,Run,RN_SES_2_12,Active Recovery Jog (12m): Zone 1/2 light spin/jog,12.0,9.6,11.4,0.0,20.0,0,0
+20,Mesocycle 5 (Peak & Test),Graduation Deload,Fri,Strength,STR_SES_B,"Regeneration Mobility: Foam Rolling, Thoracic Extensions, Light DB RDL (2x8 w/ 35lb DBs), Bird-Dogs, Planks",30.0,15.0,0.0,20.0,25.0,3,2
+20,Mesocycle 5 (Peak & Test),Graduation Deload,Sat,Bike,BK_LONG_50,Weekend Long Endurance Ride (50m Z2 Non-Impact Base),50.0,34.0,0.0,0.0,20.0,0,0
+20,Mesocycle 5 (Peak & Test),Graduation Deload,Sun,Run,RN_LONG_16,Aerobic Shakeout (16m): Gentle Zone 1/2 run,16.0,13.6,17.3,0.0,25.0,0,0
