@@ -65,6 +65,7 @@ class LoadState:
     acwr_eps: float = 0.0            # epsilon_floor in running-strain units (ADR-019)
     ctl_ramp_max: Optional[float] = None          # max weekly CTL gain (points); None = no row
     run_minutes_cap: Optional[float] = None       # absolute weekly run minutes cap (re-entry guard); None = off
+    reentry: bool = False                         # run CTL below the re-entry exit (ADR-012 / ADR-022 ceiling)
 
 
 @dataclass
@@ -74,6 +75,7 @@ class WeekCarryIn:
     day_m2: DayLoad = field(default_factory=DayLoad)    # Saturday before
     load: Optional[LoadState] = None
     prev_run_minutes: float = 0.0
+    prev_longest_run_min: float = 0.0     # longest single run of the previous week (ADR-022); held through run-free weeks
     prev_week_tss: float = 0.0
     last_test_week: Dict[str, int] = field(default_factory=dict)   # ADR-011 CP/CSS test hand-off (TASK-026)
 

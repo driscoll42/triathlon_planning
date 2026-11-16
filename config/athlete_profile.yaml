@@ -46,6 +46,9 @@ max_running_acwr: 1.25
 reentry_run_ctl_exit: 15.0
 reentry_run_minutes_floor: 60.0
 max_weekly_run_minutes_increase: 15.0
+long_run_step_min: 10.0
+long_run_floor_min: 30.0
+reentry_long_run_max_min: 45.0
 reentry_phase: true
 reentry_heavy_strength_sessions: 0
 default_run_surface: outdoor
