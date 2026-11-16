@@ -63,7 +63,7 @@
 - **TASK-030 (`ADR-016`):** The counted core is now the charter's §1 read list (`STATE_SUMMARY`, `LODE_MAP`, `INVARIANTS`, `TASKS`, `SPEC.md`). The harness-loaded charter (`GEMINI.md`) is excluded. `TASKS.md` is a one-line index, and full specs moved to `docs/BACKLOG.md`. `STATE_SUMMARY.md` was deduplicated against `CLAUDE.md` §5. The `LODE_MAP.md` core header now renders from `docs/lode.json`. Result: 10,968 → ~6,700 tokens (PASS).
 - **TASK-031:** New `src/triplan/paths.py` (`REPO_ROOT`, `CONFIG_DIR`, `DATA_DIR`, `TRAINING_PLANS_DIR`, `training_plan_path()`). These now use it: `cli.py` (new `season_summary_path()`), `loader.ROOT`/`LIBRARY_PATH`, `PROFILE_PATH`, `scripts/{compare_all_plans,generate_level0_hybrid_20w,simulate_level0_comparison,sync_garmin_data}.py`, `clean_file` (dropped the cwd-first lookups) and `io/trainingpeaks.py`. The latter now loads credentials only from `config/` under the repo root; the cwd and root `.env` fallbacks are gone. `control/season.py` had no file I/O. Added `tests/test_paths.py` (4 tests). Suite: 157 pass.
 
-## Phase 2 — TASK-015 — completed 2026-11-16 (PR #PRNUM)
+## Phase 2 — TASK-015 — completed 2026-11-16 (PR #2)
 
 - [x] **`TASK-015` (`optimizer`):** **Unified `WeekModel` Engine Architecture** — Consolidate `HybridAthleteMILPOptimizer`, `TriathlonMILPScheduler`, and `highs_optimization.optimize_weekly_schedule` into ONE engine using sparse numpy construction, dimensionless `add_soft_goal` deviations, and modular constraint builders.
 
