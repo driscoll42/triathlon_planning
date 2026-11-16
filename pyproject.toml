@@ -37,4 +37,7 @@ include = ["triplan*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra"
+addopts = "-ra -m \"not slow\""
+markers = [
+    "slow: full multi-distance season matrix (TASK-027); run with -m slow or python -m triplan.perf.season_validation",
+]

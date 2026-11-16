@@ -1,5 +1,6 @@
 """High-level season pipeline: plan formatting and closed-loop season schedule generation."""
 
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Any
 import pandas as pd
 import logging
@@ -12,9 +13,30 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import apply_deload_relief, build_season_matrix, filter_test_workouts, normalize_distance
+from triplan.control.feasibility import season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class WeekRecord:
+    """Everything an independent checker needs about one solved week (TASK-027): the schedule, the limits the
+    week was solved under, the carry-in it consumed and the solver's own relaxation / diagnostic reports."""
+    week_num: int
+    phase: str
+    step_type: str
+    role: str
+    block: str
+    target_tss: float
+    status: Optional[str]
+    solved: bool
+    schedule: Dict[int, List[Any]]
+    limits: Any = None          # SafetyLimits the week was solved under
+    cfg: Any = None             # normalized MesoCycleTargetsAndConstraints actually solved
+    carry: Any = None           # WeekCarryIn consumed by this week's MILP
+    relaxations: List[Dict[str, Any]] = field(default_factory=list)
+    diagnostics: List[str] = field(default_factory=list)
 
 
 def format_plan_to_dataframe(plan: Dict[str, Any], week_num: int = 1, phase_name: str = "Base") -> pd.DataFrame:
@@ -73,6 +95,7 @@ def generate_closed_loop_season_schedule(
     perturbations: Optional[Dict[int, Dict[str, Any]]] = None,
     weeks_to_race: Optional[int] = None,
     reentry_weeks: Optional[int] = None,
+    collect: Optional[List["WeekRecord"]] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates a full periodized multi-month triathlon season plan (Olympic or 70.3)
@@ -82,6 +105,10 @@ def generate_closed_loop_season_schedule(
     Tier 2: Receding-horizon adaptive feedback monitoring Banister PMC (CTL/ATL/TSB),
             connective tissue remodeling (M(t)/C(t) ODI), and running mechanical EWMA ACWR.
     Tier 1: Perturbation support (illness, pool closure, sudden travel).
+
+    ``collect``: optional list that receives one ``WeekRecord`` per week (schedule, limits, carry-in) for
+    independent validation (``triplan.perf.season_validation``). The season-level infeasibility diagnosis
+    (TASK-027) is attached as ``summary.attrs["infeasibility"]`` and printed.
     """
     if profile is None:
         try:
@@ -223,6 +250,7 @@ def generate_closed_loop_season_schedule(
         plans = scheduler.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
 
         plan = plans[0] if plans else None
+        solved_ok = plan is not None
         if plan is None:
             # TASK-016: no profile-discarding fallback. An unsolvable week is reported with its plain-English
             # Tier-0 diagnostics and treated as a rest week; it is never silently replaced by another config.
@@ -234,6 +262,13 @@ def generate_closed_loop_season_schedule(
                 "diagnostics": reasons, "schedule": {d: [] for d in range(7)}, "total_tss": 0.0,
                 "total_mech_strain": 0.0, "total_ans_cost": 0.0, "max_single_run_ratio": 0.0,
             }
+        if collect is not None:
+            collect.append(WeekRecord(
+                week_num=week_num, phase=phase_name, step_type=step_type, role=wk.role, block=wk.block,
+                target_tss=target_tss, status=plan.get("status"), solved=solved_ok,
+                schedule={d: list(plan["schedule"][d]) for d in range(7)}, limits=scheduler.limits,
+                cfg=scheduler.cfg, carry=carry, relaxations=list(plan.get("relaxations", [])),
+                diagnostics=list(plan.get("diagnostics", []))))
         if plan:
             for day_wkts in plan["schedule"].values():
                 for w in day_wkts:
@@ -294,6 +329,12 @@ def generate_closed_loop_season_schedule(
 
     daily_season_df = pd.concat(all_daily_rows, ignore_index=True) if all_daily_rows else pd.DataFrame()
     summary_season_df = pd.DataFrame(season_summary_rows)
+    infeasibility = season_infeasibility_report(summary_season_df, profile, dist, lib) if profile is not None else []
+    summary_season_df.attrs["infeasibility"] = infeasibility
+    if infeasibility:
+        print("\nSEASON INFEASIBILITY DIAGNOSIS:")
+        for m in infeasibility:
+            print(f"  - {m}")
     return daily_season_df, summary_season_df
 
 
