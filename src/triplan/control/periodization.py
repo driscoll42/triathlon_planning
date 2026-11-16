@@ -39,6 +39,32 @@ ROLE_CONFIG_NAME = {"base": "Base", "build": "Build", "overload": "Build 2 Overl
                     "recovery": "Recovery Deload", "taper": "Taper", "race": "Race Week"}
 
 
+DELOAD_ROLES = ("recovery", "taper", "race")
+DELOAD_MAX_REST_DAYS = 4      # a deload week may hold up to 4 rest days (>= 3 training days)
+
+
+def apply_deload_relief(cfg, role: str) -> bool:
+    """TASK-034: scale the full-week structure minimums down in recovery / taper / race weeks.
+
+    The week structure minimums (>= 2 key sessions, >= 2 stride sessions, >= 2 Bike / Run sessions, at most 2
+    rest days, i.e. >= 5 training days) were each a Tier-1 slack that costs more than the Tier-2 TSS goal, so
+    together they set a ~160 TSS floor and a deload target of 72-112 TSS solved at 126-146 (the TSS goal is
+    soft). In deload roles each minimum (key sessions, strides, Bike / Run frequency) is halved (rounded up, never below 1) and the rest-day maximum is
+    raised to :data:`DELOAD_MAX_REST_DAYS`. Tier-0 caps, maxima and the profile are untouched; the profile's
+    own full-week values apply in every other role. Returns True when ``cfg`` was changed.
+    """
+    if role not in DELOAD_ROLES:
+        return False
+    klo, khi = cfg.key_sessions_per_week
+    # Race week: the race is the key session, so no key-session minimum (recovery / taper keep >= 1).
+    cfg.key_sessions_per_week = (0 if role == "race" else min(klo, max(1, -(-klo // 2))), khi)
+    cfg.min_stride_sessions = min(cfg.min_stride_sessions, max(1, -(-cfg.min_stride_sessions // 2)))
+    cfg.sport_freq_bounds = {sp: ((min(lo, max(1, -(-lo // 2))) if sp in ("Bike", "Run") else lo), hi)
+                             for sp, (lo, hi) in cfg.sport_freq_bounds.items()}
+    cfg.max_rest_days = max(cfg.max_rest_days, DELOAD_MAX_REST_DAYS)
+    return True
+
+
 @dataclass(frozen=True)
 class SeasonWeek:
     week_num: int

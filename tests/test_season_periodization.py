@@ -136,3 +136,42 @@ def test_full_season_schedules_heavy_lifts_in_race_block_builds_not_reentry(olym
     assert heavy.Week.isin(builds).sum() >= 1
     assert heavy.Week.nunique() >= 6
     assert not summary.Recalibration.astype(str).str.contains("HEAVY_STRENGTH_LIMITED").any()
+
+
+# ----------------------------------------------------------------------------- TASK-034 deload relief
+
+def test_deload_relief_scales_minimums_only_in_deload_roles():
+    from triplan.control.periodization import apply_deload_relief
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE as P
+
+    base = P.to_mesocycle_config("Build")
+    for role in ("base", "build", "overload"):
+        cfg = P.to_mesocycle_config("Build")
+        assert apply_deload_relief(cfg, role) is False and cfg.__dict__ == base.__dict__
+    for role, klo in (("recovery", 1), ("taper", 1), ("race", 0)):
+        cfg = P.to_mesocycle_config("Build")
+        assert apply_deload_relief(cfg, role) is True
+        assert cfg.key_sessions_per_week == (klo, 3) and cfg.min_stride_sessions == 1 and cfg.max_rest_days == 4
+        assert cfg.sport_freq_bounds["Bike"] == (1, 3) and cfg.sport_freq_bounds["Run"] == (1, 3)
+        assert cfg.sport_freq_bounds["Strength"] == base.sport_freq_bounds["Strength"]      # not scaled
+        # no maximum / Tier-0 cap changed
+        for f in ("max_daily_axial_load", "max_weekly_axial_load", "max_daily_neuro_load", "max_48h_ans_cost",
+                  "max_weekly_run_mech_strain", "max_single_run_vol_ratio"):
+            assert getattr(cfg, f) == getattr(base, f)
+
+
+def test_recovery_week_solves_well_below_full_week_floor(default_library):
+    from triplan.control.periodization import apply_deload_relief
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE as P
+    from triplan.solver.scheduler import TriathlonMILPScheduler
+
+    def solve(relief):
+        cfg = P.to_mesocycle_config("Recovery Deload", tss_target=72.0)
+        cfg.target_weekly_tss = 72.0
+        if relief:
+            apply_deload_relief(cfg, "recovery")
+        plans = TriathlonMILPScheduler(default_library, cfg).solve_top_k_plans(k_plans=1, time_limit=5.0)
+        return plans[0]["total_tss"]
+
+    full, relieved = solve(False), solve(True)
+    assert full > 200 and relieved < 0.6 * full      # was ~250 (floor from keys/strides/frequency/rest rows)
