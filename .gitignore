@@ -26,15 +26,11 @@ docs/.context/*.db-wal
 scratch/
 *.tmp
 
-# Raw Downloaded FIT Files & Scrape Caches
-data/fit_files/
-data/garmin/
-data/lifting/
-
-# Large Reference Binaries (Books)
-references/*.pdf
-references/*.epub
-references/*.azw3
+# Data & Reference Material (kept local only; never pushed to GitHub)
+# Includes personal telemetry (FIT/Garmin/lifting), the workout library
+# sources, and copyrighted reference books / research reports.
+data/
+references/
 
 # Test caches
 .pytest_cache/
