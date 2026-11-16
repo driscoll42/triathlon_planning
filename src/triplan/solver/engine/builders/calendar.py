@@ -27,6 +27,8 @@ def make_allowed(table: WorkoutTable, cfg: WeekConfig, opt: EngineOptions) -> Ca
         sport = table.sport[i]
         if rule == "meso":
             sports = ["Bike", "Run"] if sport == "Brick" else [sport]
+            if table.cardio_sport[i]:  # lift + easy cardio combo needs the cardio sport's facility too
+                sports = sports + [table.cardio_sport[i]]
             if not all((access or {}).get(s, [True] * 7)[d] for s in sports):
                 return False
             if sport == "Bike" and d in WEEKDAYS and not table.is_indoor_bike[i]:
@@ -38,8 +40,9 @@ def make_allowed(table: WorkoutTable, cfg: WeekConfig, opt: EngineOptions) -> Ca
             return False
         if flg.get("outdoor_bike", 0) == 1 and d not in set(cfg.get("outdoor_bike_days", default=[5, 6])):
             return False
-        if access and not access.get(sport, [True] * 7)[d]:
-            return False
+        for s in ([sport, table.cardio_sport[i]] if table.cardio_sport[i] else [sport]):
+            if access and not access.get(s, [True] * 7)[d]:
+                return False
         return True
 
     return allowed

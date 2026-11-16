@@ -12,8 +12,8 @@ from triplan.solver.safety_constraints import classify_workouts
 ALL = [True] * 7
 
 
-def wk(i, code, sport, dur, tss=20.0, mech=10.0, ans=10.0, **kw):
-    z = (dur * 0.4, dur * 0.6, 0.0, 0.0, 0.0)
+def wk(i, code, sport, dur, tss=20.0, mech=10.0, ans=10.0, z=None, **kw):
+    z = z or (dur * 0.4, dur * 0.6, 0.0, 0.0, 0.0)
     kw.setdefault("is_indoor_bike", True)
     return CandidateWorkout(i, code, code, sport, float(dur), float(tss), float(mech), float(ans), 1.0, z, **kw)
 
@@ -28,6 +28,7 @@ def cfg(**kw):
         nominal_weekly_duration=200.0,
         required_heavy_strength_sessions=0,
         min_stride_sessions=0,
+        key_sessions_per_week=(0, 7),   # session-structure rules (TASK-019) have their own tests
         min_rest_days=1,
         max_rest_days=7,
     )
@@ -95,7 +96,7 @@ def _dl_and_long_run_lib():
 
 def test_deadlift_never_within_24h_of_long_run_triathlon_engine():
     c = cfg(sport_freq_bounds={"Swim": (0, 0), "Bike": (0, 7), "Run": (1, 7), "Strength": (1, 7)}, target_weekly_tss=60.0,
-            required_heavy_strength_sessions=1)
+            required_heavy_strength_sessions=1, two_session_windows=[False] * 7)  # no hard day to stack on here
     _, plans = solve(_dl_and_long_run_lib(), c, k=3)
     for p in plans:
         assert not p["relaxations"]
@@ -112,8 +113,10 @@ def test_deadlift_never_within_24h_of_long_run_hybrid_engine():
 
 
 def test_no_consecutive_hard_days():
-    lib = [wk(i, f"H{i}", "Bike", 45, is_hard_endurance=True) for i in range(4)]
-    c = cfg(sport_freq_bounds={"Swim": (0, 0), "Bike": (4, 4), "Run": (0, 0), "Strength": (0, 0)})
+    # hard by q_i (20 min Z4), not by a stale flag (TASK-019)
+    lib = [wk(i, f"H{i}", "Bike", 45, z=(10.0, 15.0, 0.0, 20.0, 0.0)) for i in range(4)]
+    c = cfg(sport_freq_bounds={"Swim": (0, 0), "Bike": (4, 4), "Run": (0, 0), "Strength": (0, 0)},
+            intensity_low_min=0.0, intensity_mod_high_max=1.0)  # isolate adjacency from the 80/20 rule
     _, plans = solve(lib, c)
     days = sorted(day_of(plans[0], w.code) for w in lib)
     assert all(b - a >= 2 for a, b in zip(days, days[1:]))

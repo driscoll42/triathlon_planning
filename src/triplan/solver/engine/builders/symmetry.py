@@ -34,6 +34,11 @@ def is_week_reversal_symmetric(ctx: BuildContext) -> bool:
     caps = [float(c) for c in ctx.cfg.daily_caps]
     if any(abs(caps[d] - caps[6 - d]) > 1e-9 for d in range(3)):
         return False
+    # TASK-019: window gating and Hard-Days-Hard are day-asymmetric when the two-window pattern is not a
+    # palindrome (a day-specific rule). With the default (all days True) they are symmetric.
+    if (ctx.opt.window_gating or ctx.opt.hard_days_hard) and any(
+            ctx.cfg.two_windows[d] != ctx.cfg.two_windows[6 - d] for d in range(3)):
+        return False
     alpha = [float(a) for a in ctx.limits.readiness_alpha]
     if len(alpha) == 7 and any(abs(alpha[d] - alpha[6 - d]) > 1e-9 for d in range(3)):
         return False

@@ -102,6 +102,8 @@ def to_candidates(df: pd.DataFrame, base_id: int = 0) -> list:
             durability_score=float(r["durability_score"]),
             zone_durations=(float(r["z1_min"]), float(r["z2_min"]), float(r["z3_min"] + r["zx_min"]),
                             float(r["z4_min"] + r["zy_min"]), float(r["z5_min"])),
+            zone7=(float(r["z1_min"]), float(r["z2_min"]), float(r["zx_min"]), float(r["z3_min"]),
+                   float(r["zy_min"]), float(r["z4_min"]), float(r["z5_min"])),
             is_hard_endurance=bool(r["is_hard_endurance"]), is_heavy_run=bool(r["is_heavy_run"]),
             is_heavy_strength=bool(r["is_heavy_strength"]), is_anchor=bool(r["is_anchor"]),
             has_strides=bool(r["has_strides"]), is_indoor_bike=bool(r["is_indoor_bike"]),

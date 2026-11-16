@@ -44,7 +44,7 @@ def add_safety(ctx: BuildContext) -> None:
 
 def add_weekly_run_strain_cap(ctx: BuildContext) -> None:
     """Weekly running mechanical strain ceiling (ACWR & ODI guardrail)."""
-    cols, vals = ctx.per_week(ctx.table.mechanical_strain, ctx.sets.runs)
+    cols, vals = ctx.per_week(ctx.table.run_strain, ctx.sets.runs)  # run component only (combos: cardio part)
     ctx.model.add_row((cols, vals), 0.0, float(ctx.cfg.get("max_weekly_run_mech_strain", default=350.0)))
 
 
@@ -57,4 +57,5 @@ def add_tier1(ctx: BuildContext) -> None:
         sport_day=lambda s, d: ctx.y.get((s, d)),
         rest_day=lambda d: ctx.rest[d],
         rest_bounds_default=ctx.opt.rest_bounds_default,
+        extra_members=ctx.table.combo_ids,
     )

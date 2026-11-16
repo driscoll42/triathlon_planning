@@ -127,10 +127,10 @@ def _wk(i, code, sport, dur, tss=20.0, **kw):
     return CandidateWorkout(i, code, code, sport, float(dur), float(tss), 10.0, 10.0, 1.0, z, **kw)
 
 
-MESO_KEYS = {"rank", "status", "mip_gap", "objective", "tier1_penalty", "relaxations", "diagnostics", "run_share",
+MESO_KEYS = {"am_pm", "rank", "status", "mip_gap", "objective", "tier1_penalty", "relaxations", "diagnostics", "run_share",
              "total_tss", "total_mech_strain", "total_duration", "total_ans_cost", "max_single_run_ratio",
              "schedule", "soft_slack_violations"}
-HYBRID_KEYS = {"option", "rank", "split_architecture", "status", "mip_gap", "objective_value", "tier1_penalty",
+HYBRID_KEYS = {"am_pm", "option", "rank", "split_architecture", "status", "mip_gap", "objective_value", "tier1_penalty",
                "relaxations", "diagnostics", "run_share", "total_tss", "total_axial_load", "total_duration",
                "schedule", "selected_pairs"}
 
