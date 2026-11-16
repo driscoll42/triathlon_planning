@@ -17,7 +17,9 @@ import pandas as pd
 
 from triplan.library.schema import WORKOUT_COLUMNS, validate_table
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from triplan.paths import REPO_ROOT as _REPO_ROOT
+
+ROOT = str(_REPO_ROOT)
 LIBRARY_PATH = os.path.join(ROOT, "data", "workout_library.csv")
 
 

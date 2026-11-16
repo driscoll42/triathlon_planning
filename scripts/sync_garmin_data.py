@@ -33,6 +33,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 from garmin_personal_api import GarminPersonalApiClient, PersonalApiAuthenticator
 from garmin_personal_api.errors import HttpError
 
+from triplan.paths import CONFIG_DIR, DATA_DIR
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -575,14 +577,14 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        default="config/garmin.env",
-        help="Path to garmin.env file (default: config/garmin.env)",
+        default=str(CONFIG_DIR / "garmin.env"),
+        help="Path to garmin.env file (default: <repo>/config/garmin.env)",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="data/garmin",
-        help="Base output directory (default: data/garmin)",
+        default=str(DATA_DIR / "garmin"),
+        help="Base output directory (default: <repo>/data/garmin)",
     )
     parser.add_argument(
         "--skip-fit",

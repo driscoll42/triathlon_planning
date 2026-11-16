@@ -15,6 +15,7 @@ from triplan.physiology.state import AthletePhysiologicalState
 from triplan.library.candidates import build_default_candidate_library
 from triplan.control.season import generate_closed_loop_season_schedule
 from triplan.physiology.athlete_profile import CURRENT_ATHLETE
+from triplan.paths import training_plan_path
 
 
 def compute_workout_mech_strain(row):
@@ -50,8 +51,8 @@ def compute_workout_ans_cost(row):
 
 def run_comparison():
     # Load book datasets
-    enriched_daily = pd.read_csv(r'training_plans/enriched_daily_preview.csv')
-    weekly_metrics = pd.read_csv(r'training_plans/weekly_metrics_analysis.csv')
+    enriched_daily = pd.read_csv(training_plan_path('enriched_daily_preview.csv'))
+    weekly_metrics = pd.read_csv(training_plan_path('weekly_metrics_analysis.csv'))
 
     print("Loaded enriched_daily_preview.csv with", len(enriched_daily), "workouts.")
     print("Loaded weekly_metrics_analysis.csv with", len(weekly_metrics), "weeks.")
@@ -192,8 +193,9 @@ def run_comparison():
     ]
     print(comp_df[cols_to_print].to_string(index=False))
 
-    comp_df.to_csv(r'training_plans/comparison_book_vs_closed_loop.csv', index=False)
-    print("\nSaved full comparison to 'training_plans/comparison_book_vs_closed_loop.csv'")
+    out_path = training_plan_path('comparison_book_vs_closed_loop.csv')
+    comp_df.to_csv(out_path, index=False)
+    print(f"\nSaved full comparison to '{out_path}'")
 
 
 if __name__ == '__main__':

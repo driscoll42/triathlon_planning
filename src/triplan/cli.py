@@ -24,6 +24,12 @@ from triplan.library.candidates import build_default_candidate_library, build_hy
 from triplan.solver.hybrid import HybridAthleteMILPOptimizer
 from triplan.control.season import format_plan_to_dataframe, generate_closed_loop_season_schedule
 from triplan.physiology.athlete_profile import CURRENT_ATHLETE, AthleteProfile
+from triplan.paths import training_plan_path
+
+
+def season_summary_path(distance):
+    """Repo-anchored output path for a closed-loop season summary CSV."""
+    return training_plan_path(f"closed_loop_{distance.lower()}_season_summary.csv")
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
@@ -227,9 +233,10 @@ def run_16_week_olympic_schedule(df):
     print("\nWEEKLY PERIODIZATION SUMMARY:")
     print(summary_df.to_string(index=False))
 
-    daily_df.to_csv('training_plans/optimized_olympic_16w_daily.csv', index=False)
-    summary_df.to_csv('training_plans/optimized_olympic_16w_summary.csv', index=False)
-    print("\nSaved full daily schedule to 'training_plans/optimized_olympic_16w_daily.csv'")
+    daily_path = training_plan_path('optimized_olympic_16w_daily.csv')
+    daily_df.to_csv(daily_path, index=False)
+    summary_df.to_csv(training_plan_path('optimized_olympic_16w_summary.csv'), index=False)
+    print(f"\nSaved full daily schedule to '{daily_path}'")
     return daily_df, summary_df
 
 
@@ -313,7 +320,7 @@ def run_closed_loop_season_demo(distance: str = "olympic"):
     display_cols = ['Week', 'Phase', 'Step_Type', 'Solved_TSS', 'Total_Mech_Strain', 'Total_ANS_Cost', 'Ending_CTL', 'TSB', 'Ending_ODI', 'Ending_ACWR', 'Recalibration']
     print(summary_df[display_cols].to_string(index=False))
 
-    save_path = f"training_plans/closed_loop_{distance.lower()}_season_summary.csv"
+    save_path = season_summary_path(distance)
     summary_df.to_csv(save_path, index=False)
     print(f"\nSaved full season summary to '{save_path}'")
     return daily_df, summary_df

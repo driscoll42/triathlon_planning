@@ -20,6 +20,8 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+from triplan.paths import CONFIG_DIR, DATA_DIR
+
 # Optional tqdm for progress bar
 try:
     from tqdm import tqdm
@@ -34,19 +36,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("sync_8020_to_tp")
 
-_src_dir = os.path.dirname(os.path.abspath(__file__))
-_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(_src_dir)))  # src/triplan/io -> repo root
-
-# Load environment variables (checking config/ then root)
+# Credentials live only in config/ under the repo root (CLAUDE.md credential hygiene; TASK-031).
 for env_path in [
-    os.path.join(_root_dir, "config", ".env"),
-    os.path.join(_root_dir, "config", "trainingpeak.env"),
-    os.path.join("config", ".env"),
-    os.path.join("config", "trainingpeak.env"),
-    os.path.join(_root_dir, ".env"),
-    os.path.join(_root_dir, "trainingpeak.env"),
-    ".env",
-    "trainingpeak.env",
+    str(CONFIG_DIR / ".env"),
+    str(CONFIG_DIR / "trainingpeak.env"),
 ]:
     if os.path.exists(env_path):
         load_dotenv(env_path)
@@ -751,8 +744,8 @@ def parse_cli_args() -> argparse.Namespace:
         default="power",
         help="Target intensity metric: 'power' (percentOfFtp) or 'pace' (percentOfThresholdPace). Default: 'power'.",
     )
-    default_output = os.path.join(_root_dir, "data", "parsed_workouts_preview.json") if os.path.exists(os.path.join(_root_dir, "data")) else "data/parsed_workouts_preview.json"
-    default_cache = os.path.join(_root_dir, "data", "workout_library.html") if os.path.exists(os.path.join(_root_dir, "data", "workout_library.html")) else "data/workout_library.html"
+    default_output = str(DATA_DIR / "parsed_workouts_preview.json")
+    default_cache = str(DATA_DIR / "workout_library.html")
 
     parser.add_argument(
         "--output",

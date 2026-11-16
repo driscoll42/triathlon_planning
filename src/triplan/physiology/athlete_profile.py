@@ -519,7 +519,8 @@ class AthleteProfile:
 # -----------------------------------------------------------------------------
 # YAML PERSISTENCE (TASK-010): config/athlete_profile.yaml is the athlete's source of truth
 # -----------------------------------------------------------------------------
-PROFILE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "config", "athlete_profile.yaml")
+from triplan.paths import CONFIG_DIR as _CONFIG_DIR
+PROFILE_PATH = str(_CONFIG_DIR / "athlete_profile.yaml")
 
 
 def load_athlete_profile(path: str = PROFILE_PATH) -> AthleteProfile:

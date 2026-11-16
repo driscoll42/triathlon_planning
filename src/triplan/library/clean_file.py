@@ -7,6 +7,7 @@ from html.parser import HTMLParser
 import numpy as np
 import pandas as pd
 from triplan.model.classes import triVariables as triv
+from triplan.paths import REPO_ROOT
 
 # Raw-scrape normalization constants (TASK-013). NOT athlete thresholds: the xlsx scrape cache stores
 # minutes/TSS computed with fixed reference values, and the canonical library (library.build)
@@ -94,14 +95,9 @@ class LibraryHTMLParser(HTMLParser):
 
 
 def fetch_workout_library(url='https://www.8020endurance.com/8020-workout-library/', cache_file='data/workout_library.html'):
-    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    candidates = [
-        cache_file,
-        os.path.join(root_dir, cache_file),
-        'workout_library.html',
-        os.path.join(root_dir, 'workout_library.html'),
-    ]
-    resolved = next((c for c in candidates if os.path.exists(c) and os.path.getsize(c) > 0), None)
+    # Relative paths resolve against the repo root, never the cwd (TASK-031).
+    target_cache = cache_file if os.path.isabs(cache_file) else str(REPO_ROOT / cache_file)
+    resolved = target_cache if os.path.exists(target_cache) and os.path.getsize(target_cache) > 0 else None
     if resolved:
         print(f"Reading cached workout library from {resolved}...")
         with open(resolved, 'r', encoding='utf-8') as f:
@@ -112,7 +108,6 @@ def fetch_workout_library(url='https://www.8020endurance.com/8020-workout-librar
     with urllib.request.urlopen(req, timeout=30) as resp:
         html = resp.read().decode('utf-8')
 
-    target_cache = os.path.join(root_dir, cache_file) if not os.path.isabs(cache_file) else cache_file
     os.makedirs(os.path.dirname(target_cache) or '.', exist_ok=True)
     with open(target_cache, 'w', encoding='utf-8') as f:
         f.write(html)
@@ -120,16 +115,9 @@ def fetch_workout_library(url='https://www.8020endurance.com/8020-workout-librar
 
 
 def download_fit_files(fit_urls, base_url='https://www.8020endurance.com', base_dir='data/fit_files'):
-    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    candidates = [
-        base_dir,
-        os.path.join(root_dir, base_dir),
-        'fit_files',
-        os.path.join(root_dir, 'fit_files'),
-    ]
-    resolved = next((c for c in candidates if os.path.exists(c)), os.path.join(root_dir, 'data', 'fit_files'))
-    os.makedirs(resolved, exist_ok=True)
-    base_dir = resolved
+    # Relative paths resolve against the repo root, never the cwd (TASK-031).
+    base_dir = base_dir if os.path.isabs(base_dir) else str(REPO_ROOT / base_dir)
+    os.makedirs(base_dir, exist_ok=True)
 
     def _download_one(rel_url):
         full_url = urllib.parse.urljoin(base_url, rel_url)

@@ -6,6 +6,7 @@ Athlete: 270 lbs, 6'1", 3 months detrained, prior 70.3 + barbell experience, no 
 import math
 import pandas as pd
 import numpy as np
+from triplan.paths import training_plan_path
 
 def build_20_week_plan():
     # Initial Banister and Tissue baselines
@@ -280,8 +281,8 @@ def build_20_week_plan():
     daily_df = pd.DataFrame(daily_records)
     summary_df = pd.DataFrame(weekly_summary)
 
-    daily_df.to_csv('training_plans/level0_hybrid_20w_daily.csv', index=False)
-    summary_df.to_csv('training_plans/level0_hybrid_20w_summary.csv', index=False)
+    daily_df.to_csv(training_plan_path('level0_hybrid_20w_daily.csv'), index=False)
+    summary_df.to_csv(training_plan_path('level0_hybrid_20w_summary.csv'), index=False)
 
     print("Successfully generated and saved:")
     print(" - training_plans/level0_hybrid_20w_daily.csv (rows:", len(daily_df), ")")
