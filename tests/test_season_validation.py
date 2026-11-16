@@ -186,5 +186,8 @@ def test_full_matrix_season(profile_name, distance):
     res = sv.run_one(profile_name, distance)
     assert res["fallback"] == 0
     assert res["violations"] == [], res["violations"][:5]
+    # TASK-038: recovery / taper / race weeks no longer overshoot their targets by more than 25 TSS
+    for kind in ("recovery", "taper/race"):
+        assert res["tss_by_type"][kind]["max_over"] <= 25.0 + 1e-6, (kind, res["tss_by_type"][kind])
     if profile_name == "current" and distance == "ironman":
         assert any("long ride 180+ min cannot fit" in m for m in res["infeasibility"])

@@ -13,7 +13,7 @@ Rules encoded here:
     the start of week 5 (the first week after the bike lockout).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Dict, Iterable, List, Optional
 
 # Default race-block length (weeks) per distance, when the caller does not give ``weeks_to_race``.
@@ -49,20 +49,84 @@ def apply_deload_relief(cfg, role: str) -> bool:
     The week structure minimums (>= 2 key sessions, >= 2 stride sessions, >= 2 Bike / Run sessions, at most 2
     rest days, i.e. >= 5 training days) were each a Tier-1 slack that costs more than the Tier-2 TSS goal, so
     together they set a ~160 TSS floor and a deload target of 72-112 TSS solved at 126-146 (the TSS goal is
-    soft). In deload roles each minimum (key sessions, strides, Bike / Run frequency) is halved (rounded up, never below 1) and the rest-day maximum is
-    raised to :data:`DELOAD_MAX_REST_DAYS`. Tier-0 caps, maxima and the profile are untouched; the profile's
+    soft). In deload roles each minimum (strides, Bike / Run frequency) is halved (rounded up, never below 1), the
+    key-session minimum is 0 (TASK-038) and the rest-day maximum is raised to :data:`DELOAD_MAX_REST_DAYS`. Tier-0 caps, maxima and the profile are untouched; the profile's
     own full-week values apply in every other role. Returns True when ``cfg`` was changed.
     """
     if role not in DELOAD_ROLES:
         return False
     klo, khi = cfg.key_sessions_per_week
-    # Race week: the race is the key session, so no key-session minimum (recovery / taper keep >= 1).
-    cfg.key_sessions_per_week = (0 if role == "race" else min(klo, max(1, -(-klo // 2))), khi)
+    # TASK-038: no key-session minimum in any deload role (a recovery week is not built around a hard session; in
+    # race week the race is the key session). A key minimum of even 1 forced ~160-170 TSS for a 72-141 target.
+    cfg.key_sessions_per_week = (0, khi)
+    cfg.min_stride_sessions = min(cfg.min_stride_sessions, max(1, -(-cfg.min_stride_sessions // 2)))
+    # TASK-038: Swim joins Bike / Run (the reference profile's swim minimum of 2 held its race week 48 TSS over target).
+    cfg.sport_freq_bounds = {sp: ((min(lo, max(1, -(-lo // 2))) if sp in ("Bike", "Run", "Swim") else lo), hi)
+                             for sp, (lo, hi) in cfg.sport_freq_bounds.items()}
+    cfg.max_rest_days = max(cfg.max_rest_days, DELOAD_MAX_REST_DAYS)
+    return True
+
+
+# TASK-037: re-entry weeks whose TSS target sits below the TSS floor of the full-week structure minimums.
+REENTRY_RELIEF_ROLES = ("base", "build", "overload")
+STRUCTURE_OVERSHOOT_TOL = 1.15    # solved / target above this triggers the next relief level
+REENTRY_RELIEF_LEVELS = (1, 2)
+
+
+def apply_reentry_relief(cfg, level: int) -> str:
+    """TASK-037: scale the full-week structure minimums down for one re-entry build week; returns a report.
+
+    The structure minimums (>= 2 key, >= 2 stride sessions, >= 2 Bike / Run sessions, <= 2 rest days) are Tier-1
+    slacks solved BEFORE the soft Tier-2 TSS goal, so together they set a TSS floor (~160-215 for
+    CURRENT_ATHLETE) that a re-entry target of 96-150 can never reach. Level 1 is the TASK-034 deload relief
+    (each minimum halved, rounded up, never below 1; rest days up to :data:`DELOAD_MAX_REST_DAYS`). Level 2
+    additionally drops the key-session and stride minimums to 0, as the profile's own rule says ("0-1 key
+    sessions during the first 4 re-entry weeks"). Maxima, Strength frequency, heavy-strength count and every
+    Tier-0 cap are untouched. The caller escalates a level only while the solved week overshoots its target.
+    """
+    before = (cfg.key_sessions_per_week[0], cfg.min_stride_sessions,
+              cfg.sport_freq_bounds.get("Bike", (0, 0))[0], cfg.sport_freq_bounds.get("Run", (0, 0))[0], cfg.max_rest_days)
+    klo, khi = cfg.key_sessions_per_week
+    cfg.key_sessions_per_week = (min(klo, max(1, -(-klo // 2))), khi)
     cfg.min_stride_sessions = min(cfg.min_stride_sessions, max(1, -(-cfg.min_stride_sessions // 2)))
     cfg.sport_freq_bounds = {sp: ((min(lo, max(1, -(-lo // 2))) if sp in ("Bike", "Run") else lo), hi)
                              for sp, (lo, hi) in cfg.sport_freq_bounds.items()}
     cfg.max_rest_days = max(cfg.max_rest_days, DELOAD_MAX_REST_DAYS)
-    return True
+    if level >= 2:
+        cfg.key_sessions_per_week = (0, khi)
+        cfg.min_stride_sessions = 0
+    after = (cfg.key_sessions_per_week[0], cfg.min_stride_sessions,
+             cfg.sport_freq_bounds.get("Bike", (0, 0))[0], cfg.sport_freq_bounds.get("Run", (0, 0))[0], cfg.max_rest_days)
+    return (f"STRUCTURE_RELIEF_L{level} (key {before[0]}->{after[0]}, strides {before[1]}->{after[1]}, "
+            f"Bike/Run min {before[2]}/{before[3]}->{after[2]}/{after[3]}, max rest days {before[4]}->{after[4]})")
+
+
+def relax_deload_acwr_floor(carry, role: str):
+    """TASK-038: no running-ACWR *floor* in deload roles; returns the carry-in to solve the week with.
+
+    ``load_dynamics`` models ``A_d >= 0.80 * C_d`` as a binary Tier-1 waiver of weight 1. Tier-1 is minimised
+    before the Tier-2 TSS goal, so whenever any plan can hold the floor the solver pays for it in extra running
+    even though a recovery / taper / race week is *defined* as acute load below chronic load (reference profile,
+    recovery weeks: +89 TSS over target with the floor, on target without; ``nocarry`` / ``nofloor`` ablations).
+    Only ``acwr_min`` is set to 0 (no floor row, no waiver); the ACWR ceiling, boundary rows, CTL ramp and run-minute
+    guard are untouched, and the carry handed to the next week is the original one.
+    """
+    if role not in DELOAD_ROLES or carry is None or getattr(carry, "load", None) is None:
+        return carry
+    return replace(carry, load=replace(carry.load, acwr_min=0.0))
+
+
+def relax_deload_anchors(library, role: str):
+    """TASK-038: in deload roles the mandatory weekly keystone sessions (``is_anchor``: the long ride / long run)
+    become ordinary optional candidates, so the Tier-1 "keep the anchor" slack no longer forces them.
+
+    On a profile whose caps *can* host the anchors (the unconstrained reference profile) a 180 min ride and a 75 min
+    run every week put the recovery / taper floor at 350-400 TSS against a 186-220 target. The workouts stay in
+    the library (the solver may still pick them); only the obligation goes. Other roles get the library back as is.
+    """
+    if role not in DELOAD_ROLES:
+        return library
+    return [replace(w, is_anchor=False) if getattr(w, "is_anchor", False) else w for w in library]
 
 
 @dataclass(frozen=True)
