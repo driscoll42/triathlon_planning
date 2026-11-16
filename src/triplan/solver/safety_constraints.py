@@ -335,6 +335,15 @@ class Tier1Registry:
         self.slacks.append(_Slack(col, category, label, self.weight(category), message))
         return col
 
+    def add_named(self, category: str, label: str, ub: float, weight: float, message: str) -> Optional[int]:
+        """Register a slack with an explicit weight (outside the relaxation-order ranks), e.g. the TASK-018
+        running-ACWR floor waiver, which is cheaper than every ranked relaxation."""
+        if ub <= 0:
+            return None
+        col = self.hooks.add_var(0.0, float(ub), True)
+        self.slacks.append(_Slack(col, category, label, float(weight), message))
+        return col
+
     def costs(self) -> Dict[int, float]:
         return {s.col: s.weight for s in self.slacks}
 
