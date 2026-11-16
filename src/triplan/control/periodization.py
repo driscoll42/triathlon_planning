@@ -116,6 +116,26 @@ def relax_deload_acwr_floor(carry, role: str):
     return replace(carry, load=replace(carry.load, acwr_min=0.0))
 
 
+# Longest run / ride of the library before TASK-040 (the 75 min RUN_AE2_LONG anchor, the 180 min BIKE_DUR_OUT_DEF anchor).
+# A session longer than this is a long-course session.
+LEGACY_MAX_SESSION_MIN = {"Run": 75.0, "Bike": 180.0}
+
+
+def drop_unhostable_long_sessions(library, daily_time_caps):
+    """TASK-040: drop long-course sessions (run > 75 min, ride > 180 min) that no daily time cap can host.
+
+    A session longer than the biggest day cap can never be scheduled (Tier-0 time gate), so it is dead weight in the
+    MILP and only changes HiGHS tie-breaking: a profile with 45-75 min/day caps (``CURRENT_ATHLETE``) solves exactly
+    the candidate set it solved before the long-course rows existed. Anchors are never dropped here (their Tier-1
+    "dropped anchor" relaxation is the diagnosis the season report rolls up); shorter, long-standing candidates are
+    untouched even when they exceed the caps.
+    """
+    cap = max((float(c) for c in daily_time_caps), default=0.0)
+    return [w for w in library
+            if getattr(w, "is_anchor", False) or float(w.duration) <= cap
+            or float(w.duration) <= LEGACY_MAX_SESSION_MIN.get(w.sport, float("inf"))]
+
+
 def relax_deload_anchors(library, role: str):
     """TASK-038: in deload roles the mandatory weekly keystone sessions (``is_anchor``: the long ride / long run)
     become ordinary optional candidates, so the Tier-1 "keep the anchor" slack no longer forces them.

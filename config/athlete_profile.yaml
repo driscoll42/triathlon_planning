@@ -77,6 +77,8 @@ facility_access:
   Run: [true, true, true, true, true, true, true]
   Strength: [true, true, true, true, true, true, true]
 max_48h_ans_cost: 450.0
+max_48h_aerobic_tss: 295.0
+max_48h_mech_strain: 260.0
 max_weekly_run_mech_strain: 75.0
 max_single_run_vol_ratio: 0.32
 enable_soft_48h_slacks: true

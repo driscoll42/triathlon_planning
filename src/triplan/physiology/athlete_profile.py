@@ -13,6 +13,11 @@ from typing import Dict, List, Optional, Any
 from dataclasses import asdict, dataclass, field, fields, replace
 import numpy as np
 
+# GEMINI.md section 2 global ceilings for the rolling 48h caps (TASK-040): a profile may set tighter values, never looser.
+CHARTER_MAX_48H_AEROBIC_TSS = 295.0
+CHARTER_MAX_48H_MECH_STRAIN = 260.0
+CHARTER_MAX_48H_ANS_COST = 700.0
+
 
 @dataclass(frozen=True)
 class AthleteProfile:
@@ -183,7 +188,11 @@ class AthleteProfile:
     # -------------------------------------------------------------------------
     # 6. PHYSIOLOGICAL SAFETY CEILINGS & DISCIPLINE SPLITS
     # -------------------------------------------------------------------------
-    max_48h_ans_cost: float = 450.0          # Rolling 48h Autonomic Nervous System fatigue ceiling
+    max_48h_ans_cost: float = 450.0          # Rolling 48h Autonomic Nervous System fatigue ceiling (charter ceiling 700)
+    # TASK-040: rolling 48h aerobic-TSS and mechanical-strain caps, previously only MesoCycle dataclass defaults. Validated
+    # against the GEMINI.md section 2 global ceilings (295 / 260): a profile may be tighter, never looser.
+    max_48h_aerobic_tss: float = 295.0       # Rolling 48h glycogen / immune cap
+    max_48h_mech_strain: float = 260.0       # Rolling 48h mechanical strain cap
     max_weekly_run_mech_strain: float = 75.0 # Conservative peripheral eccentric running ceiling during re-entry
     max_single_run_vol_ratio: float = 0.32   # Single run <= 32% of weekly running duration
     enable_soft_48h_slacks: bool = True      # High-penalty slacks to prevent infeasibility
@@ -299,6 +308,12 @@ class AthleteProfile:
             e.append(f"tier1_relaxation_order has unknown entries {unknown}")
         if self.starting_run_ctl < 0 or self.starting_run_atl < 0:
             e.append("starting_run_ctl / starting_run_atl must be >= 0")
+        for name, ceiling in (("max_48h_aerobic_tss", CHARTER_MAX_48H_AEROBIC_TSS),
+                              ("max_48h_mech_strain", CHARTER_MAX_48H_MECH_STRAIN),
+                              ("max_48h_ans_cost", CHARTER_MAX_48H_ANS_COST)):
+            v = getattr(self, name)
+            if not 0 < v <= ceiling:
+                e.append(f"{name} must be in (0, {ceiling:g}] (GEMINI.md section 2 global ceiling), got {v}")
         if self.long_run_step_min <= 0 or self.long_run_floor_min <= 0:
             e.append("long_run_step_min and long_run_floor_min must be > 0")
         if self.reentry_long_run_max_min is not None and self.reentry_long_run_max_min < self.long_run_floor_min:
@@ -372,6 +387,8 @@ class AthleteProfile:
         base_cfg.weekday_single_workout_cap = self.weekday_single_workout_cap
         base_cfg.facility_access = {k: list(v) for k, v in self.facility_access.items()}
         base_cfg.max_48h_ans_cost = self.max_48h_ans_cost
+        base_cfg.max_48h_aerobic_tss = self.max_48h_aerobic_tss
+        base_cfg.max_48h_mech_strain = self.max_48h_mech_strain
         base_cfg.max_weekly_run_mech_strain = self.max_weekly_run_mech_strain
         base_cfg.max_single_run_vol_ratio = self.max_single_run_vol_ratio
         base_cfg.long_run_step_min = self.long_run_step_min
@@ -435,6 +452,8 @@ class AthleteProfile:
             # Tier-0 / Tier-1 inputs for the shared safety layer (TASK-016/017)
             "weekday_single_workout_cap": self.weekday_single_workout_cap,
             "max_48h_ans_cost": self.max_48h_ans_cost,
+            "max_48h_aerobic_tss": self.max_48h_aerobic_tss,
+            "max_48h_mech_strain": self.max_48h_mech_strain,
             "sport_freq_bounds": dict(self.sport_freq_bounds),
             "min_rest_days": self.min_rest_days,
             "max_rest_days": self.max_rest_days,

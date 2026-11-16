@@ -14,8 +14,8 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
-                                            apply_deload_relief, apply_reentry_relief, relax_deload_acwr_floor, relax_deload_anchors, build_season_matrix, filter_test_workouts, normalize_distance)
-from triplan.control.feasibility import season_infeasibility_report
+                                            apply_deload_relief, apply_reentry_relief, relax_deload_acwr_floor, relax_deload_anchors, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance)
+from triplan.control.feasibility import peak_48h, season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
 logger = logging.getLogger(__name__)
@@ -249,6 +249,7 @@ def generate_closed_loop_season_schedule(
         # ADR-011 lockouts: forbidden CP/CSS tests are removed from the candidates BEFORE the solve.
         week_lib = filter_test_workouts(lib, wk, carry.last_test_week, **test_rules)
         week_lib = relax_deload_anchors(week_lib, wk.role)   # TASK-038: no keystone obligation in deload weeks
+        week_lib = drop_unhostable_long_sessions(week_lib, cfg.daily_time_caps)   # TASK-040: nothing longer than any day cap
         solve_carry = relax_deload_acwr_floor(carry, wk.role)   # TASK-038
         scheduler = TriathlonMILPScheduler(week_lib, cfg, carry_in=solve_carry)
         plans = scheduler.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
@@ -324,6 +325,7 @@ def generate_closed_loop_season_schedule(
                 "Total_ANS_Cost": round(tot_ans, 1),
                 "Durability": round(tot_durability, 1),
                 "Long_Run_Ratio": round(plan["max_single_run_ratio"], 3),
+                **{f"Max_48h_{k}": round(v, 1) for k, v in peak_48h(plan["schedule"]).items()},   # TASK-040
                 "Ending_CTL": round(athlete_state.total_ctl, 1),
                 "Ending_ATL": round(athlete_state.total_atl, 1),
                 "TSB": round(athlete_state.total_tsb, 1),

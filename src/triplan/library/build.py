@@ -122,6 +122,67 @@ HEAVY_VARIANTS = {
 HEAVY_VARIANT_ZONES = (20.0, 20.0, 0.0, 5.0, 0.0, 0.0, 0.0)  # 45 min, same envelope as STR_SM1_MAINT (zone minutes)
 
 
+# -----------------------------------------------------------------------------
+# Long-course long sessions (TASK-040)
+# -----------------------------------------------------------------------------
+# The default library stopped at a 75 min run and a 180 min ride, so 70.3 (long run 90+, long ride 150+) and Ironman
+# (long run 105+, long ride 180+) seasons could not host race-specific long sessions. These are pure Zone 1/Zone 2
+# sessions (100% low intensity, 80/20-compliant; nothing in Z3+, so never a "hard" session). Zone minutes are
+# (Z1, Z2) on the 7-zone scale with ZX/Z3/ZY/Z4/Z5 = 0; TSS / IF / NP come from ``power_tss`` (the same 4th-power zone
+# mean as ``calculate_TSS``), flags from ``endurance_flags`` and loads from ``endurance_loads`` (the canonical rules).
+# The Zone 1 share rises with duration so the longest sessions stay under Tier-0 caps: a 150 min run keeps its
+# neuromuscular load (0.65 x mechanical strain, heavy-run rule) below the 75 daily cap, a 360 min ride its TSS below
+# the 295 rolling-48h cap. Rides are outdoor (weekend-only gate, like BIKE_DUR_OUT_DEF).
+LONG_RUN_SPECS = {   # code -> (Z1 min, Z2 min)
+    "RUN_LC_Z2_90": (30.0, 60.0),
+    "RUN_LC_Z2_105": (35.0, 70.0),
+    "RUN_LC_Z2_120": (40.0, 80.0),
+    "RUN_LC_Z2_150": (60.0, 90.0),
+}
+LONG_RIDE_SPECS = {  # code -> (Z1 min, Z2 min)
+    "BIKE_LC_OUT_210": (84.0, 126.0),
+    "BIKE_LC_OUT_240": (96.0, 144.0),
+    "BIKE_LC_OUT_300": (150.0, 150.0),
+    "BIKE_LC_OUT_360": (216.0, 144.0),
+}
+
+
+def long_endurance_rows(profile=None, source: str = "scripts/migrations/m2026_11_16_long_course_library.py"
+                        ) -> List[Dict[str, object]]:
+    """Canonical rows for the long-course long runs / rides (TASK-040), derived with the shared build rules."""
+    if profile is None:
+        from triplan.physiology.athlete_profile import CURRENT_ATHLETE as profile
+    rows: List[Dict[str, object]] = []
+    for sport, specs, zone_if, cp in (("Run", LONG_RUN_SPECS, RUN_ZONE_IF, profile.run_cp),
+                                      ("Bike", LONG_RIDE_SPECS, BIKE_ZONE_IF, profile.bike_cp)):
+        for code, (z1, z2) in specs.items():
+            z = [z1, z2, 0.0, 0.0, 0.0]
+            duration = z1 + z2
+            np_, if_, tss = power_tss(z, zone_if, cp)
+            if sport == "Run":
+                desc = (f"{duration:.0f} minutes continuous easy running: {z1:.0f} minutes Zone 1 then {z2:.0f} minutes "
+                        f"Zone 2 (long-course long run; no intensity)")
+                adapt = "Race-specific long-run durability for 70.3 / Ironman at 100% low intensity"
+            else:
+                desc = (f"{duration:.0f} minutes steady endurance ride outdoors: {z1:.0f} minutes Zone 1 and {z2:.0f} "
+                        f"minutes Zone 2 (long-course long ride; no intensity)")
+                adapt = "Race-specific aerobic durability and fueling practice for 70.3 / Ironman at 100% low intensity"
+            row = _blank_row()
+            row.update(code=code, name=code, sport=sport, category="Long-course endurance", provenance="agent_authored",
+                       source=source, description=desc, duration_min=duration, tss=tss, intensity_factor=if_,
+                       normalized_power=np_, z1_min=z1, z2_min=z2, z3_min=0.0, z4_min=0.0, z5_min=0.0,
+                       lib_default=True, needs_review=True,
+                       target_adaptations=adapt, preference_penalty=0.1,
+                       notes="Long-course library gap (TASK-040); derived with build.power_tss/endurance_flags/endurance_loads.")
+            flags = endurance_flags(sport, desc, duration, z)
+            if sport == "Bike":
+                flags.update(is_indoor_bike=False, is_outdoor_bike=True)
+            row.update(flags)
+            row.update(endurance_loads(sport, tss, if_, duration, z, False))
+            rows.append(row)
+    return rows
+
+
 def zone_tss(z5: List[float], zone_if=BRICK_ZONE_IF) -> float:
     """TSS from zone minutes via an NP-style 4th-power mean (same method as legacy util.load_workouts):
     IF = (sum_z m_z^4 t_z / T)^(1/4); TSS = 100 * IF^2 * T/60."""
