@@ -7,16 +7,16 @@ no-good cuts -> plan dictionaries.
 
 The three historical engines are option presets (see ``engine.config`` for every option):
 
-* ``meso_options()``   -> ``TriathlonMILPScheduler``  (partition + brick, meso goals, ``active_x`` cuts)
+* ``meso_options()``   -> ``TriathlonMILPScheduler``  (partition + brick, meso goals, ``selection`` cuts)
 * ``hybrid_options()`` -> ``HybridAthleteMILPOptimizer`` (<=2/day, <=1/sport/day, split architecture,
-  barbell share, TiZ band, hybrid goals, ``pair_pm1_split_flip`` cuts)
+  barbell share, TiZ band, hybrid goals, ``selection`` cuts)
 * ``legacy_options()`` -> ``optimize_weekly_schedule`` (one workout/day, exact count, day scheduler
   goals, single solve)
 
 Builder seams for follow-up work: TASK-018 (carry-in state, in-model ACWR) becomes a new builder
 module appended after ``orthopedic``; TASK-019 (session structure, 80/20 TiZ) extends
-``intensity_structure``; TASK-020 (selection cuts, pruning, symmetry) replaces ``_add_cut`` and adds a
-candidate-pruning step before ``WorkoutTable`` construction.
+``intensity_structure``. TASK-020 (ADR-018) added selection/layout cuts (``_add_cut``), dominance
+pruning before ``WorkoutTable`` construction and the week-reversal symmetry row (``builders.symmetry``).
 """
 
 from __future__ import annotations
@@ -27,11 +27,12 @@ from typing import Any, Dict, List, Optional, Sequence
 import highspy
 import numpy as np
 
-from triplan.solver.engine.builders import calendar, goals, intensity_structure, orthopedic, strength
+from triplan.solver.engine.builders import calendar, goals, intensity_structure, orthopedic, strength, symmetry
 from triplan.solver.engine.config import EngineOptions, WeekConfig, WorkoutTable
 from triplan.solver.engine.context import BuildContext
 from triplan.solver.engine.model import INF, WeekModel, add_row_to_highs
 from triplan.solver.highs_runtime import apply_threads
+from triplan.solver.pruning import DominanceReport, prune_dominated_candidates
 from triplan.solver.safety_constraints import (
     LexState,
     SafetyLimits,
@@ -51,9 +52,14 @@ class UnifiedWeekEngine:
 
     def __init__(self, workouts: Sequence[Any], config: Any, options: EngineOptions,
                  notes: Optional[List[str]] = None) -> None:
-        self.workouts = list(workouts)
         self.config = config
         self.opt = options
+        self.dominance: Optional[DominanceReport] = None
+        workouts = list(workouts)
+        if options.prune_dominated:
+            workouts, self.dominance = prune_dominated_candidates(
+                workouts, WeekConfig(config).get("sport_freq_bounds", default=None) if options.tier1 else None)
+        self.workouts = workouts
         self.cfg = WeekConfig(config)
         self.table = WorkoutTable(self.workouts)
         self.limits = SafetyLimits.from_config(config)
@@ -63,6 +69,7 @@ class UnifiedWeekEngine:
         self.last_diagnostics: List[str] = []
         self.last_status: Optional[str] = None
         self.last_context: Optional[BuildContext] = None
+        self.symmetry_row = False
 
     # ------------------------------------------------------------------ feasibility explainer
     def explain_feasibility(self) -> List[str]:
@@ -114,6 +121,9 @@ class UnifiedWeekEngine:
         if opt.legacy is not None:
             intensity_structure.add_legacy_structure(ctx)
         goals.add_goal_rows(ctx)
+        self.symmetry_row = False
+        if opt.symmetry_breaking and opt.cut_mode != "layout":
+            self.symmetry_row = symmetry.add_reversal_symmetry(ctx)
         self.last_context = ctx
         return ctx
 
@@ -174,27 +184,31 @@ class UnifiedWeekEngine:
             plans.append(self._format_plan(rank, res, lex, reg, col_vals, ctx, pairs, schedule, diagnostics))
             if opt.cut_mode == "none":
                 break
-            self._add_cut(h, ctx, col_vals, pairs)
+            if not self._add_cut(h, ctx, col_vals, pairs):
+                break
         return plans
 
-    # ------------------------------------------------------------------ Top-K cuts (TASK-020 owns the redesign)
-    def _add_cut(self, h: "highspy.Highs", ctx: BuildContext, col_vals: np.ndarray, pairs) -> None:
-        mode = self.opt.cut_mode
-        if mode == "active_x":
-            # Sparse canonical no-good cut: sum_{col in Active} x_col <= |Active| - 1
-            active = [ctx.x(i, d) for i, d in pairs]
-            if not active:
-                raise ValueError("Empty row with infeasible bounds [-inf, -1.0]")
-            add_row_to_highs(h, {c: 1.0 for c in active}, -INF, float(len(active) - 1))
-        elif mode == "pair_pm1_split_flip":
-            sel = set(pairs)
-            cut = {ctx.x(i, d): (1.0 if (i, d) in sel else -1.0) for i in range(ctx.n) for d in ctx.days}
-            add_row_to_highs(h, cut, -INF, float(len(pairs) - 1))
-            if ctx.z_split is not None:
-                split_val = round(col_vals[ctx.z_split])
-                add_row_to_highs(h, {ctx.z_split: 1.0}, float(1 - split_val), float(1 - split_val))
+    # ------------------------------------------------------------------ Top-K cuts (TASK-020, ADR-018)
+    def _add_cut(self, h: "highspy.Highs", ctx: BuildContext, col_vals: np.ndarray, pairs) -> bool:
+        """Exclude the plan just found. Returns False when no further distinct plan can exist
+        (the plan is too small for the requested difference), which ends the Top-K loop."""
+        mode, m = self.opt.cut_mode, max(1, int(self.opt.cut_min_diff))
+        if mode == "layout":
+            # sum_{(i,d) in plan} x[i,d] <= |plan| - 1: any change of the (workout, day) layout is distinct.
+            cols = [ctx.x(i, d) for i, d in pairs]
+            rhs = len(cols) - 1
+        elif mode == "selection":
+            # s_i = sum_d x[i,d] (<= 1 by uniqueness); sum_{i in S} s_i <= |S| - m: the next plan must
+            # drop at least m of the workouts chosen here, so plans differ in selection, not layout.
+            chosen = sorted({i for i, _ in pairs})
+            cols = [ctx.x(i, d) for i in chosen for d in ctx.days]
+            rhs = len(chosen) - m
         else:
             raise ValueError(f"unknown cut_mode {mode!r}")
+        if not cols or rhs < 0:
+            return False
+        add_row_to_highs(h, {c: 1.0 for c in cols}, -INF, float(rhs))
+        return True
 
     # ------------------------------------------------------------------ plan dictionaries
     def _format_plan(self, rank, res, lex, reg, col_vals, ctx, pairs, schedule, diagnostics) -> Dict[str, Any]:
