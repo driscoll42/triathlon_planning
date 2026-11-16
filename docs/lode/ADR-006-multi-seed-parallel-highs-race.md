@@ -3,7 +3,7 @@ id: ADR-006
 type: adr
 domain: perf
 title: "Adopt 15-Seed Parallel HiGHS Race with Per-Worker Timeout Limits"
-status: ACTIVE
+status: SUPERSEDED
 created_at: 2026-11-08
 supersedes: []
 validated_by: ["EXP-001"]

@@ -8,7 +8,7 @@
 | Domain | Lode File | Briefing CLI | Scope |
 | :--- | :--- | :--- | :--- |
 | `general` | `docs/domains/general.md` | `python3 scripts/lodectx.py brief general` | Cross-cutting architecture, tooling, environment, and repository standards |
-| `optimizer` | `docs/domains/optimizer.md` | `python3 scripts/lodectx.py brief optimizer` | HiGHS Mixed-Integer Linear Programming (MILP) solver, multiseed races, and objective weighting |
+| `optimizer` | `docs/domains/optimizer.md` | `python3 scripts/lodectx.py brief optimizer` | HiGHS Mixed-Integer Linear Programming (MILP) solver (unified WeekModel engine), selection Top-K cuts, pruning and objective weighting |
 | `mpc` | `docs/domains/mpc.md` | `python3 scripts/lodectx.py brief mpc` | Closed-loop Model Predictive Control (MPC), receding-horizon updates, and mesocycle step-cycles |
 | `physiology` | `docs/domains/physiology.md` | `python3 scripts/lodectx.py brief physiology` | Dual-load modeling (Aerobic TSS vs Mechanical Strain), ANS costing, and tissue remodeling |
 | `workouts` | `docs/domains/workouts.md` | `python3 scripts/lodectx.py brief workouts` | 80/20 workout library loading, sport schemas, zone calculations, and brick workout generation |

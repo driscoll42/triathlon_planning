@@ -5,7 +5,7 @@ You are operating as a **Principal Systems Architect, Computational Biomechanist
 ## 1. Mandatory Context Initialization (Progressive Disclosure — Read First)
 Before executing changes or diagnosing bugs, ground yourself in the **Progressive Disclosure Core (< 7,500 tokens total)**:
 1. **`docs/STATE_SUMMARY.md`**: Master architecture, tech stack, data pipeline, solver topology, and module boundaries.
-2. **`docs/LODE_MAP.md`**: Domain routing directory, PRDs (`PRD-001`..`002`), and active ADR (`ADR-001`..`011`) & Heuristic (`HEUR-001`..`007`) index.
+2. **`docs/LODE_MAP.md`**: Domain routing directory, PRDs (`PRD-001`..`002`), and active ADR (`ADR-001`..`020`) & Heuristic (`HEUR-001`..`007`) index.
 3. **`docs/INVARIANTS.md`**: Non-negotiable platform, physiological, orthopedic, and mathematical constraints.
 4. **`docs/TASKS.md`**: Active engineering queue (`[ ]`, `[~]`, `[!]`) and queued DoE experiments (`EXP-001`..).
 5. **`SPEC.md`**: Telemetry specification, 80/20 7-zone power math, two-point linear CP protocol, and hardware ingestion rules.
@@ -47,8 +47,8 @@ Before executing changes or diagnosing bugs, ground yourself in the **Progressiv
 - **Equipment Set Partitioning:** Enforce $\ge 60\%$ weekly strength sets on Olympic barbell compound lifts; home dumbbells $\le 75\text{ lb}$ allocated strictly to unilateral/hypertrophy (`ADR-008`).
 - **Movement Pattern Volume:** Minimum 10 working sets/week across all 4 movement patterns (Anterior Chain, Posterior Chain, Push, Pull).
 - **Split Archetype Coherence:** Binary variable $z_{\text{split}} \in \{0, 1\}$ strictly partitions Option A (Full-Body HLM / Texas Method) and Option B (Upper/Lower Split).
-- **Top-K Plan Diversity:** Alternative schedules generated via canonical **No-Good Integer Cuts** ($\sum_{w \in S_k} x_{w,d} \le |S_k| - 1$), guaranteeing true structural uniqueness.
-- **Parallel Multi-Seed Race:** Race up to 15 solver seeds with per-worker timeouts to neutralize branch-and-bound order variance (`ADR-006`).
+- **Top-K Plan Diversity:** Alternative schedules generated via **selection-based Top-K cuts** ($\sum_{i \in S_k} s_i \le |S_k| - m$, $s_i = \sum_d x_{i,d}$), so plans differ in which workouts are chosen; an exact $(i,d)$ layout cut remains available as `cut_mode='layout'` (`ADR-018`).
+- **Single Deterministic Solve:** One unified-engine solve per week (`ADR-017`) to a stated `mip_rel_gap`, reported on every plan; the multi-seed race (`ADR-006`) is superseded by `ADR-018`.
 - **Three-Tier Closed-Loop MPC:** Receding-horizon execution with Tier 1 Garmin morning readiness scalar ($\alpha_d$), Tier 2 e1RM Kalman filtering, and Tier 3 3:1 mesocycle wave undulation (`ADR-005`).
 
 ## 4. Operational Workflow & Lineage Engine Protocol
@@ -66,8 +66,8 @@ Always follow the SQLite Lineage Engine protocol (`scripts/lodectx.py`):
 
 ## 5. Domain Trigger Routing & Architecture Protocol
 Before modifying subsystems, ground yourself via `docs/LODE_MAP.md` and run `python scripts/lodectx.py brief <domain>`:
-- **`optimizer` (`docs/domains/optimizer.md`):** `src/triplan/solver/` (`highs_optimization.py`, `scheduler.py`, `hybrid.py`, `pruning.py`), `src/triplan/model/` (`candidates.py`, `classes.py`). HiGHS MILP, candidate pruning, multi-seed race, equipment partitioning, No-Good cuts, biomechanical matrix.
-- **`mpc` (`docs/domains/mpc.md`):** `src/triplan/control/mpc.py`, `src/triplan/control/season.py`. 3-Tier MPC: Tier 1 Garmin readiness $\alpha_d$, Tier 2 e1RM Kalman filtering, Tier 3 3:1 mesocycle wave.
+- **`optimizer` (`docs/domains/optimizer.md`):** `src/triplan/solver/engine/` (unified `WeekModel` engine + builders, `ADR-017`), facades `src/triplan/solver/` (`scheduler.py`, `hybrid.py`, `highs_optimization.py` DataFrame adapter, `pruning.py`), `src/triplan/model/` (`candidates.py`, `classes.py`). HiGHS MILP, candidate pruning, selection Top-K cuts, symmetry breaking, equipment partitioning, biomechanical matrix.
+- **`mpc` (`docs/domains/mpc.md`):** `src/triplan/control/mpc.py`, `src/triplan/control/season.py`, `src/triplan/control/periodization.py` (3:1 matrix, re-entry, test lockouts, deload relief), `src/triplan/control/carry.py` (cross-week carry-in, `ADR-019`). 3-Tier MPC: Tier 1 Garmin readiness $\alpha_d$, Tier 2 e1RM Kalman filtering, Tier 3 3:1 mesocycle wave.
 - **`physiology` (`docs/domains/physiology.md`):** `src/triplan/physiology/athlete_profile.py`, `src/triplan/physiology/state.py`, `SPEC.md`. Dual-load (Aerobic TSS vs Strain), ANS cost ($e^{0.65(z-1)}$), tissue remodeling ($\tau=35d$ vs $120d$), 80/20 7-zone scale, Two-Point CP.
 - **`workouts` (`docs/domains/workouts.md`):** `src/triplan/library/` (`util.py`, `loader.py`, `build.py`), `data/workout_library.csv`, `data/*.xlsx`, `data/*.csv`. 80/20 workout library, duration/TSS standardization, brick synthesis, 15 strength blueprints.
 - **`integrations` (`docs/domains/integrations.md`):** `src/triplan/io/trainingpeaks.py`, `src/triplan/library/clean_file.py`, `scripts/sync_garmin_data.py`. TrainingPeaks REST API sync, FIT parser (Stryd CIQ developer power, Swim active lengths, 300s ride deduplication, Neo 2T slope mode).
