@@ -177,7 +177,7 @@
 - **Result:** 8-season matrix: 0 fallback weeks, 0 Tier-0 violations. `CURRENT_ATHLETE` olympic / 70.3 longest-run trajectory before: 30-33 min with 45 min spikes in weeks 20 and 28; after: 30-33 min, spikes removed (cap 43 / 40 after 33 / 30 min weeks). Relaxations 149 -> 146 (olympic), 164 -> 162 (70.3); one-run weeks 17 -> 16 and 21 -> 20. Reference profiles unchanged (>= 4 runs; no one-run weeks).
 - **Verification:** `tests/test_long_run_cap.py` (10 tests: 75 min blocked after 45, first-week floor, ceiling without carry-in, 4-run weeks keep the ratio, hybrid facade, carry-in tracking, report regimes, profile validation, checker catches a synthetic violation). Full suite 288 pass. Queued: `TASK-045` (starting longest run + owner review of the 45 min ceiling), `TASK-046` (attribute single-run weeks to their binding row; walk-jog decision).
 
-## Phase 2 — TASK-040 — completed 2026-11-16 (PR #TBD)
+## Phase 2 — TASK-040 — completed 2026-11-16 (PR #16)
 
 - [x] **`TASK-040` (`workouts`):** **Long-Course Library Gaps and Profile-Level 48h Caps** — `EXP-007`: no run > 75 min and no ride > 180 min in the default library, and the 48h TSS (295) / strain (260) caps were dataclass defaults, not athlete-profile fields.
 
