@@ -41,6 +41,7 @@ class BuildContext:
     z_split: Optional[int] = None
     goals: Dict[str, Any] = field(default_factory=dict)  # name -> SoftGoal | column index
 
+    carry_in: Optional[Any] = None                       # engine.carry_in.WeekCarryIn (TASK-018)
     hooks: Optional[ModelHooks] = None
     reg: Optional[Tier1Registry] = None
 

@@ -54,7 +54,8 @@ class TriathlonMILPScheduler:
     def __init__(
         self,
         workouts: List[CandidateWorkout],
-        config: MesoCycleTargetsAndConstraints
+        config: MesoCycleTargetsAndConstraints,
+        carry_in: Optional[Any] = None,
     ) -> None:
         self.workouts = list(workouts)
         self.cfg, self.notes = normalize_meso_config(config)  # deep copy: never mutate the caller's (TASK-013)
@@ -66,7 +67,8 @@ class TriathlonMILPScheduler:
         self.zones = list(ZONES)
         self.last_diagnostics: List[str] = []
         self.last_status: Optional[str] = None
-        self.engine = UnifiedWeekEngine(self.workouts, self.cfg, meso_options(), notes=self.notes)
+        self.engine = UnifiedWeekEngine(self.workouts, self.cfg, meso_options(), notes=self.notes,
+                                       carry_in=carry_in)
         self.limits = self.engine.limits
         self.sets = self.engine.sets
 

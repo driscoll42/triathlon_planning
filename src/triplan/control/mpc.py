@@ -430,6 +430,9 @@ class ClosedLoopMPCController:
         """
         Ingests realized daily logs across Mon..Sun, updates PMC, ODI, and ACWR,
         and dynamically tightens upcoming weekly run strain ceiling if decoupled.
+
+        Since TASK-018 (ADR-019) the planned running ACWR is enforced inside each week's MILP, so this is the
+        backstop for REALIZED (actuals) data, where execution can deviate from a plan that satisfied the rows.
         """
         for r in weekly_daily_records:
             self.state.step_day(
