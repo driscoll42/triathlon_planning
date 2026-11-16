@@ -206,6 +206,7 @@ class AthleteProfile:
     intensity_mod_high_max: float = 0.20     # Z3+ZY+Z4+Z5 (moderate + high) combined ceiling
     intensity_zone_x_max: float = 0.05       # Zone X grey-zone ceiling (soft-penalized toward 0)
     key_sessions_per_week: tuple[int, int] = (2, 3)  # Structure rule; 0-1 during first 4 re-entry weeks
+    am_pm_min_gap_h: float = 6.0             # Min hours between two same-day sessions (DECISION-004, AMPK/mTOR)
 
     # -------------------------------------------------------------------------
     # 7. DUAL-OBJECTIVE HYBRID ATHLETE TARGETS & EQUIPMENT GUARDRAILS
@@ -264,6 +265,13 @@ class AthleteProfile:
                      "intensity_mod_high_max", "intensity_zone_x_max", "min_barbell_set_share"):
             if not 0.0 <= getattr(self, name) <= 1.0:
                 e.append(f"{name} must be in [0, 1]")
+        klo, khi = self.key_sessions_per_week
+        if not 0 <= klo <= khi <= 7:
+            e.append(f"key_sessions_per_week must satisfy 0 <= min <= max <= 7, got ({klo}, {khi})")
+        if not 0.0 < self.am_pm_min_gap_h <= 24.0:
+            e.append("am_pm_min_gap_h must be in (0, 24]")
+        if self.intensity_low_target < self.intensity_low_min:
+            e.append("intensity_low_target must be >= intensity_low_min")
         if self.intensity_low_min + self.intensity_mod_high_max > 1.0 + 1e-9:
             e.append("intensity_low_min + intensity_mod_high_max must be <= 1")
         for name, split in (("target_sport_splits", self.target_sport_splits),
@@ -358,6 +366,12 @@ class AthleteProfile:
         base_cfg.max_single_run_vol_ratio = self.max_single_run_vol_ratio
         base_cfg.enable_soft_48h_slacks = self.enable_soft_48h_slacks
         base_cfg.sport_freq_bounds = dict(self.sport_freq_bounds)
+        # Canonical 80/20 and session structure (TASK-035; engine reads these via WeekConfig)
+        base_cfg.intensity_low_min = self.intensity_low_min
+        base_cfg.intensity_low_target = self.intensity_low_target
+        base_cfg.intensity_mod_high_max = self.intensity_mod_high_max
+        base_cfg.key_sessions_per_week = tuple(self.key_sessions_per_week)
+        base_cfg.am_pm_min_gap_h = self.am_pm_min_gap_h
         # Phase-specific override: in taper, recovery, or race week, drop heavy strength but keep
         # maintenance sessions (DECISION-009: strength is co-equal, >=1 maintenance session).
         is_taper_or_recovery = any(x in phase_name.lower() for x in ("taper", "recovery", "deload", "race"))
@@ -396,6 +410,9 @@ class AthleteProfile:
             "min_barbell_set_share": self.min_barbell_set_share,
             "p_low_min": self.intensity_low_min,
             "p_high_max": self.intensity_mod_high_max,
+            "intensity_low_target": self.intensity_low_target,
+            "key_sessions_per_week": tuple(self.key_sessions_per_week),
+            "am_pm_min_gap_h": self.am_pm_min_gap_h,
             "max_weekly_axial": self.max_weekly_axial_load,
             "max_daily_axial": self.max_daily_axial_load,
             "max_daily_neuro": self.max_daily_neuro_load,

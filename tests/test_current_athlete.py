@@ -65,3 +65,53 @@ def test_current_athlete_build_week_solves(default_library):
     sched, plans = _solve_profile_week(default_library, "base")
     assert plans, " | ".join(sched.last_diagnostics)
     assert not [w for d in range(7) for w in plans[0]["schedule"][d] if w.is_heavy_strength]
+
+
+def _build_rows(default_library, profile, phase="base"):
+    """Build (not solve) the week model from a profile and return {row_name: (lb, ub)} for week 0."""
+    from triplan.solver.engine.config import meso_options
+    from triplan.solver.engine.engine import UnifiedWeekEngine
+
+    cfg = profile.to_mesocycle_config(phase)
+    ctx = UnifiedWeekEngine(default_library, cfg.__dict__, meso_options()).build_model()
+    _, _, _, rlb, rub = ctx.model.csr()
+    return {n: (rlb[i], rub[i]) for i, n in enumerate(ctx.model.row_names)}, ctx
+
+
+def test_profile_8020_and_key_session_fields_reach_the_engine(default_library):
+    """TASK-035: changing the profile values changes the engine rows / config (previously silently ignored)."""
+    from dataclasses import replace
+
+    base = CURRENT_ATHLETE
+    cfg = base.to_mesocycle_config("base")
+    assert (cfg.intensity_low_min, cfg.intensity_low_target, cfg.intensity_mod_high_max) == (0.78, 0.8, 0.2)
+    assert cfg.key_sessions_per_week == (2, 3) and cfg.am_pm_min_gap_h == 6.0
+
+    alt = replace(base, intensity_low_min=0.70, intensity_low_target=0.75, intensity_mod_high_max=0.30,
+                  key_sessions_per_week=(1, 2), am_pm_min_gap_h=8.0)
+    hy = alt.to_hybrid_config()
+    assert (hy["p_low_min"], hy["intensity_low_target"], hy["p_high_max"]) == (0.70, 0.75, 0.30)
+    assert hy["key_sessions_per_week"] == (1, 2) and hy["am_pm_min_gap_h"] == 8.0
+
+    rows0, ctx0 = _build_rows(default_library, base)
+    rows1, ctx1 = _build_rows(default_library, alt)
+    assert ctx1.cfg.am_pm_min_gap_h == 8.0 and ctx0.cfg.am_pm_min_gap_h == 6.0
+    assert ctx1.cfg.key_range == (1, 2)
+    assert rows1["key_sessions_max"][1] == 2 and rows0["key_sessions_max"][1] == 3
+    # the 8020 rows are ratio rows (coefficients carry p); their coefficients must differ with the profile
+    import numpy as np
+    def coefs(ctx, name):
+        s, idx, val, _, _ = ctx.model.csr()
+        r = ctx.model.row_names.index(name)
+        return np.sort(val[s[r]:s[r + 1]])
+    assert not np.allclose(coefs(ctx0, "8020_low_min"), coefs(ctx1, "8020_low_min"))
+    assert not np.allclose(coefs(ctx0, "8020_high_max"), coefs(ctx1, "8020_high_max"))
+
+
+def test_profile_validation_for_new_structure_fields():
+    from dataclasses import replace
+
+    for bad in ({"am_pm_min_gap_h": 0.0}, {"key_sessions_per_week": (3, 2)},
+                {"intensity_low_target": 0.5}):
+        with pytest.raises(ValueError):
+            replace(CURRENT_ATHLETE, **bad)

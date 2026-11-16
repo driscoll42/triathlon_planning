@@ -91,6 +91,7 @@ intensity_low_target: 0.8
 intensity_mod_high_max: 0.2
 intensity_zone_x_max: 0.05
 key_sessions_per_week: [2, 3]
+am_pm_min_gap_h: 6.0
 target_sport_tss: {Swim: 0.0, Bike: 80.0, Run: 35.0, Strength: 20.0}
 target_movement_sets: {Anterior_Chain: 4.0, Posterior_Chain: 4.0, Push: 5.0, Pull: 5.0}
 min_barbell_set_share: 0.6
