@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Any
 import pandas as pd
+import copy
 import logging
 
 
@@ -12,7 +13,8 @@ from triplan.library.candidates import build_default_candidate_library
 from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run_strain
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
-from triplan.control.periodization import apply_deload_relief, build_season_matrix, filter_test_workouts, normalize_distance
+from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
+                                            apply_deload_relief, apply_reentry_relief, build_season_matrix, filter_test_workouts, normalize_distance)
 from triplan.control.feasibility import season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
@@ -248,6 +250,19 @@ def generate_closed_loop_season_schedule(
         week_lib = filter_test_workouts(lib, wk, carry.last_test_week, **test_rules)
         scheduler = TriathlonMILPScheduler(week_lib, cfg, carry_in=carry)
         plans = scheduler.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
+        # TASK-037: a re-entry build week whose full-week structure floor overshoots its target by more than
+        # STRUCTURE_OVERSHOOT_TOL is re-solved with the structure minimums scaled down (never the Tier-0 caps).
+        structure_note = None
+        if in_reentry and wk.role in REENTRY_RELIEF_ROLES:
+            for level in REENTRY_RELIEF_LEVELS:
+                if not plans or plans[0]["total_tss"] <= STRUCTURE_OVERSHOOT_TOL * cfg.target_weekly_tss:
+                    break
+                cfg_l = copy.deepcopy(cfg)
+                note = apply_reentry_relief(cfg_l, level)
+                sched_l = TriathlonMILPScheduler(week_lib, cfg_l, carry_in=carry)
+                plans_l = sched_l.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
+                if plans_l and plans_l[0]["total_tss"] < plans[0]["total_tss"]:
+                    scheduler, plans, structure_note = sched_l, plans_l, note
 
         plan = plans[0] if plans else None
         solved_ok = plan is not None
@@ -318,7 +333,7 @@ def generate_closed_loop_season_schedule(
                 "Run_ACWR_Eps": round(acwr_eps, 3),
                 "Run_Minutes": run_minutes,
                 "Run_CTL": round(athlete_state.run_ctl, 1),
-                "Recalibration": " + ".join(x for x in (recal_action, pert_info, heavy_note) if x),
+                "Recalibration": " + ".join(x for x in (recal_action, pert_info, heavy_note, structure_note) if x),
                 "Solve_Status": plan.get("status"),
                 "MIP_Gap": plan.get("mip_gap"),
                 "Relaxations": "; ".join(r["message"] for r in plan.get("relaxations", [])),

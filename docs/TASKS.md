@@ -7,11 +7,11 @@
 None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
 ## P1 — Engineering Queue
-Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (278 pass; `-m slow` adds the 8-season `EXP-007` matrix).
+Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (280 pass; `-m slow` adds the 8-season `EXP-007` matrix).
 
 ### Phase 2 — Unified MILP Engine
-- [ ] `TASK-037` (`optimizer`): build-week TSS floor above low targets (re-entry profile).
 - [ ] `TASK-038` (`optimizer`): recovery/taper/race-week TSS overshoot beyond deload relief.
+- [ ] `TASK-041` (`optimizer`): race-block build weeks of `CURRENT_ATHLETE` still solve 1.1-1.5x target (full structure floor ~222-241 vs targets 140-211).
 - [ ] `TASK-039` (`safety`): `CURRENT_ATHLETE` runs < 4/week every week; single-run weeks make the 32% cap vacuous.
 - [ ] `TASK-040` (`workouts`): long-course library gaps (run > 75 min, ride > 180 min) + profile-level 48h TSS/strain caps.
 

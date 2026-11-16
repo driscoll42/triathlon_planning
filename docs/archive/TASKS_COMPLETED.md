@@ -149,3 +149,13 @@
 
 ### Outcomes
 - **TASK-036:** `GEMINI.md` §1 ADR range → `ADR-001..020`; §3 "Top-K Plan Diversity" now states selection-based cuts (`ADR-018`) and "Parallel Multi-Seed Race" is replaced by "Single Deterministic Solve" (`ADR-017`/`ADR-018`); §5 `optimizer`/`mpc` routing lists `solver/engine/`, `control/periodization.py`, `control/carry.py`. `INVARIANTS.md` Top-K rule updated likewise. `lode.json` optimizer scope no longer says "multiseed races". `HEUR-001` retargeted from the deleted `optimize_weekly_workouts_multiseed()` to the process-parallel stress runner (`TASK-032`) with a working verification command. `ADR-006` front matter set to `SUPERSEDED` (already superseded by edge from `ADR-018`). No code changes.
+
+## Phase 2 — TASK-037 — completed 2026-11-16 (PR #PRN)
+
+- [x] **`TASK-037` (`optimizer`):** **Build-Week TSS Floor Above Low Targets (Re-Entry Profile)** — `CURRENT_ATHLETE` re-entry build weeks solved at a median ~1.4x target (up to +82 TSS) because the full-week structure minimums set a 159-214 TSS floor.
+
+### Outcomes
+- **TASK-037:** Diagnosis (per-week ablation on the real library, re-solving recorded `WeekRecord` configs): solving with target 1 returns the same schedule as the real target, i.e. the floor is the Tier-1 structure slacks, which the lexicographic solve minimises before the soft TSS goal. Stride >= 2 (about -17 TSS when 1), key >= 2 + max 2 rest days, and Bike/Run >= 2 each contribute; the floor is 159-168 in weeks 1-18 and 205-214 in weeks 19-23 (carry-in dependent). Fix (`ADR-021`): `control/periodization.py::apply_reentry_relief` + re-solve loop in `control/season.py`: a re-entry base/build/overload week whose solved TSS exceeds 1.15x its target is re-solved at relief level 1 (TASK-034 deload relief: key/strides/Bike/Run minimums halved, rest days <= 4) then level 2 (key and stride minimums 0), keeping the plan only if it lowers TSS; applied note in `Recalibration` (`STRUCTURE_RELIEF_Ln`). Maxima, Strength frequency, heavy count and every Tier-0 cap unchanged; race-block weeks keep the full structure (queued `TASK-041`).
+- **Result:** sprint season, 18 re-entry base/build/overload weeks: median solved/target 1.40 -> 1.02, max 1.28 (was 1.75). Slow matrix 8 seasons: 0 fallback, 0 violations. Side effect owned by `TASK-038`: re-entry recovery weeks now solve 105-166 vs 72-112 target.
+- **Verification:** `tests/test_season_periodization.py` (+2: relief levels touch minimums only; 8-week re-entry season median in [0.9, 1.15]). Full suite 280 pass + 8 `slow` = 288 pass (518 s).
+

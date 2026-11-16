@@ -65,6 +65,40 @@ def apply_deload_relief(cfg, role: str) -> bool:
     return True
 
 
+# TASK-037: re-entry weeks whose TSS target sits below the TSS floor of the full-week structure minimums.
+REENTRY_RELIEF_ROLES = ("base", "build", "overload")
+STRUCTURE_OVERSHOOT_TOL = 1.15    # solved / target above this triggers the next relief level
+REENTRY_RELIEF_LEVELS = (1, 2)
+
+
+def apply_reentry_relief(cfg, level: int) -> str:
+    """TASK-037: scale the full-week structure minimums down for one re-entry build week; returns a report.
+
+    The structure minimums (>= 2 key, >= 2 stride sessions, >= 2 Bike / Run sessions, <= 2 rest days) are Tier-1
+    slacks solved BEFORE the soft Tier-2 TSS goal, so together they set a TSS floor (~160-215 for
+    CURRENT_ATHLETE) that a re-entry target of 96-150 can never reach. Level 1 is the TASK-034 deload relief
+    (each minimum halved, rounded up, never below 1; rest days up to :data:`DELOAD_MAX_REST_DAYS`). Level 2
+    additionally drops the key-session and stride minimums to 0, as the profile's own rule says ("0-1 key
+    sessions during the first 4 re-entry weeks"). Maxima, Strength frequency, heavy-strength count and every
+    Tier-0 cap are untouched. The caller escalates a level only while the solved week overshoots its target.
+    """
+    before = (cfg.key_sessions_per_week[0], cfg.min_stride_sessions,
+              cfg.sport_freq_bounds.get("Bike", (0, 0))[0], cfg.sport_freq_bounds.get("Run", (0, 0))[0], cfg.max_rest_days)
+    klo, khi = cfg.key_sessions_per_week
+    cfg.key_sessions_per_week = (min(klo, max(1, -(-klo // 2))), khi)
+    cfg.min_stride_sessions = min(cfg.min_stride_sessions, max(1, -(-cfg.min_stride_sessions // 2)))
+    cfg.sport_freq_bounds = {sp: ((min(lo, max(1, -(-lo // 2))) if sp in ("Bike", "Run") else lo), hi)
+                             for sp, (lo, hi) in cfg.sport_freq_bounds.items()}
+    cfg.max_rest_days = max(cfg.max_rest_days, DELOAD_MAX_REST_DAYS)
+    if level >= 2:
+        cfg.key_sessions_per_week = (0, khi)
+        cfg.min_stride_sessions = 0
+    after = (cfg.key_sessions_per_week[0], cfg.min_stride_sessions,
+             cfg.sport_freq_bounds.get("Bike", (0, 0))[0], cfg.sport_freq_bounds.get("Run", (0, 0))[0], cfg.max_rest_days)
+    return (f"STRUCTURE_RELIEF_L{level} (key {before[0]}->{after[0]}, strides {before[1]}->{after[1]}, "
+            f"Bike/Run min {before[2]}/{before[3]}->{after[2]}/{after[3]}, max rest days {before[4]}->{after[4]})")
+
+
 @dataclass(frozen=True)
 class SeasonWeek:
     week_num: int

@@ -175,3 +175,45 @@ def test_recovery_week_solves_well_below_full_week_floor(default_library):
 
     full, relieved = solve(False), solve(True)
     assert full > 200 and relieved < 0.6 * full      # was ~250 (floor from keys/strides/frequency/rest rows)
+
+
+# ----------------------------------------------------------------------------- TASK-037 re-entry structure relief
+
+def test_reentry_relief_levels_scale_minimums_only():
+    from triplan.control.periodization import apply_reentry_relief
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE as P
+
+    base = P.to_mesocycle_config("Build")
+    cfg = P.to_mesocycle_config("Build")
+    note = apply_reentry_relief(cfg, 1)
+    assert note.startswith("STRUCTURE_RELIEF_L1")
+    assert cfg.key_sessions_per_week == (1, 3) and cfg.min_stride_sessions == 1 and cfg.max_rest_days == 4
+    assert cfg.sport_freq_bounds["Bike"] == (1, 3) and cfg.sport_freq_bounds["Run"] == (1, 3)
+    apply_reentry_relief(cfg, 2)
+    assert cfg.key_sessions_per_week == (0, 3) and cfg.min_stride_sessions == 0
+    assert cfg.sport_freq_bounds["Strength"] == base.sport_freq_bounds["Strength"]
+    for f in ("max_daily_axial_load", "max_weekly_axial_load", "max_daily_neuro_load", "max_48h_ans_cost",
+              "max_weekly_run_mech_strain", "max_single_run_vol_ratio", "required_heavy_strength_sessions"):
+        assert getattr(cfg, f) == getattr(base, f)
+
+
+def test_reentry_build_weeks_track_their_targets():
+    """TASK-037: re-entry build weeks used to solve at a median 1.3-1.4x target (structure floor ~160-215 TSS)."""
+    import contextlib
+    import io
+    import statistics
+
+    from triplan.control.season import generate_closed_loop_season_schedule
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE as P
+
+    recs = []
+    with contextlib.redirect_stdout(io.StringIO()):
+        _, summary = generate_closed_loop_season_schedule(profile=P, distance="sprint", weeks_to_race=4,
+                                                          reentry_weeks=8, time_limit_per_week=2.0, collect=recs)
+    roles = {r.week_num: r.role for r in recs}
+    builds = summary[summary.Week.map(roles).isin(["base", "build", "overload"]) & (summary.Block == "reentry")]
+    ratios = (builds.Solved_TSS / builds.Target_TSS).tolist()
+    assert len(ratios) == 6 and 0.9 <= statistics.median(ratios) <= 1.15, ratios
+    assert summary.Recalibration.astype(str).str.contains("STRUCTURE_RELIEF").any()
+    race_builds = summary[summary.Block == "race"]
+    assert not race_builds.Recalibration.astype(str).str.contains("STRUCTURE_RELIEF").any()   # re-entry only
