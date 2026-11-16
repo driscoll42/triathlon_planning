@@ -148,7 +148,7 @@ def test_deload_relief_scales_minimums_only_in_deload_roles():
     for role in ("base", "build", "overload"):
         cfg = P.to_mesocycle_config("Build")
         assert apply_deload_relief(cfg, role) is False and cfg.__dict__ == base.__dict__
-    for role, klo in (("recovery", 1), ("taper", 1), ("race", 0)):
+    for role, klo in (("recovery", 0), ("taper", 0), ("race", 0)):
         cfg = P.to_mesocycle_config("Build")
         assert apply_deload_relief(cfg, role) is True
         assert cfg.key_sessions_per_week == (klo, 3) and cfg.min_stride_sessions == 1 and cfg.max_rest_days == 4
@@ -217,3 +217,48 @@ def test_reentry_build_weeks_track_their_targets():
     assert summary.Recalibration.astype(str).str.contains("STRUCTURE_RELIEF").any()
     race_builds = summary[summary.Block == "race"]
     assert not race_builds.Recalibration.astype(str).str.contains("STRUCTURE_RELIEF").any()   # re-entry only
+
+
+# ----------------------------------------------------------------------------- TASK-038 deload overshoot
+
+def test_deload_anchor_and_acwr_floor_relief_only_in_deload_roles(default_library):
+    import dataclasses
+
+    from triplan.control.periodization import relax_deload_acwr_floor, relax_deload_anchors
+    from triplan.solver.engine.carry_in import LoadState, WeekCarryIn
+
+    assert any(w.is_anchor for w in default_library)
+    for role in ("base", "build", "overload"):
+        assert relax_deload_anchors(default_library, role) is default_library
+    for role in ("recovery", "taper", "race"):
+        relaxed = relax_deload_anchors(default_library, role)
+        assert len(relaxed) == len(default_library) and not any(w.is_anchor for w in relaxed)
+        assert [w.code for w in relaxed] == [w.code for w in default_library]   # same candidates, no obligation
+    assert any(w.is_anchor for w in default_library)                            # input not mutated
+
+    carry = WeekCarryIn(load=LoadState(run_acute=1.0, run_chronic=1.0, total_ctl=20.0, acwr_min=0.8, acwr_max=1.2))
+    for role in ("base", "build", "overload"):
+        assert relax_deload_acwr_floor(carry, role) is carry
+    assert relax_deload_acwr_floor(None, "recovery") is None
+    for role in ("recovery", "taper", "race"):
+        c = relax_deload_acwr_floor(carry, role)
+        assert c.load.acwr_min == 0.0 and carry.load.acwr_min == 0.8
+        assert dataclasses.replace(c.load, acwr_min=0.8) == carry.load           # nothing else changed
+
+
+def test_short_current_athlete_deload_weeks_track_targets():
+    """TASK-038: recovery / taper weeks solved up to +68 TSS over target (key minimum + ACWR floor charge)."""
+    import contextlib
+    import io
+
+    from triplan.control.season import generate_closed_loop_season_schedule
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE as P
+
+    recs = []
+    with contextlib.redirect_stdout(io.StringIO()):
+        _, summary = generate_closed_loop_season_schedule(profile=P, distance="sprint", weeks_to_race=6,
+                                                          reentry_weeks=8, time_limit_per_week=2.0, collect=recs)
+    roles = {r.week_num: r.role for r in recs}
+    deload = summary[summary.Week.map(roles).isin(["recovery", "taper"])]
+    assert len(deload) >= 3
+    assert ((deload.Solved_TSS - deload.Target_TSS) <= 25.0).all(), deload[["Week", "Target_TSS", "Solved_TSS"]]

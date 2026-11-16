@@ -159,3 +159,12 @@
 - **Result:** sprint season, 18 re-entry base/build/overload weeks: median solved/target 1.40 -> 1.02, max 1.28 (was 1.75). Slow matrix 8 seasons: 0 fallback, 0 violations. Side effect owned by `TASK-038`: re-entry recovery weeks now solve 105-166 vs 72-112 target.
 - **Verification:** `tests/test_season_periodization.py` (+2: relief levels touch minimums only; 8-week re-entry season median in [0.9, 1.15]). Full suite 280 pass + 8 `slow` = 288 pass (518 s).
 
+## Phase 2 — TASK-038 — completed 2026-11-16 (PR #PRN)
+
+- [x] **`TASK-038` (`optimizer`):** **Recovery/Taper/Race-Week TSS Overshoot Beyond Deload Relief** — after `TASK-034`, recovery weeks still solved up to +68 TSS (`CURRENT_ATHLETE`) / +244 (reference) and taper/race weeks up to +44 / +275 over target.
+
+### Outcomes
+- **TASK-038:** Ablations on recorded `WeekRecord`s (real library): three independent Tier-1 charges, each minimised before the soft TSS goal. (1) Key-session minimum >= 1 (`CURRENT_ATHLETE`: key min 0 alone brings weeks 8-39 within +10). (2) Mandatory anchors (reference profile, caps host the 180 min ride / 75 min run: floor 350-400 vs 186-220). (3) The `ADR-019` running-ACWR 0.80 floor waiver (weight-1 Tier-1 slack: any plan that can hold the floor pays for extra running; reference recovery 275/269/269 vs 186/203/220 target, 187/203/223 without the floor; carry-in `nocarry` == `nofloor`, CTL-ramp ablation no effect). Fix (`ADR-023`): `control/periodization.py` `apply_deload_relief` key min 0 and Swim min halved with Bike/Run, `relax_deload_anchors`, `relax_deload_acwr_floor`, applied in `control/season.py` to recovery/taper/race weeks only. Tier-0 caps, maxima, ACWR ceiling, boundary rows, CTL ramp unchanged.
+- **Result (`EXP-007` matrix, 8 seasons):** recovery weeks max over target +68/+244 -> +8/+4 (`CURRENT_ATHLETE`/reference), taper/race +44/+275 -> +11/+14; 0 fallback, 0 violations. Remaining: `CURRENT_ATHLETE` week 4 (first recovery) +8; reference Ironman recovery undershoot -98 (`TASK-040`).
+- **Verification:** +2 tests in `tests/test_season_periodization.py`; slow `test_full_matrix_season` now asserts recovery and taper/race max over <= 25. Full suite 282 pass + 8 `slow`.
+

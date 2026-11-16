@@ -42,6 +42,8 @@
 - **`ADR-019`** (`mpc`): Carry-in state and in-model linearized running ACWR, CTL ramp and run-minutes rows
 - **`ADR-020`** (`physiology`): Sport-specific quality q_i classifies hard and key sessions; lift+easy combos are compound candidates; canonical 80/20 is a hard engine rule
 - **`ADR-021`** (`optimizer`): Re-entry weeks scale the structure minimums down when the full-week structure floor exceeds the TSS target
+- **`ADR-022`** (`optimizer`): Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge
+- **`ADR-023`** (`optimizer`): Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`

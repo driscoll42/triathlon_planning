@@ -14,7 +14,7 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
-                                            apply_deload_relief, apply_reentry_relief, build_season_matrix, filter_test_workouts, normalize_distance)
+                                            apply_deload_relief, apply_reentry_relief, relax_deload_acwr_floor, relax_deload_anchors, build_season_matrix, filter_test_workouts, normalize_distance)
 from triplan.control.feasibility import season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
@@ -248,7 +248,9 @@ def generate_closed_loop_season_schedule(
         # 4. Solve Week MILP
         # ADR-011 lockouts: forbidden CP/CSS tests are removed from the candidates BEFORE the solve.
         week_lib = filter_test_workouts(lib, wk, carry.last_test_week, **test_rules)
-        scheduler = TriathlonMILPScheduler(week_lib, cfg, carry_in=carry)
+        week_lib = relax_deload_anchors(week_lib, wk.role)   # TASK-038: no keystone obligation in deload weeks
+        solve_carry = relax_deload_acwr_floor(carry, wk.role)   # TASK-038
+        scheduler = TriathlonMILPScheduler(week_lib, cfg, carry_in=solve_carry)
         plans = scheduler.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
         # TASK-037: a re-entry build week whose full-week structure floor overshoots its target by more than
         # STRUCTURE_OVERSHOOT_TOL is re-solved with the structure minimums scaled down (never the Tier-0 caps).
@@ -259,7 +261,7 @@ def generate_closed_loop_season_schedule(
                     break
                 cfg_l = copy.deepcopy(cfg)
                 note = apply_reentry_relief(cfg_l, level)
-                sched_l = TriathlonMILPScheduler(week_lib, cfg_l, carry_in=carry)
+                sched_l = TriathlonMILPScheduler(week_lib, cfg_l, carry_in=solve_carry)
                 plans_l = sched_l.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
                 if plans_l and plans_l[0]["total_tss"] < plans[0]["total_tss"]:
                     scheduler, plans, structure_note = sched_l, plans_l, note
