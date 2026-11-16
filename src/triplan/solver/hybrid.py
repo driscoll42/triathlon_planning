@@ -21,7 +21,8 @@ class HybridAthleteMILPOptimizer:
     def __init__(
         self,
         library: List[Any],
-        config: Any
+        config: Any,
+        carry_in: Optional[Any] = None,
     ):
         self.library = library
         self.N = len(library)
@@ -33,7 +34,7 @@ class HybridAthleteMILPOptimizer:
         self.zones = list(ZONES)
         self.last_diagnostics: List[str] = []
         self.last_status: Optional[str] = None
-        self.engine = UnifiedWeekEngine(library, config, hybrid_options())
+        self.engine = UnifiedWeekEngine(library, config, hybrid_options(), carry_in=carry_in)
         self.limits = self.engine.limits
         self.sets = self.engine.sets
 
