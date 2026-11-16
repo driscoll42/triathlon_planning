@@ -28,7 +28,7 @@ def _codes(plan, day=None):
 
 
 def _day0_cfg(**kw):
-    return cfg(daily_time_caps=list(DAY0_ONLY), weekday_single_workout_cap=120.0, **kw)
+    return cfg(daily_time_caps=list(DAY0_ONLY), weekday_single_workout_cap=120.0, intensity_low_min=0.0, intensity_mod_high_max=1.0, **kw)
 
 
 def _state(acute, chronic, rho=1.2, eps=0.0, **kw):
@@ -39,7 +39,7 @@ def _state(acute, chronic, rho=1.2, eps=0.0, **kw):
 # ----------------------------------------------------------------------------- boundary constants
 
 def test_day_load_from_workouts_uses_the_safety_classification():
-    hard = wk(0, "T", "Bike", 60, is_hard_endurance=True, tss=80.0, mech=0.0, ans=30.0)
+    hard = wk(0, "T", "Bike", 60, z=(15.0, 25.0, 0.0, 20.0, 0.0), tss=80.0, mech=0.0, ans=30.0)
     dl = wk(1, "DL", "Strength", 45, is_heavy_strength=True, flags={"heavy_dl": 1})
     lr = wk(2, "LR", "Run", 60, flags={"long_run": 1}, mech=50.0)
     assert DayLoad.from_workouts([]).is_empty
@@ -50,7 +50,7 @@ def test_day_load_from_workouts_uses_the_safety_classification():
 
 
 def test_day0_hard_is_blocked_after_hard_day_minus_1():
-    lib = [wk(0, "HARD", "Bike", 60, tss=80.0, mech=0.0, is_hard_endurance=True), wk(1, "EASY", "Bike", 60, tss=20.0)]
+    lib = [wk(0, "HARD", "Bike", 60, tss=80.0, mech=0.0, z=(15.0, 25.0, 0.0, 20.0, 0.0)), wk(1, "EASY", "Bike", 60, tss=20.0)]
     c = _day0_cfg(target_weekly_tss=80.0)
     assert _codes(_solve(lib, c), 0) == ["HARD"]                       # control: the hard day is wanted on day 0
     carry = WeekCarryIn(day_m1=DayLoad(hard=True))

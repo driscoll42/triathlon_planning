@@ -84,7 +84,7 @@ def _acwr_rows(ctx: BuildContext) -> None:
     if len(runs) == 0:
         return
     a, c = ALPHA_ACUTE, ALPHA_CHRONIC
-    m = tab.mechanical_strain[runs]
+    m = tab.run_strain[runs]          # run component only (a lift + easy-run combo counts its run leg)
 
     def row_for(d: int, rho: float):
         cols, vals = [], []
@@ -134,5 +134,5 @@ def _run_minutes_row(ctx: BuildContext) -> None:
     ls = ctx.carry_in.load
     if ls.run_minutes_cap is None or not ctx.sets.runs:
         return
-    cols, vals = ctx.per_week(ctx.table.duration, ctx.sets.runs)
+    cols, vals = ctx.per_week(ctx.table.run_minutes, ctx.sets.runs)
     ctx.model.add_row((cols, vals), -INF, float(ls.run_minutes_cap), name="run_minutes_cap")

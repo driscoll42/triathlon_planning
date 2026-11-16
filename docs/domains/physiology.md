@@ -102,3 +102,8 @@ Concurrent endurance and resistance training triggers competing intracellular si
 <!-- LODE_AUTOGEN_START -->
 <!-- Auto-rendered by lodectx.py sync-docs -->
 <!-- LODE_AUTOGEN_END -->
+
+### F. Session Structure & Canonical 80/20 in the Engine (TASK-019, `ADR-020`)
+- **Quality `q_i`** (Z4-equivalent minutes, weights Z1 0, Z2 0, ZX 1/6, Z3 1/3, ZY 2/3, Z4 1, Z5 1; strides' Z5 excluded) classifies sessions: `q >= 5` hard, `0 < q < 5` (after an incidental allowance of `2 + 1/h`) is grey-zone and pre-filtered; key = hard, anchor, or long (Run >= 70, Bike >= 120 min). Never IF.
+- **Weekly:** key sessions 2-3 (Tier-1 lower bound), strides >= 2 (Tier-1), one hard endurance session per day, endurance TiZ Z1+Z2 >= 78% and Z3+ZY+Z4+Z5 <= 20% (hard), 80% and Zone X -> 0 soft; strength excluded from the denominator.
+- **Daily:** heavy lower-body lifts stack on hard-endurance days when two windows exist (AM endurance + PM lift; lift AM when the PM session is easy; >= 6 h gap), otherwise stand alone. `DECISION-021` combos: lift + <= 20 min Z1/Z2 Bike (Run after non-heavy lifts), one window, counts toward the cardio sport.

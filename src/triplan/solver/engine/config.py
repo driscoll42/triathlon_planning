@@ -51,7 +51,17 @@ symmetry_breaking      add one week-reversal ordering row when the whole week is
 prune_dominated        drop provably dominated duplicate workouts before building (``solver.pruning``).
 split_coherence        UL/HLM strength split architecture with ``z_split``.
 barbell_share          >= ``min_barbell_set_share`` of strength sets on the barbell.
-tiz_band               Z1+Z2 >= p_low_min and Z4+Z5 <= p_high_max with soft slacks.
+tiz_band               (superseded by ``canonical_8020``) Z1+Z2 >= p_low_min and Z3+ZY+Z4+Z5 <= p_high_max
+                       with soft minute-scale slacks.
+prefilter_grey_zone    drop grey-zone workouts (0 < q_i < q_hard) before the model is built (TASK-019).
+quality_classification ``is_hard_endurance`` from the sport-specific quality ``q_i`` (session_quality).
+one_hard_per_day       at most one hard endurance session per day (both facades).
+key_sessions           ``key_sessions_per_week`` (default 2..3): upper bound hard, lower a Tier-1 slack.
+hard_days_hard         heavy lower-body strength only on hard-endurance days (days with two windows).
+window_gating          ``double[d] <= two_session_windows[d]`` (default all True) + deterministic AM/PM.
+lift_easy_combo        DECISION-021 compound candidates (lift + <= 20 min strictly Z1/Z2 Bike/Run).
+canonical_8020         weekly endurance TiZ: Z1+Z2 >= 78% (hard), Z3+ZY+Z4+Z5 <= 20% (hard), 80% soft
+                       target, Zone X soft toward 0; applied by both facades (ADR-012 / DECISION-013).
 meso_adjacency_rows    scheduler's own hard-endurance/day and heavy-strength vs run rows.
 weekly_run_strain_cap  ``max_weekly_run_mech_strain`` row over run workouts.
 safety / tier1         include the shared Tier-0 layer / Tier-1 named slacks.
@@ -68,6 +78,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from triplan.solver.engine import session_quality as sq
 from triplan.solver.safety_constraints import cfg_get
 
 DAYS = list(range(7))
@@ -116,6 +127,19 @@ class WorkoutTable:
         self.is_hard_endurance = np.array([bool(getattr(x, "is_hard_endurance", False)) for x in w], dtype=bool)
         self.is_indoor_bike = np.array([bool(getattr(x, "is_indoor_bike", False)) for x in w], dtype=bool)
         self.zone = np.array([self._zone_minutes(x) for x in w], dtype=np.float64).reshape(self.n, 5)
+        # 7-zone minutes (Z1, Z2, ZX, Z3, ZY, Z4, Z5) and the part that counts toward endurance time-in-zone
+        self.zone7 = np.array([sq.zone7(x) for x in w], dtype=np.float64).reshape(self.n, 7)
+        self.endur_zone7 = np.array([sq.endurance_zone7(x) for x in w], dtype=np.float64).reshape(self.n, 7)
+        # DECISION-021 lift + easy cardio combo: the cardio component of a compound ("" for ordinary workouts)
+        self.cardio_sport: List[str] = [str(getattr(x, "cardio_sport", "") or "") for x in w]
+        self.cardio_minutes = np.array([float(getattr(x, "cardio_minutes", 0.0)) for x in w], dtype=np.float64)
+        self.cardio_mech = np.array([float(getattr(x, "cardio_mech_strain", 0.0)) for x in w], dtype=np.float64)
+        is_run = np.array([s == "Run" for s in self.sport], dtype=bool)
+        # run component: the whole workout for a run, only the cardio part of a lift+run combo
+        self.run_minutes = np.where(is_run, self.duration,
+                                    np.where(np.array([c == "Run" for c in self.cardio_sport]), self.cardio_minutes, 0.0))
+        self.run_strain = np.where(is_run, self.mechanical_strain,
+                                   np.where(np.array([c == "Run" for c in self.cardio_sport]), self.cardio_mech, 0.0))
 
     @staticmethod
     def _zone_minutes(x: Any) -> List[float]:
@@ -130,6 +154,14 @@ class WorkoutTable:
 
     def ids(self, sport: str) -> List[int]:
         return [i for i, s in enumerate(self.sport) if s == sport]
+
+    def combo_ids(self, sport: str) -> List[int]:
+        """Lift + easy ``sport`` combos (sport stays "Strength"; they also count toward ``sport``)."""
+        return [i for i, c in enumerate(self.cardio_sport) if c == sport]
+
+    def members(self, sport: str) -> List[int]:
+        """Workouts that put ``sport`` work on the day: its own workouts plus combos with that cardio."""
+        return self.ids(sport) + self.combo_ids(sport)
 
     def mask(self, *sports: str) -> np.ndarray:
         return np.isin(self.sport_arr, list(sports))
@@ -162,6 +194,21 @@ class WeekConfig:
     @property
     def hybrid_weights(self) -> Dict[str, float]:
         return self.get("weights", default=DEFAULT_HYBRID_WEIGHTS)
+
+    @property
+    def two_windows(self) -> List[bool]:
+        """Days with an AM and a PM window (>= ``am_pm_min_gap_h`` apart). Default: every day (no gating)."""
+        v = self.get("two_session_windows", "two_windows", default=None)
+        return [bool(x) for x in v] if v is not None else [True] * 7
+
+    @property
+    def am_pm_min_gap_h(self) -> float:
+        return float(self.get("am_pm_min_gap_h", default=6.0))
+
+    @property
+    def key_range(self) -> Tuple[int, int]:
+        lo, hi = self.get("key_sessions_per_week", default=(2, 3))
+        return int(lo), int(hi)
 
     def weight(self, key: str, default: float) -> float:
         return float(self.hybrid_weights.get(key, default))
@@ -213,6 +260,16 @@ class EngineOptions:
     split_coherence: bool = False
     barbell_share: bool = False
     tiz_band: bool = False
+    # TASK-019 (ADR-019): session structure and canonical 80/20. All default on for the meso/hybrid
+    # presets and off for the legacy day scheduler.
+    prefilter_grey_zone: bool = True   # drop 0 < q_i < q_hard workouts before building
+    quality_classification: bool = True  # is_hard_endurance from sport-specific q_i, not IF / stale flags
+    one_hard_per_day: bool = True      # <= 1 hard endurance session per day (both facades)
+    key_sessions: bool = True          # key_lo <= sum key_i x <= key_hi (lower bound is a Tier-1 slack)
+    hard_days_hard: bool = True        # heavy lower strength only on hard-endurance days (when 2 windows)
+    window_gating: bool = True         # double[d] <= two_windows[d]
+    lift_easy_combo: bool = True       # DECISION-021 compound candidates
+    canonical_8020: bool = True        # Z1+Z2 >= 78% and Z3+ZY+Z4+Z5 <= 20% hard, 80% soft, Zone X soft
     plan_format: str = "meso"
     infeasible_hint: bool = True
     # solver options
@@ -234,7 +291,7 @@ def hybrid_options() -> EngineOptions:
         session_model="per_sport_cap", allowed_rule="hybrid", cost_profile="hybrid", goal_profile="hybrid",
         rest_bounds_default=(1, 2), empty_row_policy="keep",
         meso_adjacency_rows=False, weekly_run_strain_cap=False, split_coherence=True, barbell_share=True,
-        tiz_band=True, plan_format="hybrid", infeasible_hint=False, mip_heuristic_effort=None,
+        tiz_band=False, plan_format="hybrid", infeasible_hint=False, mip_heuristic_effort=None,
     )
 
 
@@ -243,6 +300,8 @@ def legacy_options(spec: LegacySpec) -> EngineOptions:
     return EngineOptions(
         session_model="single_per_day", allowed_rule="none", cost_profile="none", goal_profile="legacy",
         cut_mode="none", symmetry_breaking=False, prune_dominated=False, safety=False, tier1=False, meso_adjacency_rows=False, weekly_run_strain_cap=False,
+        prefilter_grey_zone=False, quality_classification=False, one_hard_per_day=False, key_sessions=False,
+        hard_days_hard=False, window_gating=False, lift_easy_combo=False, canonical_8020=False,
         plan_format="raw", infeasible_hint=False, quiet_option="log_to_console", mip_rel_gap=None,
         mip_abs_gap=0.01, mip_heuristic_effort=0.20, legacy=spec,
     )

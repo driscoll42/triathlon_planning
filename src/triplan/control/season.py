@@ -8,6 +8,7 @@ import logging
 from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
 from triplan.control.mpc import ClosedLoopMPCController
 from triplan.library.candidates import build_default_candidate_library
+from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run_strain
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import build_season_matrix, filter_test_workouts, normalize_distance
@@ -241,14 +242,14 @@ def generate_closed_loop_season_schedule(
             for d in range(7):
                 wkts = plan["schedule"][d]
                 d_aerobic = sum(w.aerobic_tss for w in wkts)
-                d_mech = sum(w.mechanical_strain for w in wkts if w.sport == "Run")
+                d_mech = sum(run_strain(w) for w in wkts)   # run leg of a lift + run combo included
                 d_bike = sum(w.aerobic_tss for w in wkts if w.sport == "Bike")
                 d_run = sum(w.aerobic_tss for w in wkts if w.sport == "Run")
                 d_swim = sum(w.aerobic_tss for w in wkts if w.sport == "Swim")
                 athlete_state.step_day(d_aerobic, d_mech, d_bike, d_run, d_swim)
                 max_acwr = max(max_acwr, athlete_state.running_mechanical_acwr)
                 max_excess = max(max_excess, athlete_state.running_acute_mech - acwr_cap * athlete_state.running_chronic_mech)
-            run_minutes = float(sum(w.duration for d in range(7) for w in plan["schedule"][d] if w.sport == "Run"))
+            run_minutes = float(sum(run_minutes_of(w) for d in range(7) for w in plan["schedule"][d]))
             carry = next_week_carry_in(carry, plan["schedule"], athlete_state, profile, lib, plan["total_tss"])
 
             if any(plan["schedule"][d] for d in range(7)):

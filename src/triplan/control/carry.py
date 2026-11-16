@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterable, Optional
 
 from triplan.physiology.state import ALPHA_ACUTE, ALPHA_CHRONIC, AthletePhysiologicalState
 from triplan.solver.engine.carry_in import DayLoad, LoadState, WeekCarryIn
+from triplan.solver.safety_constraints import run_minutes as run_minutes_of
 
 GLOBAL_ACWR_MAX = 1.30      # INVARIANTS: mechanical ACWR window [0.80, 1.30]
 GLOBAL_ACWR_MIN = 0.80
@@ -59,7 +60,7 @@ def initial_carry_in(state: AthletePhysiologicalState, profile: Optional[Any], l
 def next_week_carry_in(prev: WeekCarryIn, schedule: Dict[int, list], state: AthletePhysiologicalState,
                        profile: Optional[Any], library: Iterable[Any], week_tss: float) -> WeekCarryIn:
     """Carry-in for week k+1 from week k's solved ``schedule`` ({0..6: [workouts]}) and the already advanced state."""
-    run_minutes = float(sum(w.duration for d in range(7) for w in schedule.get(d, []) if w.sport == "Run"))
+    run_minutes = float(sum(run_minutes_of(w) for d in range(7) for w in schedule.get(d, [])))  # incl. combo run legs
     return WeekCarryIn(
         day_m1=DayLoad.from_workouts(schedule.get(6, [])),
         day_m2=DayLoad.from_workouts(schedule.get(5, [])),

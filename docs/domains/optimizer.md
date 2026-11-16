@@ -93,6 +93,9 @@ The hybrid extension balances running, cycling, swimming, and heavy resistance t
 5. **Split Archetype Coherence Indicator Cuts:** Binary indicator $z_{\text{split}} \in \{0,1\}$ prevents mixing Full-Body HLM with Upper/Lower splits within the same week:
    $$x_{i,d} \le z_{\text{split}} \quad \forall i \in \mathcal{W}_{\text{FULL\_BODY}}, \quad x_{j,d} \le 1 - z_{\text{split}} \quad \forall j \in \mathcal{W}_{\text{UPPER\_LOWER}}$$
 
+### Session structure and 80/20 builders (TASK-019, `ADR-020`)
+Engine pipeline: grey-zone drop -> `q_i` hard classification -> lift+easy combo candidates -> dominance pruning -> `WorkoutTable`. Builders `session_structure` (one-hard/day, key sessions, Hard-Days-Hard, window gating, combo exclusivity) and `intensity_structure.add_canonical_8020` run after `add_tier1` / `load_dynamics`; each has an `EngineOptions` switch (all off in `legacy_options`). Plans carry `am_pm` slots. A new day-asymmetric rule must keep `is_week_reversal_symmetric` False.
+
 <!-- LODE_AUTOGEN_START -->
 <!-- Auto-rendered by lodectx.py sync-docs -->
 <!-- LODE_AUTOGEN_END -->

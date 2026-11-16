@@ -49,7 +49,8 @@ DEFAULT_RELAXATION_ORDER = [
 ]
 # Categories not named in the athlete's order. Extra rest is the safest relaxation, so it is cheapest.
 # Strength frequency sits with heavy strength (Strength is the top sport priority).
-_PREPEND = ["extend_rest_days"]
+# Structure preferences of TASK-019 (Hard-Days-Hard stacking, key-session count) are cheap named relaxations.
+_PREPEND = ["extend_rest_days", "unstack_heavy_strength", "reduce_key_sessions"]
 _APPEND = ["shorten_or_drop_anchor:Strength", "reduce_frequency:Strength", "shorten_or_drop_anchor:Brick",
            "reduce_frequency:Brick"]
 LEX_BASE = 8  # > max slack per category (<= 7 sessions), so weights are exactly lexicographic
@@ -109,8 +110,27 @@ class SafetyLimits:
         return float(self.pigeonhole_run_share.get(n_runs, 1.0))
 
 
+def run_strain(w: Any) -> float:
+    """Running mechanical strain of ``w`` (whole workout for a run, the cardio part of a lift + run combo)."""
+    if getattr(w, "sport", "") == "Run":
+        return float(getattr(w, "mechanical_strain", 0.0))
+    if getattr(w, "cardio_sport", "") == "Run":
+        return float(getattr(w, "cardio_mech_strain", 0.0))
+    return 0.0
+
+
 def _flags(w: Any) -> Dict[str, int]:
     return getattr(w, "flags", None) or {}
+
+
+def run_minutes(w: Any) -> float:
+    """Running minutes of ``w``: its whole duration for a run, only the cardio part of a lift + easy-run
+    combo (DECISION-021), 0 otherwise. The run-share cap is over running time, not session time."""
+    if getattr(w, "sport", "") == "Run":
+        return float(getattr(w, "duration", 0.0))
+    if getattr(w, "cardio_sport", "") == "Run":
+        return float(getattr(w, "cardio_minutes", 0.0))
+    return 0.0
 
 
 @dataclass
@@ -137,7 +157,7 @@ def classify_workouts(workouts: Sequence[Any]) -> WorkoutSets:
         return bool(getattr(w, "is_heavy_strength", False)) or f.get("heavy_dl", 0) == 1 or f.get("heavy_sq", 0) == 1
 
     return WorkoutSets(
-        runs=ids(lambda w: w.sport == "Run"),
+        runs=ids(lambda w: w.sport == "Run" or getattr(w, "cardio_sport", "") == "Run"),  # incl. lift+run combos
         heavy_or_long_runs=ids(lambda w: w.sport == "Run" and (
             getattr(w, "is_heavy_run", False) or _flags(w).get("heavy_run", 0) == 1 or _flags(w).get("long_run", 0) == 1)),
         deadlifts=ids(lambda w: w.sport == "Strength" and (
@@ -274,7 +294,7 @@ def _add_run_share_cap(hooks: ModelHooks, workouts, limits: SafetyLimits, S: Wor
     hooks.add_row({v: 1.0, z[4]: -float(len(pairs))}, -inf, 0.0)
     hooks.add_row({v: 1.0, z[4]: -4.0}, 0.0, inf)
 
-    durs = {i: float(workouts[i].duration) for i in S.runs}
+    durs = {i: run_minutes(workouts[i]) for i in S.runs}
     for n in (4, 3, 2):
         rho = limits.run_share_cap(n)
         if rho >= 1.0:
@@ -288,10 +308,10 @@ def _add_run_share_cap(hooks: ModelHooks, workouts, limits: SafetyLimits, S: Wor
 
 
 def run_share_report(schedule_by_day: Dict[int, List[Any]], limits: SafetyLimits) -> Dict[str, Any]:
-    runs = [w for d in DAYS for w in schedule_by_day.get(d, []) if w.sport == "Run"]
+    runs = [w for d in DAYS for w in schedule_by_day.get(d, []) if run_minutes(w) > 0]
     n = len(runs)
-    total = sum(w.duration for w in runs)
-    share = (max(w.duration for w in runs) / total) if total > 0 else 0.0
+    total = sum(run_minutes(w) for w in runs)
+    share = (max(run_minutes(w) for w in runs) / total) if total > 0 else 0.0
     cap = limits.run_share_cap(n)
     note = None
     if 0 < n < 4:
@@ -361,7 +381,8 @@ def add_tier1_targets(reg: Tier1Registry, workouts: Sequence[Any], cfg: Any, set
                       x: Callable[[int, int], int], sport_day: Optional[Callable[[str, int], int]] = None,
                       rest_day: Optional[Callable[[int], int]] = None, include_anchors: bool = True,
                       include_strides: bool = True, include_heavy_strength: bool = True,
-                      rest_bounds_default: Tuple[int, int] = (1, 7)) -> None:
+                      rest_bounds_default: Tuple[int, int] = (1, 7),
+                      extra_members: Optional[Callable[[str], Sequence[int]]] = None) -> None:
     """Add anchors, sport minimum frequencies, strides, heavy-strength count and rest days as Tier-1 rows.
 
     Upper bounds (max frequency, max strides, max heavy strength) stay hard. Only the minimums
@@ -391,6 +412,8 @@ def add_tier1_targets(reg: Tier1Registry, workouts: Sequence[Any], cfg: Any, set
             real = {c: 1.0 for c in sd_cols}
         else:
             real = {x(i, d): 1.0 for i, w in enumerate(workouts) if w.sport == sport for d in DAYS}
+        if extra_members is not None:  # lift + easy cardio combos count toward the cardio sport (DECISION-021)
+            real.update({x(i, d): 1.0 for i in extra_members(sport) for d in DAYS})
         if real:
             row(real, 0.0, float(f_max))
         if f_min > 0:

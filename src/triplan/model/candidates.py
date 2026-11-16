@@ -1,7 +1,7 @@
 """Candidate workout and mesocycle constraint data models (split from closed_loop_optimizer, TASK-014)."""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 
@@ -40,6 +40,20 @@ class CandidateWorkout:
     axial_load: float = 0.0            # Lumbar L1-S1 compressive/shear load (X_i)
     sets_by_muscle: Dict[str, int] = field(default_factory=dict) # Anterior_Chain, Posterior_Chain, Push, Pull
     flags: Dict[str, int] = field(default_factory=dict)          # Specific biomechanical flags
+
+    # 7-zone minutes (Z1, Z2, ZX, Z3, ZY, Z4, Z5) of the 80/20 scale (ADR-009). Empty -> derived from
+    # ``zone_durations`` (5-zone view, ZX = ZY = 0). ``zone_durations`` keeps the 5-zone engine view
+    # (ZX folded into Z3, ZY into Z4) for the Tier-2 zone goals.
+    zone7: Tuple[float, ...] = ()
+
+    # DECISION-021 lift + easy cardio combo (TASK-019): one strength window followed immediately by a short,
+    # strictly Z1/Z2 Bike or Run piece. ``sport`` stays "Strength" (window type, one lift per day); the
+    # fields below describe the cardio component so run/bike safety sets, frequencies and the 80/20
+    # time-in-zone rule see it. Empty ``cardio_sport`` means an ordinary workout.
+    cardio_sport: str = ""             # 'Bike' | 'Run' | ''
+    cardio_minutes: float = 0.0        # minutes of the cardio component (<= 20, Z1/Z2 only)
+    cardio_mech_strain: float = 0.0    # mechanical strain of the cardio component alone
+    cardio_zone_durations: Tuple[float, float] = (0.0, 0.0)  # (Z1, Z2) minutes of the cardio component
 
 
 @dataclass
@@ -95,6 +109,20 @@ class MesoCycleTargetsAndConstraints:
     # Tier-1 relaxation order, cheapest first (DECISION-006); see safety_constraints.Tier1Registry
     tier1_relaxation_order: List[str] = field(default_factory=lambda: list(DEFAULT_RELAXATION_ORDER))
 
+    # Session structure (TASK-019). Names match AthleteProfile so the profile maps 1:1 (TASK-026).
+    key_sessions_per_week: Tuple[int, int] = (2, 3)          # 2 <= sum(key_i x_i) <= 3
+    two_session_windows: List[bool] = field(default_factory=lambda: [True] * 7)  # day has an AM and a PM window
+    am_pm_min_gap_h: float = 6.0                              # AMPK/mTOR gap between two windows (DECISION-004)
+    session_quality: Optional[Dict[str, Any]] = None          # q_i overrides (engine.session_quality docstring)
+    allow_lift_cardio_combo: bool = True                      # DECISION-021 compound candidates
+    combo_cardio_max_minutes: float = 20.0
+    combo_cardio_sports_after_heavy_lower: List[str] = field(default_factory=lambda: ["Bike"])
+    combo_cardio_sports_after_other_lift: List[str] = field(default_factory=lambda: ["Bike", "Run"])
+    # Canonical 80/20 (DECISION-013): shares of endurance time-in-zone (strength excluded)
+    intensity_low_min: float = 0.78          # Z1+Z2 >= (hard)
+    intensity_low_target: float = 0.80       # Z1+Z2 target (soft)
+    intensity_mod_high_max: float = 0.20     # Z3+ZY+Z4+Z5 <= (hard)
+
     # Weekly Frequency Bounds
     sport_freq_bounds: Dict[str, Tuple[int, int]] = field(default_factory=lambda: {
         "Swim": (2, 2),
@@ -103,7 +131,7 @@ class MesoCycleTargetsAndConstraints:
         "Strength": (1, 2),
     })
     required_heavy_strength_sessions: int = 1    # 2 in Base, 1 in Build, 0 in Taper
-    min_stride_sessions: int = 1
+    min_stride_sessions: int = 2                 # >= 2 stride sessions/week (TASK-019; Tier-1 drop_stride_count slack)
     max_stride_sessions: int = 2
     min_rest_days: int = 1
     max_rest_days: int = 1

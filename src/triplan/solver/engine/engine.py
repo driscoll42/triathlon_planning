@@ -27,9 +27,11 @@ from typing import Any, Dict, List, Optional, Sequence
 import highspy
 import numpy as np
 
-from triplan.solver.engine.builders import (calendar, goals, intensity_structure, load_dynamics, orthopedic, strength,
-                                            symmetry)
-from triplan.solver.engine.config import EngineOptions, WeekConfig, WorkoutTable
+from triplan.library.compound import make_lift_easy_combos
+from triplan.solver.engine import session_quality as sq
+from triplan.solver.engine.builders import (calendar, goals, intensity_structure, load_dynamics, orthopedic,
+                                            session_structure, strength, symmetry)
+from triplan.solver.engine.config import EngineOptions, WEEKENDS, WeekConfig, WorkoutTable
 from triplan.solver.engine.context import BuildContext
 from triplan.solver.engine.model import INF, WeekModel, add_row_to_highs
 from triplan.solver.highs_runtime import apply_threads
@@ -58,12 +60,31 @@ class UnifiedWeekEngine:
         self.opt = options
         self.dominance: Optional[DominanceReport] = None
         workouts = list(workouts)
+        self.cfg = WeekConfig(config)
+        # TASK-019 pre-filtering invariant: grey-zone drop -> q_i hard classification -> DECISION-021 combos
+        # -> dominance pruning, all before the WorkoutTable / model exist.
+        self.quality_params = sq.SessionQualityParams.from_config(self.cfg)
+        self.grey_zone_dropped: List[str] = []
+        if options.prefilter_grey_zone:
+            workouts, self.grey_zone_dropped = sq.prefilter_grey_zone(workouts, self.quality_params)
+        if options.quality_classification:
+            workouts = sq.reclassify_hard(workouts, self.quality_params)
+        self.combo_codes: List[str] = []
+        if options.lift_easy_combo and bool(self.cfg.get("allow_lift_cardio_combo", default=True)):
+            combos = make_lift_easy_combos(
+                workouts,
+                max_minutes=float(self.cfg.get("combo_cardio_max_minutes", default=20.0)),
+                sports_after_heavy_lower=list(self.cfg.get("combo_cardio_sports_after_heavy_lower", default=["Bike"])),
+                sports_after_other_lift=list(self.cfg.get("combo_cardio_sports_after_other_lift",
+                                                          default=["Bike", "Run"])))
+            self.combo_codes = [c.code for c in combos]
+            workouts = workouts + combos
         if options.prune_dominated:
             workouts, self.dominance = prune_dominated_candidates(
                 workouts, WeekConfig(config).get("sport_freq_bounds", default=None) if options.tier1 else None)
         self.workouts = workouts
-        self.cfg = WeekConfig(config)
         self.table = WorkoutTable(self.workouts)
+        self.key = sq.key_mask(self.workouts, self.quality_params)
         self.limits = SafetyLimits.from_config(config)
         self.sets = classify_workouts(self.workouts)
         self.allowed = calendar.make_allowed(self.table, self.cfg, options)
@@ -85,7 +106,7 @@ class UnifiedWeekEngine:
         opt = self.opt
         model = WeekModel(empty_row_policy=opt.empty_row_policy)
         ctx = BuildContext(model=model, table=self.table, cfg=self.cfg, opt=opt, limits=self.limits,
-                           sets=self.sets, allowed=self.allowed, carry_in=self.carry_in)
+                           sets=self.sets, allowed=self.allowed, key=self.key, carry_in=self.carry_in)
         calendar.add_variables(ctx, goals.cost_terms(ctx))
         goals.declare_goals(ctx)
         if opt.safety or opt.tier1:
@@ -119,8 +140,11 @@ class UnifiedWeekEngine:
         load_dynamics.add_carry_in(ctx)       # TASK-018: carry-in constants, in-model ACWR / CTL ramp / run minutes
         if opt.barbell_share:
             strength.add_barbell_share(ctx)
+        session_structure.add_session_structure(ctx)
         if opt.tiz_band:
             intensity_structure.add_tiz_band(ctx)
+        if opt.canonical_8020:
+            intensity_structure.add_canonical_8020(ctx)
         if opt.legacy is not None:
             intensity_structure.add_legacy_structure(ctx)
         goals.add_goal_rows(ctx)
@@ -213,6 +237,22 @@ class UnifiedWeekEngine:
         add_row_to_highs(h, {c: 1.0 for c in cols}, -INF, float(rhs))
         return True
 
+    # ------------------------------------------------------------------ AM/PM ordering (TASK-019)
+    def _order_schedule(self, schedule, col_vals, ctx: BuildContext) -> Dict[int, List[Dict[str, Any]]]:
+        """Reorder every day of ``schedule`` in place into deterministic AM -> PM order and return the slot
+        labels (``AM`` / ``PM`` / ``WINDOW``, with the minimum gap between windows)."""
+        gap = self.cfg.am_pm_min_gap_h
+        slots: Dict[int, List[Dict[str, Any]]] = {}
+        for d in ctx.days:
+            ordered = session_structure.order_day(schedule[d])
+            schedule[d] = ordered
+            # Only the scheduler's weekend brick is ONE window (sum x - double - brick == 1); a weekday Bike +
+            # Run pair is a double (two windows) even though the ``brick`` indicator column is raised.
+            brick = (self.opt.session_model == "partition_brick" and d in WEEKENDS
+                     and bool(col_vals[ctx.brick[d]] > 0.5))
+            slots[d] = session_structure.day_slots(ordered, gap, brick) if ordered else []
+        return slots
+
     # ------------------------------------------------------------------ plan dictionaries
     def _format_plan(self, rank, res, lex, reg, col_vals, ctx, pairs, schedule, diagnostics) -> Dict[str, Any]:
         tab, fmt = self.table, self.opt.plan_format
@@ -222,6 +262,8 @@ class UnifiedWeekEngine:
             return float(sum(float(arr[i]) for i, _ in by_day))
 
         base = {"rank": rank + 1, "status": res.status, "mip_gap": res.mip_gap}
+        if fmt != "raw":
+            base["am_pm"] = self._order_schedule(schedule, col_vals, ctx)
         if fmt == "raw":
             base.update({"objective": res.objective, "col_value": col_vals, "selected_pairs": pairs,
                          "schedule": schedule})
@@ -252,7 +294,8 @@ class UnifiedWeekEngine:
                "tier1_penalty": lex.tier1_penalty, "relaxations": relaxations,
                "diagnostics": list(diagnostics), "run_share": run_share,
                "total_tss": total(tab.aerobic_tss), "total_axial_load": total(tab.axial_load),
-               "total_duration": total(tab.duration), "schedule": schedule, "selected_pairs": pairs}
+               "total_duration": total(tab.duration), "schedule": schedule, "selected_pairs": pairs,
+               "am_pm": base["am_pm"]}
         return out
 
 

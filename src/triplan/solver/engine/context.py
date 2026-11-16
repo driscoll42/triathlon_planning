@@ -41,6 +41,7 @@ class BuildContext:
     z_split: Optional[int] = None
     goals: Dict[str, Any] = field(default_factory=dict)  # name -> SoftGoal | column index
 
+    key: Optional[np.ndarray] = None                     # bool per workout: key session (TASK-019)
     carry_in: Optional[Any] = None                       # engine.carry_in.WeekCarryIn (TASK-018)
     hooks: Optional[ModelHooks] = None
     reg: Optional[Tier1Registry] = None
