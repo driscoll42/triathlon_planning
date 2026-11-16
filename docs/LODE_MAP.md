@@ -44,6 +44,7 @@
 - **`ADR-021`** (`optimizer`): Re-entry weeks scale the structure minimums down when the full-week structure floor exceeds the TSS target
 - **`ADR-022`** (`safety`): Absolute long-run cap in minutes for weeks with fewer than 4 runs
 - **`ADR-023`** (`optimizer`): Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge
+- **`ADR-024`** (`workouts`): Long-Course Library Rows, Profile-Level 48h Caps Bounded By The Charter
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`
