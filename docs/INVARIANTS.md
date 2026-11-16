@@ -17,7 +17,7 @@
 - **Equipment Set Partitioning:** Enforce $\ge 60\%$ weekly strength set volume on Olympic barbell compound movements via exact linear ratio constraint; home dumbbells capped at $\le 75\text{ lb}$ are strictly allocated to unilateral assistance and hypertrophy (`ADR-008`).
 - **Movement Pattern Volume:** Minimum 10 working sets/week across all 4 movement patterns (Anterior Chain, Posterior Chain, Push, Pull).
 - **Split Archetype Coherence:** Binary variable $z_{\text{split}} \in \{0, 1\}$ strictly partitions Option A (Full-Body HLM / Texas Method) and Option B (Upper/Lower Split).
-- **Top-K Plan Diversity:** Alternative distinct schedules must be produced using canonical **No-Good Integer Cuts** ($\sum_{w \in S_k} x_{w,d} \le |S_k| - 1$), guaranteeing true structural uniqueness.
+- **Top-K Plan Diversity:** Alternative distinct schedules must be produced using **selection-based Top-K cuts** ($\sum_{i \in S_k} s_i \le |S_k| - m$), so plans differ in which workouts are chosen (`ADR-018`; exact $(i,d)$ layout cut optional).
 - **Pre-Filtering Invariant:** Workout candidate pools must be pruned of mathematically non-viable sessions prior to building the HiGHS problem matrix to guarantee sub-second solve latency.
 
 ## 3. Physiological & Periodization Invariants
