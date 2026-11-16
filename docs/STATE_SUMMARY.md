@@ -13,7 +13,7 @@ Domain → module routing lives in `CLAUDE.md` §5 and `docs/LODE_MAP.md`; per-d
 
 | Subsystem | Package (`src/triplan/`) | Responsibility |
 | :--- | :--- | :--- |
-| `optimizer` | `solver/`, `model/` | HiGHS MILPs (3 engines pending unification, `TASK-015`), pruning, No-Good cuts, equipment partitioning. |
+| `optimizer` | `solver/`, `model/` | One unified HiGHS week engine (`solver/engine/`: `WeekModel` + modular builders, `ADR-017`; scheduler/hybrid/day-scheduler are thin facades), pruning, No-Good cuts, equipment partitioning. |
 | `safety` | `solver/safety_constraints.py` | Shared Tier-0 orthopedic layer (`ADR-013`): run ceiling, DL lockout, axial/NM/strain caps, ACWR, ODI. |
 | `mpc` | `control/` | 3-tier closed loop (`ADR-005`), season generation. |
 | `physiology` | `physiology/` | Athlete profile (YAML), PMC + tissue-remodeling state, ANS cost. |

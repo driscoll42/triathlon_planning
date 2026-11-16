@@ -1,16 +1,15 @@
 # Active Engineering Queue (`docs/TASKS.md`)
 
 > One line per open item. **Full specs live in `docs/BACKLOG.md`**; read a task's entry there before starting it. Completed work: `docs/archive/TASKS_COMPLETED.md` + `docs/.context/lode.db`.
-> **Directive:** merge the three MILP solvers (`hybrid`, `scheduler`, `highs_optimization`) into ONE superset engine.
+> **Directive:** the three MILP solvers are one engine (`solver/engine/`, `ADR-017`). Add rules as builder modules, never a 4th engine.
 
 ## P0 — User Decisions (`[!]`)
 None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
 ## P1 — Engineering Queue
-Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (157 pass).
+Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (168 pass).
 
 ### Phase 2 — Unified MILP Engine
-- [ ] `TASK-015` (`optimizer`): unified `WeekModel` engine, sparse `addRow` build, modular constraint builders.
 - [ ] `TASK-018` (`mpc`): cross-week carry-in state; in-model linearized ACWR and CTL-ramp caps.
 - [ ] `TASK-019` (`physiology`): key-session/stride structure, hard-days-hard, AM/PM gating, lift+easy combo, full 80/20 TiZ rule.
 - [ ] `TASK-020` (`optimizer`): selection-based Top-K cuts, dominance pruning, symmetry breaking; fix `z_split` flip.

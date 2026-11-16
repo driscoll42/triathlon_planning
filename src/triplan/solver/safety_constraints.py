@@ -1,8 +1,8 @@
 """
 Shared Tier-0 safety constraints, Tier-1 named slacks, and lexicographic solving (TASK-016 / TASK-017).
 
-Used by both MILP engines (``TriathlonMILPScheduler`` and ``HybridAthleteMILPOptimizer``) until
-they are merged into one engine (TASK-015). Hierarchy (ADR-013):
+This is the orthopedic layer of the unified week engine (``triplan.solver.engine``, TASK-015 /
+ADR-017); ``engine.builders.orthopedic`` delegates here. Hierarchy (ADR-013):
 
 * Tier 0, hard, never relaxed: time and facility gating, rolling 48h TSS/ANS/strain caps,
   daily/weekly axial and neuromuscular caps, single-run share cap, hard/easy adjacency, 48h
