@@ -1,0 +1,967 @@
+race,level,week,phase,sport,mon,tue,wed,thu,fri,sat,sun,weekly_volume,total_duration,pct_low,pct_high
+Sprint,Level 0,1,General Phase,Swim,,,STT2,,,,SF1,2500,4:01,81%,19%
+Sprint,Level 0,1,General Phase,Cycle,,,,CCI1,,,CFo22,2:00,4:01,81%,19%
+Sprint,Level 0,1,General Phase,Run,,RF3,,,,RF6,,1:15,4:01,81%,19%
+Sprint,Level 0,2,General Phase,Swim,,,ST1,,,,SF2,3100,4:22,80%,20%
+Sprint,Level 0,2,General Phase,Cycle,,,,CCI2,,,CFo22,2:00,4:22,80%,20%
+Sprint,Level 0,2,General Phase,Run,,RF4,,,,RF7,,1:25,4:22,80%,20%
+Sprint,Level 0,3,General Phase,Swim,,,STT2,,,,SCI1,2500,4:10,79%,21%
+Sprint,Level 0,3,General Phase,Cycle,,,,CFF27,,,CF3,1:30,4:10,79%,21%
+Sprint,Level 0,3,General Phase,Run,,RF8,,,,RCI1,,1:55,4:10,79%,21%
+Sprint,Level 0,4,General Phase,Swim,,,SCI14,,,,SF3,2950,4:54,81%,19%
+Sprint,Level 0,4,General Phase,Cycle,,,,CCI2,,,CF11,2:30,4:54,81%,19%
+Sprint,Level 0,4,General Phase,Run,,RSP3,,,,RF9,,1:30,4:54,81%,19%
+Sprint,Level 0,5,General Phase,Swim,,,SSP7,,,,SF4,3200,5:16,79%,21%
+Sprint,Level 0,5,General Phase,Cycle,,,,CCI3,,,CF11,2:31,5:16,79%,21%
+Sprint,Level 0,5,General Phase,Run,,RSP7,,,,RF10,,1:46,5:16,79%,21%
+Sprint,Level 0,6,General Phase,Swim,,,STT2,,,,SF1,2500,4:47,81%,19%
+Sprint,Level 0,6,General Phase,Cycle,,,,CT29,,,CCI23,2:26,4:47,81%,19%
+Sprint,Level 0,6,General Phase,Run,,RF6,,,,RT11,,1:35,4:47,81%,19%
+Sprint,Level 0,7,General Phase,Swim,,,SMI1,,,,SSP5,3250,6:28,79%,21%
+Sprint,Level 0,7,General Phase,Cycle,CF9,,,,,CCI19,,3:00,6:28,79%,21%
+Sprint,Level 0,7,General Phase,Run,,,,RCI1,,,RF12,2:30,6:28,79%,21%
+Sprint,Level 0,8,General Phase,Swim,,,SCI1,,,,SCI5,3500,6:35,80%,20%
+Sprint,Level 0,8,General Phase,Cycle,CCI12,,,,,CAe4,,3:01,6:35,80%,20%
+Sprint,Level 0,8,General Phase,Run,,,,RAe5,,,RCI12,2:32,6:35,80%,20%
+Sprint,Level 0,9,General Phase,Swim,,,STT2,,,,SF1,2500,5:36,82%,18%
+Sprint,Level 0,9,General Phase,Cycle,,,CF9,,,,CCI20,2:30,5:36,82%,18%
+Sprint,Level 0,9,General Phase,Run,RF12,,,,RT13,,,2:20,5:36,82%,18%
+Sprint,Level 0,10,General Phase,Swim,,,SCI11,,SF4,,,3900,6:22,78%,22%
+Sprint,Level 0,10,General Phase,Cycle,,,,,,,CF13,2:00,6:22,78%,22%
+Sprint,Level 0,10,General Phase,Run,,,,RF14,,,,1:40,6:22,78%,22%
+Sprint,Level 0,10,General Phase,Brick,,,,,,BR4,,1:30,6:22,78%,22%
+Sprint,Level 0,11,Taper,Swim,,,SCI15,,,,SAe1,4000,5:43,83%,17%
+Sprint,Level 0,11,Taper,Cycle,CF13,,,,,,,2:00,5:43,83%,17%
+Sprint,Level 0,11,Taper,Run,,,,RF12,,,,1:30,5:43,83%,17%
+Sprint,Level 0,11,Taper,Brick,,,,,,,BR3,1:00,5:43,83%,17%
+Sprint,Level 0,12,Taper,Swim,,,SSI1,,SCI1,,,3250,3:00,75%,25%
+Sprint,Level 0,12,Taper,Cycle,,,,CCI17,,CRe1,,0:50,3:00,75%,25%
+Sprint,Level 0,12,Taper,Run,RCI13,RF3,,,,RTa1,,1:10,3:00,75%,25%
+Sprint,Level 1,1,General Phase,Swim,,,STT2,,SF1,,SCI1,4000,6:04,85%,15%
+Sprint,Level 1,1,General Phase,Cycle,,,CF9,CCI1,,CFo22,,3:00,6:04,85%,15%
+Sprint,Level 1,1,General Phase,Run,,RF3,,,RRe4,,RF6,1:50,6:04,85%,15%
+Sprint,Level 1,2,General Phase,Swim,,,ST1,,SMI1,,SF2,4850,6:59,85%,15%
+Sprint,Level 1,2,General Phase,Cycle,,CF3,CF9,CCI2,,CFo22,,3:30,6:59,85%,15%
+Sprint,Level 1,2,General Phase,Run,,RF4,,,RRe4,,RF7,2:00,6:59,85%,15%
+Sprint,Level 1,3,General Phase,Swim,,,STT2,,SF2,,SCI1,4100,5:36,80%,20%
+Sprint,Level 1,3,General Phase,Cycle,,,CF3,CT29,,,CFF27,2:25,5:36,80%,20%
+Sprint,Level 1,3,General Phase,Run,,RF8,,,,RCI1,,1:55,5:36,80%,20%
+Sprint,Level 1,4,General Phase,Swim,,,SCI14,,SSP5,,SF3,4450,6:44,80%,20%
+Sprint,Level 1,4,General Phase,Cycle,,,CF9,CCI2,,CFo18,,3:13,6:44,80%,20%
+Sprint,Level 1,4,General Phase,Run,,RSP3,,,RRe5,,RF9,2:10,6:44,80%,20%
+Sprint,Level 1,5,General Phase,Swim,,,SSP7,,SF4,,SSP6,5000,7:31,80%,20%
+Sprint,Level 1,5,General Phase,Cycle,,,CRe10,CCI3,,CF11,,3:46,7:31,80%,20%
+Sprint,Level 1,5,General Phase,Run,,RSP7,,,RSP2,,RF10,2:16,7:31,80%,20%
+Sprint,Level 1,6,General Phase,Swim,,,STT2,,SCI2,,SF1,4500,6:18,79%,21%
+Sprint,Level 1,6,General Phase,Cycle,,,CF3,CT29,,,CCI13,2:55,6:18,79%,21%
+Sprint,Level 1,6,General Phase,Run,,RF10,,,,RT11,,2:00,6:18,79%,21%
+Sprint,Level 1,7,General Phase,Swim,,,SMI2,,SAe7,,ST1,5250,8:08,80%,20%
+Sprint,Level 1,7,General Phase,Cycle,,,CRe9,CAn1,,CCI18,,3:45,8:08,80%,20%
+Sprint,Level 1,7,General Phase,Run,,RCI2,,,RRe4,,RF11,2:47,8:08,80%,20%
+Sprint,Level 1,8,General Phase,Swim,,,SCI17,,SAe1,,SSI1,5750,8:21,80%,20%
+Sprint,Level 1,8,General Phase,Cycle,,,CF6,CAn1,,CCI19,,3:45,8:21,80%,20%
+Sprint,Level 1,8,General Phase,Run,,RCI2,,,RRe3,,RF12,2:52,8:21,80%,20%
+Sprint,Level 1,9,General Phase,Swim,,,STT2,,,SCI2,SF1,4500,6:28,80%,20%
+Sprint,Level 1,9,General Phase,Cycle,,,CT29,CF5,,,CCI13,3:05,6:28,80%,20%
+Sprint,Level 1,9,General Phase,Run,,RF10,,,RT11,,,2:00,6:28,80%,20%
+Sprint,Level 1,10,General Phase,Swim,,,SMI1,,SAe7,,SSP5,5250,8:21,79%,21%
+Sprint,Level 1,10,General Phase,Cycle,,CCI1,CF6,,,CCI19,,3:45,8:21,79%,21%
+Sprint,Level 1,10,General Phase,Run,,RF3,,RCI1,,,RF12,3:00,8:21,79%,21%
+Sprint,Level 1,11,General Phase,Swim,,,SCI1,,SAe1,,SCI5,6000,8:31,79%,21%
+Sprint,Level 1,11,General Phase,Cycle,,CCI5,CF4,,,,CAe4,3:39,8:31,79%,21%
+Sprint,Level 1,11,General Phase,Run,,RF3,,RAe5,,RCI12,,3:02,8:31,79%,21%
+Sprint,Level 1,12,General Phase,Swim,,,STT2,,,SCI2,SF1,4500,6:53,78%,22%
+Sprint,Level 1,12,General Phase,Cycle,,,CT30,CF5,,,CCI20,3:10,6:53,78%,22%
+Sprint,Level 1,12,General Phase,Run,,RF12,,,RT13,,,2:20,6:53,78%,22%
+Sprint,Level 1,13,Race Specific,Swim,,,SCI11,,,SF4,ST3,5900,8:33,78%,22%
+Sprint,Level 1,13,Race Specific,Cycle,,,,CCI1,,CF13,,3:00,8:33,78%,22%
+Sprint,Level 1,13,Race Specific,Run,,RCI1,,,RF16,,,2:45,8:33,78%,22%
+Sprint,Level 1,13,Race Specific,Brick,,,,,,,BR3,1:00,8:33,78%,22%
+Sprint,Level 1,14,Race Specific,Swim,,ST2,,SCI15,,,SAe1,5750,8:30,80%,20%
+Sprint,Level 1,14,Race Specific,Cycle,,,CF13,,,CF10,,3:00,8:30,80%,20%
+Sprint,Level 1,14,Race Specific,Run,,RCI10,,RSP2,RF12,,,2:45,8:30,80%,20%
+Sprint,Level 1,14,Race Specific,Brick,,,,,,,BR3,1:00,8:30,80%,20%
+Sprint,Level 1,15,Taper,Swim,,SCI16,,SAe1,,,ST1,5750,6:30,78%,22%
+Sprint,Level 1,15,Taper,Cycle,,,CCI22,,,,,1:30,6:30,78%,22%
+Sprint,Level 1,15,Taper,Run,,RF6,,,RF12,,,2:15,6:30,78%,22%
+Sprint,Level 1,15,Taper,Brick,,,,,,,BR3,1:00,6:30,78%,22%
+Sprint,Level 1,16,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:18,80%,20%
+Sprint,Level 1,16,Taper,Cycle,,CF9,,CCI17,,CRe1,,1:50,4:18,80%,20%
+Sprint,Level 1,16,Taper,Run,,RCI13,,RF3,,RTa1,,1:10,4:18,80%,20%
+Sprint,Level 2,1,General Phase,Swim,,,STT1,,SF5,,SCI6,6600,7:20,81%,19%
+Sprint,Level 2,1,General Phase,Cycle,,,CF9,CCI1,,CAn9,,3:00,7:20,81%,19%
+Sprint,Level 2,1,General Phase,Run,,RSP9,,,RRe5,,RF9,2:19,7:20,81%,19%
+Sprint,Level 2,2,General Phase,Swim,,,ST2,,SMI6,,SAe1,6750,8:00,80%,20%
+Sprint,Level 2,2,General Phase,Cycle,,,CF9,CCI3,,CFo17,,3:15,8:00,80%,20%
+Sprint,Level 2,2,General Phase,Run,,RAn5,,,RRe6,,RF10,2:42,8:00,80%,20%
+Sprint,Level 2,3,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,6:46,79%,21%
+Sprint,Level 2,3,General Phase,Cycle,,,CF4,CCI1,,,CAn7,3:07,6:46,79%,21%
+Sprint,Level 2,3,General Phase,Run,,RAn1,,,,RT16,,2:00,6:46,79%,21%
+Sprint,Level 2,4,General Phase,Swim,,,SSI2,,SMI2,,SCI3,6550,7:55,80%,20%
+Sprint,Level 2,4,General Phase,Cycle,,,CF6,CCI2,,CFo24,,3:15,7:55,80%,20%
+Sprint,Level 2,4,General Phase,Run,,RCI10,,,RRe4,,RF11,2:40,7:55,80%,20%
+Sprint,Level 2,5,General Phase,Swim,,,SMI2,,SAe1,,ST5,6750,8:34,82%,18%
+Sprint,Level 2,5,General Phase,Cycle,,,CRe9,CCI3,,CFo24,,3:31,8:34,82%,18%
+Sprint,Level 2,5,General Phase,Run,,RAn3,,,RRe3,,RF12,3:00,8:34,82%,18%
+Sprint,Level 2,6,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,6:54,78%,22%
+Sprint,Level 2,6,General Phase,Cycle,,CF3,,CT31,,,CAn4,3:00,6:54,78%,22%
+Sprint,Level 2,6,General Phase,Run,,RAn4,,,,RT19,,2:15,6:54,78%,22%
+Sprint,Level 2,7,General Phase,Swim,,,SMI2,,SAe2,,SCI15,6250,8:26,80%,20%
+Sprint,Level 2,7,General Phase,Cycle,,,CRe9,CF10,,CCI14,,3:30,8:26,80%,20%
+Sprint,Level 2,7,General Phase,Run,,RCI2,,,RRe5,,RF12,3:02,8:26,80%,20%
+Sprint,Level 2,8,General Phase,Swim,,,SMI2,,SSP4,,SSI2,7150,9:26,81%,19%
+Sprint,Level 2,8,General Phase,Cycle,,,CRe9,CF11,,CCI15,,4:00,9:26,81%,19%
+Sprint,Level 2,8,General Phase,Run,,RAn3,,RMI2,,,RF12,3:16,9:26,81%,19%
+Sprint,Level 2,9,General Phase,Swim,,,SAe2,,SMI4,,SSP5,7350,9:58,81%,19%
+Sprint,Level 2,9,General Phase,Cycle,,,CRe6,CCI14,,CFo21,,4:15,9:58,81%,19%
+Sprint,Level 2,9,General Phase,Run,,RAn3,,RF3,RRe3,,RF12,3:30,9:58,81%,19%
+Sprint,Level 2,10,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,6:54,79%,21%
+Sprint,Level 2,10,General Phase,Cycle,,,,CT31,,,CF12,2:45,6:54,79%,21%
+Sprint,Level 2,10,General Phase,Run,,RAn3,,,,RT20,,2:30,6:54,79%,21%
+Sprint,Level 2,11,General Phase,Swim,,,SCI11,,SAe1,,ST4,6650,8:52,79%,21%
+Sprint,Level 2,11,General Phase,Cycle,,,CF9,CCI13,,CFo19,,4:00,8:52,79%,21%
+Sprint,Level 2,11,General Phase,Run,,RCI10,,,RRe6,,RF11,2:50,8:52,79%,21%
+Sprint,Level 2,12,General Phase,Swim,,,SSI2,,SMI7,,SSP2,7400,9:43,79%,21%
+Sprint,Level 2,12,General Phase,Cycle,,,CRe11,CF9,,CCI10,,4:30,9:43,79%,21%
+Sprint,Level 2,12,General Phase,Run,,RCI2,,RMI1,,,RF12,2:58,9:43,79%,21%
+Sprint,Level 2,13,General Phase,Swim,,,SAe2,,SCI12,,ST3,7500,10:18,79%,21%
+Sprint,Level 2,13,General Phase,Cycle,,CFo22,CRe9,CF9,,CCI15,,4:30,10:18,79%,21%
+Sprint,Level 2,13,General Phase,Run,,RAn3,,RMI2,,,RF16,3:31,10:18,79%,21%
+Sprint,Level 2,14,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:09,80%,20%
+Sprint,Level 2,14,General Phase,Cycle,,,,CT31,,,CF13,3:00,7:09,80%,20%
+Sprint,Level 2,14,General Phase,Run,,RAn3,,,,RT20,,2:30,7:09,80%,20%
+Sprint,Level 2,15,Race Specific,Swim,,,SCI11,,SAe1,SMI1,,6150,9:53,80%,20%
+Sprint,Level 2,15,Race Specific,Cycle,,,CF13,CCI21,,CF10,,4:30,9:53,80%,20%
+Sprint,Level 2,15,Race Specific,Run,,RCI1,,,RF12,,,2:30,9:53,80%,20%
+Sprint,Level 2,15,Race Specific,Brick,,,,,,,BR3,1:00,9:53,80%,20%
+Sprint,Level 2,16,Race Specific,Swim,,SCI5,,,SF6,ST4,,6750,9:56,81%,19%
+Sprint,Level 2,16,Race Specific,Cycle,,CF13,CFF2,CF9,,CF10,,4:30,9:56,81%,19%
+Sprint,Level 2,16,Race Specific,Run,,,RCI11,,RF12,,,2:23,9:56,81%,19%
+Sprint,Level 2,16,Race Specific,Brick,,,,,,,BR3,1:00,9:56,81%,19%
+Sprint,Level 2,17,Race Specific,Swim,,SCI3,,,SAe1,SCI12,,7500,10:02,79%,21%
+Sprint,Level 2,17,Race Specific,Cycle,,,CCI1,,CF13,CF6,,3:45,10:02,79%,21%
+Sprint,Level 2,17,Race Specific,Run,,RF9,,RF12,,,,2:30,10:02,79%,21%
+Sprint,Level 2,17,Race Specific,Brick,,,,,,,BR4,1:30,10:02,79%,21%
+Sprint,Level 2,18,Taper,Swim,,,ST3,,SF4,,SCI15,5500,7:11,78%,22%
+Sprint,Level 2,18,Taper,Cycle,,,CF13,CCI17,,,,2:30,7:11,78%,22%
+Sprint,Level 2,18,Taper,Run,,RCI13,,,RF12,,,2:00,7:11,78%,22%
+Sprint,Level 2,18,Taper,Brick,,,,,,,BR3,1:00,7:11,78%,22%
+Sprint,Level 2,19,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:18,80%,20%
+Sprint,Level 2,19,Taper,Cycle,,CF9,,CCI17,,CRe1,,1:50,4:18,80%,20%
+Sprint,Level 2,19,Taper,Run,,RCI13,,RF3,,RTa1,,1:10,4:18,80%,20%
+Sprint,Level 3,1,General Phase,Swim,,,STT1,,SF5,,SCI6,6600,8:41,83%,17%
+Sprint,Level 3,1,General Phase,Cycle,,CF9,CF9,CCI1,,CAn1,,4:00,8:41,83%,17%
+Sprint,Level 3,1,General Phase,Run,,RSP17,,,RRe5,,RF9,2:40,8:41,83%,17%
+Sprint,Level 3,2,General Phase,Swim,,,ST2,,SMI6,,SAe1,6750,9:29,83%,17%
+Sprint,Level 3,2,General Phase,Cycle,,CF9,CF9,CCI3,,CFo19,,4:31,9:29,83%,17%
+Sprint,Level 3,2,General Phase,Run,,RAn1,,,RRe6,,RF10,2:55,9:29,83%,17%
+Sprint,Level 3,3,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,6:54,79%,21%
+Sprint,Level 3,3,General Phase,Cycle,,CF6,,CCI12,,,CAn4,3:15,6:54,79%,21%
+Sprint,Level 3,3,General Phase,Run,,RAn1,,,,RT16,,2:00,6:54,79%,21%
+Sprint,Level 3,4,General Phase,Swim,,,SSI2,,SMI2,,SCI3,6550,8:50,79%,21%
+Sprint,Level 3,4,General Phase,Cycle,,,CF9,CCI13,,CFo19,,4:00,8:50,79%,21%
+Sprint,Level 3,4,General Phase,Run,,RCI10,,,RRe6,,RF11,2:50,8:50,79%,21%
+Sprint,Level 3,5,General Phase,Swim,,,SMI2,,SAe1,,ST5,6750,10:06,78%,22%
+Sprint,Level 3,5,General Phase,Cycle,,,CRe9,CCI14,,CFo21,,4:30,10:06,78%,22%
+Sprint,Level 3,5,General Phase,Run,,RAn3,,RSI1,RRe3,,RF12,3:33,10:06,78%,22%
+Sprint,Level 3,6,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:09,79%,21%
+Sprint,Level 3,6,General Phase,Cycle,,CF6,,CT31,,,CAn4,3:15,7:09,79%,21%
+Sprint,Level 3,6,General Phase,Run,,RAn4,,,,RT19,,2:15,7:09,79%,21%
+Sprint,Level 3,7,General Phase,Swim,,,SMI2,,SAe2,,SCI15,6250,9:26,80%,20%
+Sprint,Level 3,7,General Phase,Cycle,,,CRe9,CF11,,CMI6,,4:30,9:26,80%,20%
+Sprint,Level 3,7,General Phase,Run,,RCI2,,,RRe5,,RF12,3:02,9:26,80%,20%
+Sprint,Level 3,8,General Phase,Swim,,,SMI2,,SSP4,,SSI2,7150,10:26,81%,19%
+Sprint,Level 3,8,General Phase,Cycle,,CFo22,CRe9,CF11,,CCI15,,5:00,10:26,81%,19%
+Sprint,Level 3,8,General Phase,Run,,RAn3,,RMI2,,,RF12,3:16,10:26,81%,19%
+Sprint,Level 3,9,General Phase,Swim,,,SAe2,,SMI4,,SSP5,7350,10:50,80%,20%
+Sprint,Level 3,9,General Phase,Cycle,,CFo1,CRe10,CF11,,CMI1,,5:12,10:50,80%,20%
+Sprint,Level 3,9,General Phase,Run,,RF9,,RSP20,,,RF12,3:25,10:50,80%,20%
+Sprint,Level 3,10,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:09,80%,20%
+Sprint,Level 3,10,General Phase,Cycle,,,,CT31,,,CF13,3:00,7:09,80%,20%
+Sprint,Level 3,10,General Phase,Run,,RAn3,,,,RT20,,2:30,7:09,80%,20%
+Sprint,Level 3,11,General Phase,Swim,,,SCI11,,SAe1,,ST4,6650,10:31,80%,20%
+Sprint,Level 3,11,General Phase,Cycle,,CF10,CRe9,CF10,,CMI6,,5:00,10:31,80%,20%
+Sprint,Level 3,11,General Phase,Run,,RCI3,,,RF8,,RF12,3:29,10:31,80%,20%
+Sprint,Level 3,12,General Phase,Swim,,,SSI2,,SMI7,,SSP2,7400,11:05,79%,21%
+Sprint,Level 3,12,General Phase,Cycle,,CF9,CRe11,CF9,,CCI10,,5:30,11:05,79%,21%
+Sprint,Level 3,12,General Phase,Run,,RCI3,,RMI2,,,RF12,3:20,11:05,79%,21%
+Sprint,Level 3,13,General Phase,Swim,,,SAe2,,SCI12,,ST3,7500,11:54,80%,20%
+Sprint,Level 3,13,General Phase,Cycle,,CF10,CRe13,CF10,,CMI1,,6:00,11:54,80%,20%
+Sprint,Level 3,13,General Phase,Run,,RCI12,,RF3,RF4,,RF12,3:37,11:54,80%,20%
+Sprint,Level 3,14,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:39,80%,20%
+Sprint,Level 3,14,General Phase,Cycle,,,,CT10,,,CF13,3:30,7:39,80%,20%
+Sprint,Level 3,14,General Phase,Run,,RAn3,,,,RT20,,2:30,7:39,80%,20%
+Sprint,Level 3,15,Race Specific,Swim,,,SCI11,,SAe1,SMI1,,6150,11:08,79%,21%
+Sprint,Level 3,15,Race Specific,Cycle,,CF6,CF13,CCI21,,CF10,,5:15,11:08,79%,21%
+Sprint,Level 3,15,Race Specific,Run,,RCI1,,,RF12,,,2:30,11:08,79%,21%
+Sprint,Level 3,15,Race Specific,Brick,,,,,,,BR4,1:30,11:08,79%,21%
+Sprint,Level 3,16,Race Specific,Swim,,SCI5,,,SF6,ST4,,6750,11:11,81%,19%
+Sprint,Level 3,16,Race Specific,Cycle,,CF13,CF6,CF11,,CF10,,5:15,11:11,81%,19%
+Sprint,Level 3,16,Race Specific,Run,,,RCI11,,RF12,,,2:23,11:11,81%,19%
+Sprint,Level 3,16,Race Specific,Brick,,,,,,,BR4,1:30,11:11,81%,19%
+Sprint,Level 3,17,Race Specific,Swim,,,SCI3,,SAe1,SCI12,,7500,11:02,81%,19%
+Sprint,Level 3,17,Race Specific,Cycle,,CF6,CCI1,,CF13,CF10,,4:45,11:02,81%,19%
+Sprint,Level 3,17,Race Specific,Run,,RF9,,RF12,,,,2:30,11:02,81%,19%
+Sprint,Level 3,17,Race Specific,Brick,,,,,,,BR4,1:30,11:02,81%,19%
+Sprint,Level 3,18,Taper,Swim,,,ST3,,SF4,,SCI15,5500,7:11,78%,22%
+Sprint,Level 3,18,Taper,Cycle,,,CF13,CCI17,,,,2:30,7:11,78%,22%
+Sprint,Level 3,18,Taper,Run,,RCI13,,,RF12,,,2:00,7:11,78%,22%
+Sprint,Level 3,18,Taper,Brick,,,,,,,BR3,1:00,7:11,78%,22%
+Sprint,Level 3,19,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:18,80%,20%
+Sprint,Level 3,19,Taper,Cycle,,CF9,,CCI17,,CRe1,,1:50,4:18,80%,20%
+Sprint,Level 3,19,Taper,Run,,RCI13,,RF3,,RTa1,,1:10,4:18,80%,20%
+Olympic,Level 0,1,General Phase,Swim,,,STT2,,,,SCI1,2500,4:00,82%,18%
+Olympic,Level 0,1,General Phase,Cycle,,,,CCI1,,,CF9,2:00,4:00,82%,18%
+Olympic,Level 0,1,General Phase,Run,,RF3,,,,RF6,,1:15,4:00,82%,18%
+Olympic,Level 0,2,General Phase,Swim,,,ST1,,,,SF2,3100,4:22,80%,20%
+Olympic,Level 0,2,General Phase,Cycle,,,,CCI2,,,CFo22,2:00,4:22,80%,20%
+Olympic,Level 0,2,General Phase,Run,,RF4,,,,RF7,,1:25,4:22,80%,20%
+Olympic,Level 0,3,General Phase,Swim,,,STT2,,,,SF1,2500,4:15,81%,19%
+Olympic,Level 0,3,General Phase,Cycle,,,,CT2,,,CF9,1:35,4:15,81%,19%
+Olympic,Level 0,3,General Phase,Run,,RF8,,,,RCI1,,1:55,4:15,81%,19%
+Olympic,Level 0,4,General Phase,Swim,,,SCI14,,,,SF3,2950,4:54,80%,20%
+Olympic,Level 0,4,General Phase,Cycle,,,,CCI2,,,CF11,2:30,4:54,80%,20%
+Olympic,Level 0,4,General Phase,Run,,RSP3,,,,RF9,,1:30,4:54,80%,20%
+Olympic,Level 0,5,General Phase,Swim,,,SSP7,,,,SF3,3000,5:11,79%,21%
+Olympic,Level 0,5,General Phase,Cycle,,,,CCI3,,,CF11,2:31,5:11,79%,21%
+Olympic,Level 0,5,General Phase,Run,,RSP7,,,,RF10,,1:46,5:11,79%,21%
+Olympic,Level 0,6,General Phase,Swim,,,STT2,,,,SF1,2500,4:52,81%,19%
+Olympic,Level 0,6,General Phase,Cycle,,,,CT29,,,CCI23,2:25,4:52,81%,19%
+Olympic,Level 0,6,General Phase,Run,,RT11,,,,RF7,,1:40,4:52,81%,19%
+Olympic,Level 0,7,General Phase,Swim,,,SMI2,,,,SF3,3500,6:01,81%,19%
+Olympic,Level 0,7,General Phase,Cycle,,,,CAn1,,,CFF13,2:45,6:01,81%,19%
+Olympic,Level 0,7,General Phase,Run,,RCI2,,,,RF11,,2:12,6:01,81%,19%
+Olympic,Level 0,8,General Phase,Swim,,,SCI17,,,,SF3,3250,6:20,78%,22%
+Olympic,Level 0,8,General Phase,Cycle,,,,CAn1,,,CCI24,3:00,6:20,78%,22%
+Olympic,Level 0,8,General Phase,Run,,RCI2,,,,RF12,,2:22,6:20,78%,22%
+Olympic,Level 0,9,General Phase,Swim,,,STT2,,,,SCI2,3000,5:05,78%,12%
+Olympic,Level 0,9,General Phase,Cycle,,,CT3,,,,CCI23,2:10,5:05,78%,12%
+Olympic,Level 0,9,General Phase,Run,,RF10,,,RT11,,,2:00,5:05,78%,12%
+Olympic,Level 0,10,General Phase,Swim,,,SMI1,,,,SAe7,3750,6:39,80%,20%
+Olympic,Level 0,10,General Phase,Cycle,,CCI1,,,,CCI24,,3:00,6:39,80%,20%
+Olympic,Level 0,10,General Phase,Run,,,,RCI1,,,RF12,2:30,6:39,80%,20%
+Olympic,Level 0,11,General Phase,Swim,,,SF1,,,,SCI5,3500,7:25,78%,22%
+Olympic,Level 0,11,General Phase,Cycle,,CCI5,,,,CAe36,,3:34,7:25,78%,22%
+Olympic,Level 0,11,General Phase,Run,,,,RAe6,,,RCI12,2:47,7:25,78%,22%
+Olympic,Level 0,12,General Phase,Swim,,,STT2,,,,SCI2,3000,5:45,80%,20%
+Olympic,Level 0,12,General Phase,Cycle,,,CT30,,,,CCI23,2:30,5:45,80%,20%
+Olympic,Level 0,12,General Phase,Run,,RF12,,,RT11,,,2:20,5:45,80%,20%
+Olympic,Level 0,13,Race Specific,Swim,,,SCI11,,,,SF4,3900,6:56,80%,20%
+Olympic,Level 0,13,Race Specific,Cycle,,,,,,CF15,,2:30,6:56,80%,20%
+Olympic,Level 0,13,Race Specific,Run,,,,,RF16,,,1:45,6:56,80%,20%
+Olympic,Level 0,13,Race Specific,Brick,,BR4,,,,,,1:30,6:56,80%,20%
+Olympic,Level 0,14,Race Specific,Swim,,SCI12,,,,SAe1,,5000,7:01,78%,22%
+Olympic,Level 0,14,Race Specific,Cycle,,,,,,CF15,,2:30,7:01,78%,22%
+Olympic,Level 0,14,Race Specific,Run,,,,,,,RF12,1:30,7:01,78%,22%
+Olympic,Level 0,14,Race Specific,Brick,,,,BR4,,,,1:30,7:01,78%,22%
+Olympic,Level 0,15,Taper,Swim,,,SCI12,,,,SAe1,5000,7:15,79%,21%
+Olympic,Level 0,15,Taper,Cycle,,CF6,,,,,CF13,2:44,7:15,79%,21%
+Olympic,Level 0,15,Taper,Run,,,,,,RF12,,1:30,7:15,79%,21%
+Olympic,Level 0,15,Taper,Brick,,,,BR4,,,,1:30,7:15,79%,21%
+Olympic,Level 0,16,Taper,Swim,,,SSI1,,SCI1,,,3250,2:30,78%,22%
+Olympic,Level 0,16,Taper,Cycle,,,,CF3,,CRe1,,0:50,2:30,78%,22%
+Olympic,Level 0,16,Taper,Run,,RCI13,,,,RTa1,,0:40,2:30,78%,22%
+Olympic,Level 1,1,General Phase,Swim,,,STT2,,SF1,,SCI1,4000,6:04,85%,15%
+Olympic,Level 1,1,General Phase,Cycle,,,CF9,CCI1,,CFo22,,3:00,6:04,85%,15%
+Olympic,Level 1,1,General Phase,Run,,RF3,,,RRe4,,RF6,1:50,6:04,85%,15%
+Olympic,Level 1,2,General Phase,Swim,,,ST1,,SMI1,,SF2,4850,6:59,85%,15%
+Olympic,Level 1,2,General Phase,Cycle,,CF3,CF9,CCI2,,CFo22,,3:30,6:59,85%,15%
+Olympic,Level 1,2,General Phase,Run,,RF4,,,RRe4,,RF7,2:00,6:59,85%,15%
+Olympic,Level 1,3,General Phase,Swim,,,STT2,,SF2,,SCI1,4100,5:36,80%,20%
+Olympic,Level 1,3,General Phase,Cycle,,,CF3,CT29,,,CFF27,2:25,5:36,80%,20%
+Olympic,Level 1,3,General Phase,Run,,RF8,,,,RCI1,,1:55,5:36,80%,20%
+Olympic,Level 1,4,General Phase,Swim,,,SCI14,,SSP5,,SF3,4450,6:44,80%,20%
+Olympic,Level 1,4,General Phase,Cycle,,,CF9,CCI2,,CFo18,,3:13,6:44,80%,20%
+Olympic,Level 1,4,General Phase,Run,,RSP3,,,RRe5,,RF9,2:10,6:44,80%,20%
+Olympic,Level 1,5,General Phase,Swim,,,SSP7,,SF4,,SSP6,5000,7:31,80%,20%
+Olympic,Level 1,5,General Phase,Cycle,,,CRe10,CCI3,,CF11,,3:46,7:31,80%,20%
+Olympic,Level 1,5,General Phase,Run,,RSP7,,,RSP2,,RF10,2:16,7:31,80%,20%
+Olympic,Level 1,6,General Phase,Swim,,,STT2,,SCI2,,SF1,4500,6:18,79%,21%
+Olympic,Level 1,6,General Phase,Cycle,,,CF3,CT29,,,CCI13,2:55,6:18,79%,21%
+Olympic,Level 1,6,General Phase,Run,,RF10,,,,RT11,,2:00,6:18,79%,21%
+Olympic,Level 1,7,General Phase,Swim,,,SMI2,,SAe7,,ST1,5250,8:08,80%,20%
+Olympic,Level 1,7,General Phase,Cycle,,,CRe9,CAn1,,CCI18,,3:45,8:08,80%,20%
+Olympic,Level 1,7,General Phase,Run,,RCI2,,,RRe4,,RF11,2:47,8:08,80%,20%
+Olympic,Level 1,8,General Phase,Swim,,,SCI17,,SAe1,,SSI1,5750,8:36,80%,20%
+Olympic,Level 1,8,General Phase,Cycle,,,CF9,CAn1,,CCI19,,4:00,8:36,80%,20%
+Olympic,Level 1,8,General Phase,Run,,RCI2,,,RRe3,,RF12,2:52,8:36,80%,20%
+Olympic,Level 1,9,General Phase,Swim,,,STT2,,,SCI2,SF1,4500,6:28,80%,20%
+Olympic,Level 1,9,General Phase,Cycle,,,CT29,CF5,,,CCI13,3:05,6:28,80%,20%
+Olympic,Level 1,9,General Phase,Run,,RF10,,,RT11,,,2:00,6:28,80%,20%
+Olympic,Level 1,10,General Phase,Swim,,,SMI1,,SAe7,,SSP5,5250,8:21,79%,21%
+Olympic,Level 1,10,General Phase,Cycle,,CCI1,CF6,,,CCI19,,3:45,8:21,79%,21%
+Olympic,Level 1,10,General Phase,Run,,RF3,,RCI1,,,RF12,3:00,8:21,79%,21%
+Olympic,Level 1,11,General Phase,Swim,,,SCI1,,SAe1,,SCI5,6000,9:26,81%,19%
+Olympic,Level 1,11,General Phase,Cycle,,CCI5,CF6,,,,CAe36,4:19,9:26,81%,19%
+Olympic,Level 1,11,General Phase,Run,,RF3,,RAe6,,RCI12,,3:17,9:26,81%,19%
+Olympic,Level 1,12,General Phase,Swim,,,STT2,,,SCI2,SF1,4500,6:53,78%,22%
+Olympic,Level 1,12,General Phase,Cycle,,,CT30,CF5,,,CCI20,3:10,6:53,78%,22%
+Olympic,Level 1,12,General Phase,Run,,RF12,,,RT13,,,2:20,6:53,78%,22%
+Olympic,Level 1,13,Race Specific,Swim,,,SCI11,,,SF4,ST3,5900,9:03,79%,21%
+Olympic,Level 1,13,Race Specific,Cycle,,,,CCI1,,CF15,,3:30,9:03,79%,21%
+Olympic,Level 1,13,Race Specific,Run,,RCI1,,,RF16,,,2:45,9:03,79%,21%
+Olympic,Level 1,13,Race Specific,Brick,,,,,,,BR3,1:00,9:03,79%,21%
+Olympic,Level 1,14,Race Specific,Swim,,SF1,,SCI12,,SAe1,,6500,9:14,79%,21%
+Olympic,Level 1,14,Race Specific,Cycle,,,CF15,,,CF10,,3:30,9:14,79%,21%
+Olympic,Level 1,14,Race Specific,Run,,RCI10,,,RF12,,,2:15,9:14,79%,21%
+Olympic,Level 1,14,Race Specific,Brick,,,,,,,BR4,1:30,9:14,79%,21%
+Olympic,Level 1,15,Taper,Swim,,SCI12,,SAe1,,,SF1,6500,8:14,79%,21%
+Olympic,Level 1,15,Taper,Cycle,,,CCI19,,,CF10,,3:00,8:14,79%,21%
+Olympic,Level 1,15,Taper,Run,,RF6,,,RF12,,,2:15,8:14,79%,21%
+Olympic,Level 1,15,Taper,Brick,,,,,,,BR3,1:00,8:14,79%,21%
+Olympic,Level 1,16,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:18,80%,20%
+Olympic,Level 1,16,Taper,Cycle,,CF9,,CCI17,,CRe1,,1:50,4:18,80%,20%
+Olympic,Level 1,16,Taper,Run,,RCI13,,RF3,,RTa1,,1:10,4:18,80%,20%
+Olympic,Level 2,1,General Phase,Swim,,,STT1,,SF5,,SCI6,6600,8:43,83%,17%
+Olympic,Level 2,1,General Phase,Cycle,,CF3,CF9,CCI1,,CAn7,,4:02,8:43,83%,17%
+Olympic,Level 2,1,General Phase,Run,,RSP17,,,RRe5,,RF9,2:40,8:43,83%,17%
+Olympic,Level 2,2,General Phase,Swim,,,ST2,,SMI6,,SAe1,6750,9:14,81%,19%
+Olympic,Level 2,2,General Phase,Cycle,,CF3,CF9,CCI3,,CFo23,,4:16,9:14,81%,19%
+Olympic,Level 2,2,General Phase,Run,,RAn1,,,RRe6,,RF10,2:55,9:14,81%,19%
+Olympic,Level 2,3,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,6:54,79%,21%
+Olympic,Level 2,3,General Phase,Cycle,,,CF6,CCI12,,,CFo24,3:15,6:54,79%,21%
+Olympic,Level 2,3,General Phase,Run,,RAn1,,,,RT16,,2:00,6:54,79%,21%
+Olympic,Level 2,4,General Phase,Swim,,,SSI2,,SMI2,,SCI3,6550,9:22,79%,21%
+Olympic,Level 2,4,General Phase,Cycle,,CF3,CF7,CCI2,,CFo21,,4:20,9:22,79%,21%
+Olympic,Level 2,4,General Phase,Run,,RCI2,,,RRe7,,RF11,3:02,9:22,79%,21%
+Olympic,Level 2,5,General Phase,Swim,,,SMI2,,SAe1,,ST5,6750,9:53,79%,21%
+Olympic,Level 2,5,General Phase,Cycle,,,CRe5,CCI13,,CFo14,,4:25,9:53,79%,21%
+Olympic,Level 2,5,General Phase,Run,,RAn3,,RSP2,RRe4,,RF11,3:25,9:53,79%,21%
+Olympic,Level 2,6,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,6:56,80%,20%
+Olympic,Level 2,6,General Phase,Cycle,,,CF6,CT31,,,CAn7,3:17,6:56,80%,20%
+Olympic,Level 2,6,General Phase,Run,,RAn1,,,,RT16,,2:00,6:56,80%,20%
+Olympic,Level 2,7,General Phase,Swim,,,SMI2,,SAe2,,SCI15,6250,9:48,81%,19%
+Olympic,Level 2,7,General Phase,Cycle,,,CRe11,CF10,,CCI10,,4:30,9:48,81%,19%
+Olympic,Level 2,7,General Phase,Run,,RCI9,,,RRe5,,RF12,3:24,9:48,81%,19%
+Olympic,Level 2,8,General Phase,Swim,,,SMI2,,SSP3,,SSI2,6550,10:16,81%,19%
+Olympic,Level 2,8,General Phase,Cycle,,,CF9,CF11,,CMI6,,4:30,10:16,81%,19%
+Olympic,Level 2,8,General Phase,Run,,RAn3,,RMI2,RRe3,,RF12,3:46,10:16,81%,19%
+Olympic,Level 2,9,General Phase,Swim,,,SAe1,,SMI6,,SSP5,6500,10:46,79%,21%
+Olympic,Level 2,9,General Phase,Cycle,,CFo3,CRe9,CF10,,CMI2,,5:03,10:46,79%,21%
+Olympic,Level 2,9,General Phase,Run,,RT12,,RSP1,RRe4,,RF12,3:45,10:46,79%,21%
+Olympic,Level 2,10,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:09,79%,21%
+Olympic,Level 2,10,General Phase,Cycle,,,CF9,CT31,,,CAn4,3:30,7:09,79%,21%
+Olympic,Level 2,10,General Phase,Run,,RAn1,,,,RT16,,2:00,7:09,79%,21%
+Olympic,Level 2,11,General Phase,Swim,,,SCI11,,SAe1,,ST4,6650,10:31,82%,18%
+Olympic,Level 2,11,General Phase,Cycle,,CF10,CRe9,CF10,,CCI10,,5:00,10:31,82%,18%
+Olympic,Level 2,11,General Phase,Run,,RCI3,,,RF8,,RF12,3:29,10:31,82%,18%
+Olympic,Level 2,12,General Phase,Swim,,,SSI2,,SCI6,,SSP2,6900,10:54,80%,20%
+Olympic,Level 2,12,General Phase,Cycle,,CF6,CRe9,CCI22,,CCI10,,5:15,10:54,80%,20%
+Olympic,Level 2,12,General Phase,Run,,RCI3,,,RF9,,RF12,3:34,10:54,80%,20%
+Olympic,Level 2,13,General Phase,Swim,,,SAe2,,SCI5,,ST3,7000,11:42,80%,20%
+Olympic,Level 2,13,General Phase,Cycle,,CF6,CRe11,CF11,,CMI1,,5:45,11:42,80%,20%
+Olympic,Level 2,13,General Phase,Run,,RCI3,,RF3,RF6,,RF12,3:49,11:42,80%,20%
+Olympic,Level 2,14,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:39,80%,20%
+Olympic,Level 2,14,General Phase,Cycle,,,,CT10,,,CF13,3:30,7:39,80%,20%
+Olympic,Level 2,14,General Phase,Run,,RAn3,,,,RT20,,2:30,7:39,80%,20%
+Olympic,Level 2,15,Race Specific,Swim,,,SCI12,SAe1,,SSI1,,6750,10:33,81%,19%
+Olympic,Level 2,15,Race Specific,Cycle,,,CF9,CCI21,,CF15,,5:00,10:33,81%,19%
+Olympic,Level 2,15,Race Specific,Run,,RCI1,,,RF12,,,2:30,10:33,81%,19%
+Olympic,Level 2,15,Race Specific,Brick,,,,,,,BR3,1:00,10:33,81%,19%
+Olympic,Level 2,16,Race Specific,Swim,,SCI11,,,SF6,ST6,,7400,10:39,79%,21%
+Olympic,Level 2,16,Race Specific,Cycle,,,CF9,CF15,,CF10,,4:30,10:39,79%,21%
+Olympic,Level 2,16,Race Specific,Run,,RCI11,,,RF12,,,2:23,10:39,79%,21%
+Olympic,Level 2,16,Race Specific,Brick,,,,,,,BR4,1:30,10:39,79%,21%
+Olympic,Level 2,17,Race Specific,Swim,,,SAe2,SCI3,,SCI12,,8000,10:39,78%,22%
+Olympic,Level 2,17,Race Specific,Cycle,,CF3,CCI17,,CF13,CF10,,4:00,10:39,78%,22%
+Olympic,Level 2,17,Race Specific,Run,,RF7,,RF12,,,,2:20,10:39,78%,22%
+Olympic,Level 2,17,Race Specific,Brick,,,,,,,BR5,1:52,10:39,78%,22%
+Olympic,Level 2,18,Taper,Swim,,SAe1,,,SF4,SCI12,,7000,7:39,78%,22%
+Olympic,Level 2,18,Taper,Cycle,,,CF13,CCI17,,,,2:30,7:39,78%,22%
+Olympic,Level 2,18,Taper,Run,,RCI13,,,RF12,,,2:00,7:39,78%,22%
+Olympic,Level 2,18,Taper,Brick,,,,,,,BR3,1:00,7:39,78%,22%
+Olympic,Level 2,19,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:18,80%,20%
+Olympic,Level 2,19,Taper,Cycle,,CF9,,CCI17,,CRe1,,1:50,4:18,80%,20%
+Olympic,Level 2,19,Taper,Run,,RCI13,,RF3,,RTa1,,1:10,4:18,80%,20%
+Olympic,Level 3,1,General Phase,Swim,,,STT1,,SF5,,SCI6,6600,9:21,83%,17%
+Olympic,Level 3,1,General Phase,Cycle,,CF9,CF9,CCI1,,CAn4,,4:30,9:21,83%,17%
+Olympic,Level 3,1,General Phase,Run,,RSP17,,,RRe5,,RF10,2:50,9:21,83%,17%
+Olympic,Level 3,2,General Phase,Swim,,,ST2,,SMI6,,SAe1,6750,10:09,83%,17%
+Olympic,Level 3,2,General Phase,Cycle,,CF9,CF9,CCI3,,CFo21,,5:01,10:09,83%,17%
+Olympic,Level 3,2,General Phase,Run,,RAn1,,,RRe6,,RF11,3:05,10:09,83%,17%
+Olympic,Level 3,3,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:09,80%,20%
+Olympic,Level 3,3,General Phase,Cycle,,CF6,,CCI12,,,CAn4,3:15,7:09,80%,20%
+Olympic,Level 3,3,General Phase,Run,,RAn4,,,,RT19,,2:15,7:09,80%,20%
+Olympic,Level 3,4,General Phase,Swim,,,SSI2,,SMI2,,SCI3,6550,9:52,79%,21%
+Olympic,Level 3,4,General Phase,Cycle,,,CF9,CCI13,,CFo21,,4:30,9:52,79%,21%
+Olympic,Level 3,4,General Phase,Run,,RCI2,,,RRe9,,RF12,3:22,9:52,79%,21%
+Olympic,Level 3,5,General Phase,Swim,,,SMI2,,SAe1,,ST5,6750,10:36,79%,21%
+Olympic,Level 3,5,General Phase,Cycle,,,CRe9,CCI14,,CFo15,,5:00,10:36,79%,21%
+Olympic,Level 3,5,General Phase,Run,,RAn3,,RSI1,RRe3,,RF12,3:33,10:36,79%,21%
+Olympic,Level 3,6,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:09,79%,21%
+Olympic,Level 3,6,General Phase,Cycle,,CF6,,CT31,,,CAn4,3:15,7:09,79%,21%
+Olympic,Level 3,6,General Phase,Run,,RAn4,,,,RT19,,2:15,7:09,79%,21%
+Olympic,Level 3,7,General Phase,Swim,,,SMI2,,SAe2,,SCI15,6250,10:14,78%,22%
+Olympic,Level 3,7,General Phase,Cycle,,,CRe11,CF11,,CMI1,,5:00,10:14,78%,22%
+Olympic,Level 3,7,General Phase,Run,,RCI8,,,RRe5,,RF12,3:20,10:14,78%,22%
+Olympic,Level 3,8,General Phase,Swim,,,SMI2,,SSP4,,SSI2,7150,11:10,80%,20%
+Olympic,Level 3,8,General Phase,Cycle,,CFo17,CRe9,CF11,,CCI15,,5:14,11:10,80%,20%
+Olympic,Level 3,8,General Phase,Run,,RAn3,,RMI2,RRe3,,RF12,3:46,11:10,80%,20%
+Olympic,Level 3,9,General Phase,Swim,,,SAe2,,SMI4,,SSP5,7350,12:04,80%,20%
+Olympic,Level 3,9,General Phase,Cycle,,CFo18,CRe10,CF11,,CMI1,,5:58,12:04,80%,20%
+Olympic,Level 3,9,General Phase,Run,,RF9,,RSP18,RRe4,,RF12,3:53,12:04,80%,20%
+Olympic,Level 3,10,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:09,80%,20%
+Olympic,Level 3,10,General Phase,Cycle,,,,CT31,,,CF13,3:00,7:09,80%,20%
+Olympic,Level 3,10,General Phase,Run,,RAn3,,,,RT20,,2:30,7:09,80%,20%
+Olympic,Level 3,11,General Phase,Swim,,,SCI11,,SAe1,,ST4,6650,11:16,79%,21%
+Olympic,Level 3,11,General Phase,Cycle,,CF10,CRe10,CF10,,CMI2,,5:45,11:16,79%,21%
+Olympic,Level 3,11,General Phase,Run,,RCI3,,,RF8,,RF12,3:29,11:16,79%,21%
+Olympic,Level 3,12,General Phase,Swim,,,SSI2,,SMI7,,SSP2,7400,12:04,79%,21%
+Olympic,Level 3,12,General Phase,Cycle,,CF26,CRe11,CCI20,,CCI10,,6:15,12:04,79%,21%
+Olympic,Level 3,12,General Phase,Run,,RCI3,,,RF9,,RF12,3:34,12:04,79%,21%
+Olympic,Level 3,13,General Phase,Swim,,,SAe2,,SCI12,,ST3,7500,12:58,80%,20%
+Olympic,Level 3,13,General Phase,Cycle,,CF10,CRe12,CF11,,CMI2,,6:45,12:58,80%,20%
+Olympic,Level 3,13,General Phase,Run,,RCI14,,RF3,RF6,,RF12,3:56,12:58,80%,20%
+Olympic,Level 3,14,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:39,80%,20%
+Olympic,Level 3,14,General Phase,Cycle,,,,CT10,,,CF13,3:30,7:39,80%,20%
+Olympic,Level 3,14,General Phase,Run,,RAn3,,,,RT20,,2:30,7:39,80%,20%
+Olympic,Level 3,15,Race Specific,Swim,,,SCI12,,SAe1,SSI2,,7300,11:43,80%,20%
+Olympic,Level 3,15,Race Specific,Cycle,,CF10,CF13,CCI21,,CF10,,5:30,11:43,80%,20%
+Olympic,Level 3,15,Race Specific,Run,,RCI1,,,RF12,,,2:30,11:43,80%,20%
+Olympic,Level 3,15,Race Specific,Brick,,,,,,,BR4,1:30,11:43,80%,20%
+Olympic,Level 3,16,Race Specific,Swim,,SCI5,,,SF6,ST6,,7500,12:02,78%,22%
+Olympic,Level 3,16,Race Specific,Cycle,,CF13,CF10,CF11,,CF10,,5:30,12:02,78%,22%
+Olympic,Level 3,16,Race Specific,Run,,,RCI11,,RF12,,,2:23,12:02,78%,22%
+Olympic,Level 3,16,Race Specific,Brick,,,,,,,BR5,1:52,12:02,78%,22%
+Olympic,Level 3,17,Race Specific,Swim,,,SCI3,,SAe2,SCI12,,8000,11:49,79%,21%
+Olympic,Level 3,17,Race Specific,Cycle,,CF10,CCI1,,CF13,CF10,,5:00,11:49,79%,21%
+Olympic,Level 3,17,Race Specific,Run,,RF9,,RF12,,,,2:30,11:49,79%,21%
+Olympic,Level 3,17,Race Specific,Brick,,,,,,,BR5,1:52,11:49,79%,21%
+Olympic,Level 3,18,Taper,Swim,,SAe1,,,SF4,SCI10,,7500,8:47,80%,20%
+Olympic,Level 3,18,Taper,Cycle,,,CF13,CCI17,,CF10,,3:30,8:47,80%,20%
+Olympic,Level 3,18,Taper,Run,,RCI13,,,RF12,,,2:00,8:47,80%,20%
+Olympic,Level 3,18,Taper,Brick,,,,,,,BR3,1:00,8:47,80%,20%
+Olympic,Level 3,19,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:18,80%,20%
+Olympic,Level 3,19,Taper,Cycle,,CF9,,CCI17,,CRe1,,1:50,4:18,80%,20%
+Olympic,Level 3,19,Taper,Run,,RCI13,,RF3,,RTa1,,1:10,4:18,80%,20%
+Half Ironman,Level 0,1,General Phase,Swim,,,STT2,,,,SF1,2500,4:01,81%,19%
+Half Ironman,Level 0,1,General Phase,Cycle,,,,CCI1,,,CFo22,2:00,4:01,81%,19%
+Half Ironman,Level 0,1,General Phase,Run,,RF3,,,,RF6,,1:15,4:01,81%,19%
+Half Ironman,Level 0,2,General Phase,Swim,,,ST1,,,,SF2,3100,4:35,79%,21%
+Half Ironman,Level 0,2,General Phase,Cycle,,,,CCI2,,,CFo18,2:13,4:35,79%,21%
+Half Ironman,Level 0,2,General Phase,Run,,RF4,,,,RF7,,1:25,4:35,79%,21%
+Half Ironman,Level 0,3,General Phase,Swim,,,STT2,,,,SF2,2600,4:18,81%,19%
+Half Ironman,Level 0,3,General Phase,Cycle,,,,CT2,,,CF9,1:35,4:18,81%,19%
+Half Ironman,Level 0,3,General Phase,Run,,RF8,,,,RCI1,,1:55,4:18,81%,19%
+Half Ironman,Level 0,4,General Phase,Swim,,,SCI14,,,,SF4,3200,4:42,81%,19%
+Half Ironman,Level 0,4,General Phase,Cycle,,,,CCI2,,,CF11,2:30,4:42,81%,19%
+Half Ironman,Level 0,4,General Phase,Run,,RSP3,,,,RF9,,1:30,4:42,81%,19%
+Half Ironman,Level 0,5,General Phase,Swim,,,SSP7,,,,SAe7,3200,5:15,79%,21%
+Half Ironman,Level 0,5,General Phase,Cycle,,,,CCI3,,,CF11,2:31,5:15,79%,21%
+Half Ironman,Level 0,5,General Phase,Run,,RSP7,,,,RF10,,1:46,5:15,79%,21%
+Half Ironman,Level 0,6,General Phase,Swim,,,STT2,,,,SF1,2500,5:11,82%,18%
+Half Ironman,Level 0,6,General Phase,Cycle,,,,CT29,,,CCI23,2:25,5:11,82%,18%
+Half Ironman,Level 0,6,General Phase,Run,,RF10,,,,RT11,,2:00,5:11,82%,18%
+Half Ironman,Level 0,7,General Phase,Swim,,,SMI2,,,,SAe1,4250,6:15,82%,18%
+Half Ironman,Level 0,7,General Phase,Cycle,,,,CAn1,,,CFF13,2:45,6:15,82%,18%
+Half Ironman,Level 0,7,General Phase,Run,,RCI2,,,,RF11,,2:12,6:15,82%,18%
+Half Ironman,Level 0,8,General Phase,Swim,,,SCI17,,,,SCI2,3500,6:25,82%,18%
+Half Ironman,Level 0,8,General Phase,Cycle,,,,CAn1,,,CF13,3:00,6:25,82%,18%
+Half Ironman,Level 0,8,General Phase,Run,,RCI2,,,,RF12,,2:22,6:25,82%,18%
+Half Ironman,Level 0,9,General Phase,Swim,,,STT2,,,,SF1,2500,4:54,80%,20%
+Half Ironman,Level 0,9,General Phase,Cycle,,,,CT3,,,CCI23,2:08,4:54,80%,20%
+Half Ironman,Level 0,9,General Phase,Run,,RT11,,,,RF10,,2:00,4:54,80%,20%
+Half Ironman,Level 0,10,Race Specific,Swim,,,SMI1,,,,SF1,3250,6:17,80%,20%
+Half Ironman,Level 0,10,Race Specific,Cycle,,,,CCI3,,,CAe4,3:02,6:17,80%,20%
+Half Ironman,Level 0,10,Race Specific,Run,,RAe4,,,,RSP12,,2:15,6:17,80%,20%
+Half Ironman,Level 0,11,Race Specific,Swim,,,SCI2,,,,SCI5,4000,7:17,78%,22%
+Half Ironman,Level 0,11,Race Specific,Cycle,,CCI4,,,,CAe36,,3:35,7:17,78%,22%
+Half Ironman,Level 0,11,Race Specific,Run,,,RAe6,,,,RSP12,2:30,7:17,78%,22%
+Half Ironman,Level 0,12,Race Specific,Swim,,,STT2,,,,SCI2,3000,5:40,78%,22%
+Half Ironman,Level 0,12,Race Specific,Cycle,,,,CT29,,,CCI23,2:25,5:40,78%,22%
+Half Ironman,Level 0,12,Race Specific,Run,,RT13,,,,RF12,,2:20,5:40,78%,22%
+Half Ironman,Level 0,13,Race Specific,Swim,,,,SCI14,,,SMI3,3550,7:48,80%,25%
+Half Ironman,Level 0,13,Race Specific,Cycle,,CCI20,,,,,CAe37,4:15,7:48,80%,25%
+Half Ironman,Level 0,13,Race Specific,Run,,,RAe6,,,RSP12,,2:30,7:48,80%,25%
+Half Ironman,Level 0,14,Race Specific,Swim,,,SCI11,,,SMI6,,4900,8:46,85%,15%
+Half Ironman,Level 0,14,Race Specific,Cycle,,CCI18,,,,,CAe8,4:45,8:46,85%,15%
+Half Ironman,Level 0,14,Race Specific,Run,,,RAe7,,,,RFF6,2:45,8:46,85%,15%
+Half Ironman,Level 0,15,Race Specific,Swim,,,STT2,,,SCI1,,2500,6:20,87%,13%
+Half Ironman,Level 0,15,Race Specific,Cycle,,,,,CT4,,CAe8,3:40,6:20,87%,13%
+Half Ironman,Level 0,15,Race Specific,Run,,RT12,,,,,RF9,1:55,6:20,87%,13%
+Half Ironman,Level 0,16,Race Specific,Swim,,,SMI6,,,SCI5,,4500,9:50,87%,13%
+Half Ironman,Level 0,16,Race Specific,Cycle,,CCI19,,,,,CAe19,5:30,9:50,87%,13%
+Half Ironman,Level 0,16,Race Specific,Run,,,,RAe7,,,RF9,3:00,9:50,87%,13%
+Half Ironman,Level 0,17,Taper,Swim,,,SAe1,,,SCI16,,4250,6:08,85%,15%
+Half Ironman,Level 0,17,Taper,Cycle,,CCI4,,,,,CAe2,2:35,6:08,85%,15%
+Half Ironman,Level 0,17,Taper,Run,,,,RAe6,,,RF3,2:15,6:08,85%,15%
+Half Ironman,Level 0,18,Taper,Swim,,,SSI1,,SCI1,,,3250,3:00,79%,21%
+Half Ironman,Level 0,18,Taper,Cycle,,,,CFF4,,CRe1,,1:00,3:00,79%,21%
+Half Ironman,Level 0,18,Taper,Run,,RCI13,,RF3,,,,1:00,3:00,79%,21%
+Half Ironman,Level 1,1,General Phase,Swim,,,STT2,,SF1,,SCI1,4000,6:04,85%,15%
+Half Ironman,Level 1,1,General Phase,Cycle,,,CF9,CCI1,,CFo22,,3:00,6:04,85%,15%
+Half Ironman,Level 1,1,General Phase,Run,,RF3,,,RRe4,,RF6,1:50,6:04,85%,15%
+Half Ironman,Level 1,2,General Phase,Swim,,,ST1,,SMI1,,SF2,4850,6:59,85%,15%
+Half Ironman,Level 1,2,General Phase,Cycle,,CF3,CF9,CCI2,,CFo22,,3:30,6:59,85%,15%
+Half Ironman,Level 1,2,General Phase,Run,,RF4,,,RRe4,,RF7,2:00,6:59,85%,15%
+Half Ironman,Level 1,3,General Phase,Swim,,,STT2,,SF2,,SCI1,4100,5:36,80%,20%
+Half Ironman,Level 1,3,General Phase,Cycle,,,CF3,CT29,,,CFF27,2:25,5:36,80%,20%
+Half Ironman,Level 1,3,General Phase,Run,,RF8,,,,RCI1,,1:55,5:36,80%,20%
+Half Ironman,Level 1,4,General Phase,Swim,,,SCI14,,SSP5,,SF3,4450,6:44,80%,20%
+Half Ironman,Level 1,4,General Phase,Cycle,,,CF9,CCI2,,CFo18,,3:13,6:44,80%,20%
+Half Ironman,Level 1,4,General Phase,Run,,RSP3,,,RRe5,,RF9,2:10,6:44,80%,20%
+Half Ironman,Level 1,5,General Phase,Swim,,,SSP7,,SF4,,SSP6,5000,7:31,80%,20%
+Half Ironman,Level 1,5,General Phase,Cycle,,,CRe10,CCI3,,CF11,,3:46,7:31,80%,20%
+Half Ironman,Level 1,5,General Phase,Run,,RSP7,,,RSP2,,RF10,2:16,7:31,80%,20%
+Half Ironman,Level 1,6,General Phase,Swim,,,STT2,,SCI2,,SF1,4500,6:18,79%,21%
+Half Ironman,Level 1,6,General Phase,Cycle,,,CF3,CT29,,,CCI13,2:55,6:18,79%,21%
+Half Ironman,Level 1,6,General Phase,Run,,RF10,,,,RT11,,2:00,6:18,79%,21%
+Half Ironman,Level 1,7,General Phase,Swim,,,SMI2,,SAe7,,ST1,5250,8:08,80%,20%
+Half Ironman,Level 1,7,General Phase,Cycle,,,CRe9,CAn1,,CCI18,,3:45,8:08,80%,20%
+Half Ironman,Level 1,7,General Phase,Run,,RCI2,,,RRe4,,RF11,2:47,8:08,80%,20%
+Half Ironman,Level 1,8,General Phase,Swim,,,SCI17,,SAe1,,SSI1,5750,8:36,80%,20%
+Half Ironman,Level 1,8,General Phase,Cycle,,,CF9,CAn1,,CCI19,,4:00,8:36,80%,20%
+Half Ironman,Level 1,8,General Phase,Run,,RCI2,,,RRe3,,RF12,2:52,8:36,80%,20%
+Half Ironman,Level 1,9,General Phase,Swim,,,STT2,,SCI2,,SF1,4500,6:28,80%,20%
+Half Ironman,Level 1,9,General Phase,Cycle,,,CF5,CT29,,,CCI13,3:05,6:28,80%,20%
+Half Ironman,Level 1,9,General Phase,Run,,RT11,,,,RF10,,2:00,6:28,80%,20%
+Half Ironman,Level 1,10,Race Specific,Swim,,,SMI1,,SAe7,,SSP5,5250,8:22,83%,17%
+Half Ironman,Level 1,10,Race Specific,Cycle,,CCI3,CF9,,,,CAe4,4:01,8:22,83%,17%
+Half Ironman,Level 1,10,Race Specific,Run,,RF3,,RAe4,,RSP12,,2:45,8:22,83%,17%
+Half Ironman,Level 1,11,Race Specific,Swim,,,SCI1,,SAe1,,SCI5,6000,9:25,83%,17%
+Half Ironman,Level 1,11,Race Specific,Cycle,,CCI4,CF9,,,,CAe36,4:35,9:25,83%,17%
+Half Ironman,Level 1,11,Race Specific,Run,,RF3,,RAe6,,RSP12,,3:00,9:25,83%,17%
+Half Ironman,Level 1,12,Race Specific,Swim,,,STT2,,SF3,,SCI2,4750,6:58,81%,19%
+Half Ironman,Level 1,12,Race Specific,Cycle,,,CF5,CT29,,,CCI13,3:05,6:58,81%,19%
+Half Ironman,Level 1,12,Race Specific,Run,,RT12,,,,RF12,,2:25,6:58,81%,19%
+Half Ironman,Level 1,13,Race Specific,Swim,,,SCI14,,SMI2,,SAe1,5450,9:45,84%,16%
+Half Ironman,Level 1,13,Race Specific,Cycle,,CCI4,CF9,,,,CAe37,4:50,9:45,84%,16%
+Half Ironman,Level 1,13,Race Specific,Run,,RF6,,RAe6,,RSP12,,3:15,9:45,84%,16%
+Half Ironman,Level 1,14,Race Specific,Swim,,,SCI11,,SAe1,ST2,,6150,10:30,85%,15%
+Half Ironman,Level 1,14,Race Specific,Cycle,,,CSP2,,CCI1,,CAe8,5:00,10:30,85%,15%
+Half Ironman,Level 1,14,Race Specific,Run,,RCI2,,RAe7,,,RF6,3:37,10:30,85%,15%
+Half Ironman,Level 1,15,Race Specific,Swim,,,STT2,,SF3,SCI1,,4250,7:53,90%,10%
+Half Ironman,Level 1,15,Race Specific,Cycle,,,CRe3,,CT4,,CAe8,4:10,7:53,90%,10%
+Half Ironman,Level 1,15,Race Specific,Run,,RT12,,RF3,,,RF9,2:25,7:53,90%,10%
+Half Ironman,Level 1,16,Race Specific,Swim,,,SAe2,,SCI12,,,5500,11:04,85%,15%
+Half Ironman,Level 1,16,Race Specific,Cycle,,,CSP8,,,CCI1,CAe19,5:29,11:04,85%,15%
+Half Ironman,Level 1,16,Race Specific,Run,,RCI1,,RAe7,,,RF8,3:55,11:04,85%,15%
+Half Ironman,Level 1,17,Taper,Swim,,,SAe1,,,SCI16,,4250,8:00,82%,18%
+Half Ironman,Level 1,17,Taper,Cycle,,,CRe9,,CCI4,,CAe2,3:35,8:00,82%,18%
+Half Ironman,Level 1,17,Taper,Run,,RCI2,,RAe6,,,RF3,3:07,8:00,82%,18%
+Half Ironman,Level 1,18,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:38,85%,15%
+Half Ironman,Level 1,18,Taper,Cycle,,CF9,,CFF4,,CRe1,,2:00,4:38,85%,15%
+Half Ironman,Level 1,18,Taper,Run,,RFF4,,RF3,,RTa1,,1:20,4:38,85%,15%
+Half Ironman,Level 2,1,General Phase,Swim,,,STT1,,SF5,,SCI6,6600,8:43,83%,17%
+Half Ironman,Level 2,1,General Phase,Cycle,,CF3,CF9,CCI1,,CAn7,,4:02,8:43,83%,17%
+Half Ironman,Level 2,1,General Phase,Run,,RSP17,,,RRe5,,RF9,2:40,8:43,83%,17%
+Half Ironman,Level 2,2,General Phase,Swim,,,ST2,,SMI6,,SAe1,6750,9:29,82%,18%
+Half Ironman,Level 2,2,General Phase,Cycle,,CF3,CF9,CCI3,,CFo21,,4:31,9:29,82%,18%
+Half Ironman,Level 2,2,General Phase,Run,,RAn1,,,RRe6,,RF10,2:55,9:29,82%,18%
+Half Ironman,Level 2,3,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,6:54,79%,21%
+Half Ironman,Level 2,3,General Phase,Cycle,,,CF6,CCI12,,,CAn4,3:15,6:54,79%,21%
+Half Ironman,Level 2,3,General Phase,Run,,RAn1,,,,RT16,,2:00,6:54,79%,21%
+Half Ironman,Level 2,4,General Phase,Swim,,,SSI2,,SMI2,,SCI3,6550,9:42,80%,20%
+Half Ironman,Level 2,4,General Phase,Cycle,,CF3,CF9,CCI2,,CFo21,,4:30,9:42,80%,20%
+Half Ironman,Level 2,4,General Phase,Run,,RCI2,,,RRe9,,RF11,3:12,9:42,80%,20%
+Half Ironman,Level 2,5,General Phase,Swim,,,SMI2,,SAe2,,ST5,7250,10:32,81%,19%
+Half Ironman,Level 2,5,General Phase,Cycle,,,CRe6,CCI13,,CFo15,,4:45,10:32,81%,19%
+Half Ironman,Level 2,5,General Phase,Run,,RAn3,,RSP2,RRe4,,RF12,3:35,10:32,81%,19%
+Half Ironman,Level 2,6,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:09,79%,21%
+Half Ironman,Level 2,6,General Phase,Cycle,,,CF9,CT31,,,CAn4,3:30,7:09,79%,21%
+Half Ironman,Level 2,6,General Phase,Run,,RAn1,,,,RT16,,2:00,7:09,79%,21%
+Half Ironman,Level 2,7,General Phase,Swim,,,SMI2,,SAe2,,ST7,6750,10:28,80%,20%
+Half Ironman,Level 2,7,General Phase,Cycle,,,CRe11,CF11,,CMI6,,5:00,10:28,80%,20%
+Half Ironman,Level 2,7,General Phase,Run,,RCI9,,,RRe5,,RF12,3:24,10:28,80%,20%
+Half Ironman,Level 2,8,General Phase,Swim,,,SMI2,,SSP4,,SSI2,7150,10:56,80%,20%
+Half Ironman,Level 2,8,General Phase,Cycle,,,CF9,CF11,,CMI2,,5:00,10:56,80%,20%
+Half Ironman,Level 2,8,General Phase,Run,,RAn3,,RMI2,RRe3,,RF12,3:46,10:56,80%,20%
+Half Ironman,Level 2,9,General Phase,Swim,,,SAe2,,SMI4,,SSP5,7350,11:37,79%,21%
+Half Ironman,Level 2,9,General Phase,Cycle,,CFo3,CRe9,CF11,,CMI2,,5:33,11:37,79%,21%
+Half Ironman,Level 2,9,General Phase,Run,,RT12,,RSP16,RRe4,,RF12,3:51,11:37,79%,21%
+Half Ironman,Level 2,10,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:09,79%,21%
+Half Ironman,Level 2,10,General Phase,Cycle,,,CF9,CT31,,,CAn4,3:30,7:09,79%,21%
+Half Ironman,Level 2,10,General Phase,Run,,RAn1,,,,RT16,,2:00,7:09,79%,21%
+Half Ironman,Level 2,11,Race Specific,Swim,,,SCI11,,SAe1,,ST4,6650,11:01,83%,17%
+Half Ironman,Level 2,11,Race Specific,Cycle,,,CRe11,CCI14,,CAe36,,5:30,11:01,83%,17%
+Half Ironman,Level 2,11,Race Specific,Run,,RCI3,,RF8,,,RAe2,3:29,11:01,83%,17%
+Half Ironman,Level 2,12,Race Specific,Swim,,,SAe1,,SMI4,,ST4,7600,12:27,84%,16%
+Half Ironman,Level 2,12,Race Specific,Cycle,,CF3,CRe10,CCI15,,CAe8,,6:15,12:27,84%,16%
+Half Ironman,Level 2,12,Race Specific,Run,,RCI3,,RF3,RF4,,RAe10,3:54,12:27,84%,16%
+Half Ironman,Level 2,13,Race Specific,Swim,,,SMI1,,STT1,,SF3,5350,7:54,80%,20%
+Half Ironman,Level 2,13,Race Specific,Cycle,,CF3,,CT31,,,CFF15,3:45,7:54,80%,20%
+Half Ironman,Level 2,13,Race Specific,Run,,RAn3,,,,RT19,,2:30,7:54,80%,20%
+Half Ironman,Level 2,14,Race Specific,Swim,,,SCI11,,SAe1,ST4,,6650,11:51,84%,16%
+Half Ironman,Level 2,14,Race Specific,Cycle,,,CRe11,,CCI14,,CAe8,6:00,11:51,84%,16%
+Half Ironman,Level 2,14,Race Specific,Run,,RCI3,,RAe10,,RRe3,RF3,3:49,11:51,84%,16%
+Half Ironman,Level 2,15,Race Specific,Swim,,,SCI5,,SF5,ST6,,7250,12:46,85%,15%
+Half Ironman,Level 2,15,Race Specific,Cycle,,,CRe13,,CCI14,,CAe8,6:30,12:46,85%,15%
+Half Ironman,Level 2,15,Race Specific,Run,,RCI3,,RAe11,,,RAe1,4:04,12:46,85%,15%
+Half Ironman,Level 2,16,Race Specific,Swim,,,SMI1,,STT1,,SF3,5350,8:19,80%,20%
+Half Ironman,Level 2,16,Race Specific,Cycle,,,,CT12,,,CFF14,4:00,8:19,80%,20%
+Half Ironman,Level 2,16,Race Specific,Run,,RAn3,,,,RT3,RAe1,2:40,8:19,80%,20%
+Half Ironman,Level 2,17,Race Specific,Swim,,,SCI6,,SMI1,SAe2,,7250,13:16,85%,15%
+Half Ironman,Level 2,17,Race Specific,Cycle,,CF3,CRe13,,CCI15,,CAe8,7:00,13:16,85%,15%
+Half Ironman,Level 2,17,Race Specific,Run,,RCI3,,RAe7,,,RAe1,4:04,13:16,85%,15%
+Half Ironman,Level 2,18,Taper,Swim,,,SMI2,,SCI2,SF6,,6250,9:49,84%,16%
+Half Ironman,Level 2,18,Taper,Cycle,,CSP3,CRe13,,CT30,,CAe2,5:01,9:49,84%,16%
+Half Ironman,Level 2,18,Taper,Run,,RF4,,RT16,,RSP5,RF6,2:53,9:49,84%,16%
+Half Ironman,Level 2,19,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:38,85%,15%
+Half Ironman,Level 2,19,Taper,Cycle,,CF9,,CFF4,,CRe1,,2:00,4:38,85%,15%
+Half Ironman,Level 2,19,Taper,Run,,RFF4,,RF3,,RTa1,,1:20,4:38,85%,15%
+Half Ironman,Level 3,1,General Phase,Swim,,,STT1,,SF5,,SCI6,6600,9:21,83%,17%
+Half Ironman,Level 3,1,General Phase,Cycle,,CF9,CF9,CCI1,,CAn4,,4:30,9:21,83%,17%
+Half Ironman,Level 3,1,General Phase,Run,,RSP17,,,RRe5,,RF10,2:50,9:21,83%,17%
+Half Ironman,Level 3,2,General Phase,Swim,,,ST2,,SMI6,,SAe1,6750,10:09,83%,17%
+Half Ironman,Level 3,2,General Phase,Cycle,,CF9,CF9,CCI3,,CFo21,,5:01,10:09,83%,17%
+Half Ironman,Level 3,2,General Phase,Run,,RAn1,,,RRe6,,RF11,3:05,10:09,83%,17%
+Half Ironman,Level 3,3,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:24,80%,20%
+Half Ironman,Level 3,3,General Phase,Cycle,,CF9,,CCI12,,,CAn4,3:30,7:24,80%,20%
+Half Ironman,Level 3,3,General Phase,Run,,RAn4,,,,RT19,,2:15,7:24,80%,20%
+Half Ironman,Level 3,4,General Phase,Swim,,,SSI2,,SMI2,,SCI3,6550,10:22,80%,20%
+Half Ironman,Level 3,4,General Phase,Cycle,,CF3,CF9,CCI13,,CFo21,,5:00,10:22,80%,20%
+Half Ironman,Level 3,4,General Phase,Run,,RCI2,,,RRe9,,RF12,3:22,10:22,80%,20%
+Half Ironman,Level 3,5,General Phase,Swim,,,SMI2,,SAe2,,ST5,7250,11:45,81%,19%
+Half Ironman,Level 3,5,General Phase,Cycle,,CF9,CRe9,CCI14,,CFo15,,6:00,11:45,81%,19%
+Half Ironman,Level 3,5,General Phase,Run,,RAn3,,RSI1,RRe3,,RF12,3:33,11:45,81%,19%
+Half Ironman,Level 3,6,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:24,79%,21%
+Half Ironman,Level 3,6,General Phase,Cycle,,CF9,,CT31,,,CAn4,3:30,7:24,79%,21%
+Half Ironman,Level 3,6,General Phase,Run,,RAn4,,,,RT19,,2:15,7:24,79%,21%
+Half Ironman,Level 3,7,General Phase,Swim,,,SMI2,,SAe2,,ST7,6750,11:28,80%,20%
+Half Ironman,Level 3,7,General Phase,Cycle,,CF9,CRe11,CF11,,CMI1,,6:00,11:28,80%,20%
+Half Ironman,Level 3,7,General Phase,Run,,RCI9,,,RRe5,,RF12,3:24,11:28,80%,20%
+Half Ironman,Level 3,8,General Phase,Swim,,,SMI2,,SSP4,,SSI2,7150,12:25,79%,21%
+Half Ironman,Level 3,8,General Phase,Cycle,,CFo17,CRe10,CF11,,CMI2,,6:29,12:25,79%,21%
+Half Ironman,Level 3,8,General Phase,Run,,RAn3,,RMI2,RRe3,,RF12,3:46,12:25,79%,21%
+Half Ironman,Level 3,9,General Phase,Swim,,,SAe4,,SMI4,,SSP5,7850,12:54,79%,21%
+Half Ironman,Level 3,9,General Phase,Cycle,,CFo17,CRe10,CF11,,CMI2,,6:29,12:54,79%,21%
+Half Ironman,Level 3,9,General Phase,Run,,RT12,,RSP18,RRe4,,RF16,4:03,12:54,79%,21%
+Half Ironman,Level 3,10,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,8:39,81%,19%
+Half Ironman,Level 3,10,General Phase,Cycle,,CF3,,CT31,,,CFF18,4:30,8:39,81%,19%
+Half Ironman,Level 3,10,General Phase,Run,,RAn3,,,,RT19,,2:30,8:39,81%,19%
+Half Ironman,Level 3,11,Race Specific,Swim,,,SCI11,,SAe1,,ST4,6650,11:46,84%,16%
+Half Ironman,Level 3,11,Race Specific,Cycle,,CF10,CRe10,CCI15,,CAe36,,6:15,11:46,84%,16%
+Half Ironman,Level 3,11,Race Specific,Run,,RCI3,,RF8,,,RAe2,3:29,11:46,84%,16%
+Half Ironman,Level 3,12,Race Specific,Swim,,,SSI2,,SMI7,,SSP2,7400,12:34,84%,16%
+Half Ironman,Level 3,12,Race Specific,Cycle,,CRe10,CRe11,CCI15,,CAe36,,6:45,12:34,84%,16%
+Half Ironman,Level 3,12,Race Specific,Run,,RCI3,,RF9,,,RAe2,3:34,12:34,84%,16%
+Half Ironman,Level 3,13,Race Specific,Swim,,,SAe1,,SMI4,,ST4,7600,13:27,84%,16%
+Half Ironman,Level 3,13,Race Specific,Cycle,,CF10,CRe11,CCI16,,CAe8,,7:00,13:27,84%,16%
+Half Ironman,Level 3,13,Race Specific,Run,,RCI3,,RF4,RF6,,RAe10,4:09,13:27,84%,16%
+Half Ironman,Level 3,14,Race Specific,Swim,,,SMI1,,STT1,,SF3,5350,8:39,81%,19%
+Half Ironman,Level 3,14,Race Specific,Cycle,,CF3,,CT31,,,CFF18,4:30,8:39,81%,19%
+Half Ironman,Level 3,14,Race Specific,Run,,RAn3,,,,RT19,,2:30,8:39,81%,19%
+Half Ironman,Level 3,15,Race Specific,Swim,,,SCI11,,SAe1,ST4,,6650,13:06,85%,15%
+Half Ironman,Level 3,15,Race Specific,Cycle,,CF10,CRe11,,CCI15,,CAe8,7:00,13:06,85%,15%
+Half Ironman,Level 3,15,Race Specific,Run,,RCI3,,RAe10,,RRe3,RF6,4:04,13:06,85%,15%
+Half Ironman,Level 3,16,Race Specific,Swim,,,SCI5,,SF5,ST6,,7250,14:06,86%,14%
+Half Ironman,Level 3,16,Race Specific,Cycle,,CF10,CRe13,,CCI15,,CAe8,7:30,14:06,86%,14%
+Half Ironman,Level 3,16,Race Specific,Run,,RCI3,,RAe6,,RRe4,RAe1,4:24,14:06,86%,14%
+Half Ironman,Level 3,17,Race Specific,Swim,,,SAe5,,SMI1,ST7,,7550,14:47,86%,14%
+Half Ironman,Level 3,17,Race Specific,Cycle,,CF11,CRe13,,CCI16,,CAe8,8:00,14:47,86%,14%
+Half Ironman,Level 3,17,Race Specific,Run,,RCI3,,RAe6,,RRe5,RAe1,4:29,14:47,86%,14%
+Half Ironman,Level 3,18,Race Specific,Swim,,,SMI1,,STT1,,SF3,5350,8:49,81%,19%
+Half Ironman,Level 3,18,Race Specific,Cycle,,CF3,,CT12,,,CFF14,4:30,8:49,81%,19%
+Half Ironman,Level 3,18,Race Specific,Run,,RAn3,,,,RT3,RAe1,2:40,8:49,81%,19%
+Half Ironman,Level 3,19,Race Specific,Swim,,,SCI6,,SMI1,SAe2,,7250,14:56,87%,13%
+Half Ironman,Level 3,19,Race Specific,Cycle,,CF11,CRe13,,CCI15,,CAe8,8:00,14:56,87%,13%
+Half Ironman,Level 3,19,Race Specific,Run,,RCI3,,RAe7,,RRe5,RAe1,4:44,14:56,87%,13%
+Half Ironman,Level 3,20,Taper,Swim,,,SMI2,,SCI2,SF6,,6250,10:46,86%,14%
+Half Ironman,Level 3,20,Taper,Cycle,,CSP3,CRe14,,CT30,,CAe2,5:31,10:46,86%,14%
+Half Ironman,Level 3,20,Taper,Run,,RF7,,RT16,,RSP21,RF6,3:20,10:46,86%,14%
+Half Ironman,Level 3,21,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:38,85%,15%
+Half Ironman,Level 3,21,Taper,Cycle,,CF9,,CFF4,,CRe1,,2:00,4:38,85%,15%
+Half Ironman,Level 3,21,Taper,Run,,RFF4,,RF3,,RTa1,,1:20,4:38,85%,15%
+Ironman,Level 0,1,General Phase,Swim,,,STT2,,,,SCI1,2500,4:43,80%,20%
+Ironman,Level 0,1,General Phase,Cycle,,,,CCI1,,,CFo18,2:13,4:43,80%,20%
+Ironman,Level 0,1,General Phase,Run,,RF6,,,RF9,,,1:45,4:43,80%,20%
+Ironman,Level 0,2,General Phase,Swim,,,ST1,,,,SF3,3250,5:09,81%,19%
+Ironman,Level 0,2,General Phase,Cycle,,,,CFF9,,,CFo17,2:14,5:09,81%,19%
+Ironman,Level 0,2,General Phase,Run,,RSP1,,,,RF10,,1:55,5:09,81%,19%
+Ironman,Level 0,3,General Phase,Swim,,,STT1,,,,SF1,3350,4:22,80%,20%
+Ironman,Level 0,3,General Phase,Cycle,,,,CT2,,,CAn9,1:35,4:22,80%,20%
+Ironman,Level 0,3,General Phase,Run,,RF6,,,,RT16,,1:45,4:22,80%,20%
+Ironman,Level 0,4,General Phase,Swim,,,SMI1,,,,SF1,3250,5:23,81%,19%
+Ironman,Level 0,4,General Phase,Cycle,,,,CCI2,,,CF11,2:30,5:23,81%,19%
+Ironman,Level 0,4,General Phase,Run,,RSP5,,,,RF11,,1:53,5:23,81%,19%
+Ironman,Level 0,5,General Phase,Swim,,,SF4,,,,SMI2,3750,6:09,79%,21%
+Ironman,Level 0,5,General Phase,Cycle,,,,CCI3,,,CF12,2:46,6:09,79%,21%
+Ironman,Level 0,5,General Phase,Run,,RHR9,,,,RF12,,2:15,6:09,79%,21%
+Ironman,Level 0,6,General Phase,Swim,,,SMI1,,,,STT1,3600,5:13,79%,21%
+Ironman,Level 0,6,General Phase,Cycle,,,,CT30,,,CAn7,2:32,5:13,79%,21%
+Ironman,Level 0,6,General Phase,Run,,RT1,,,,RF9,,1:35,5:13,79%,21%
+Ironman,Level 0,7,General Phase,Swim,,,SMI2,,,,SF4,3750,6:25,80%,20%
+Ironman,Level 0,7,General Phase,Cycle,,,,CCI3,,,CF13,3:01,6:25,80%,20%
+Ironman,Level 0,7,General Phase,Run,,RHR9,,,,RF12,,2:15,6:25,80%,20%
+Ironman,Level 0,8,General Phase,Swim,,,SCI17,,,,SSP1,3250,7:03,79%,21%
+Ironman,Level 0,8,General Phase,Cycle,,,,CCI4,,,CF15,3:35,7:03,79%,21%
+Ironman,Level 0,8,General Phase,Run,,RCI1,,,,RF12,,2:30,7:03,79%,21%
+Ironman,Level 0,9,General Phase,Swim,,,STT1,,,,SF1,3350,5:25,79%,21%
+Ironman,Level 0,9,General Phase,Cycle,,,,CT3,,,CF13,2:38,5:25,79%,21%
+Ironman,Level 0,9,General Phase,Run,,RSP21,,,,RT16,,1:45,5:25,79%,21%
+Ironman,Level 0,10,General Phase,Swim,,,SAe1,,,,SSP1,4250,7:34,82%,18%
+Ironman,Level 0,10,General Phase,Cycle,,,,CCI4,,,CFo20,3:50,7:34,82%,18%
+Ironman,Level 0,10,General Phase,Run,,RAn4,,,,RF14,,2:25,7:34,82%,18%
+Ironman,Level 0,11,General Phase,Swim,,,SCI15,,,,SAe2,4500,8:01,79%,21%
+Ironman,Level 0,11,General Phase,Cycle,,,,CCI5,,,CFo16,4:04,8:01,79%,21%
+Ironman,Level 0,11,General Phase,Run,,RAn4,,,,RF15,,2:35,8:01,79%,21%
+Ironman,Level 0,12,General Phase,Swim,,,STT1,,,,SF4,3850,6:20,81%,19%
+Ironman,Level 0,12,General Phase,Cycle,,,,CT8,,,CFF14,3:00,6:20,81%,19%
+Ironman,Level 0,12,General Phase,Run,,RT2,,,,RF12,,2:08,6:20,81%,19%
+Ironman,Level 0,13,Specific Phase,Swim,,,SCI15,,,,SAe2,4500,9:01,85%,15%
+Ironman,Level 0,13,Specific Phase,Cycle,,,,CCI5,,,CAe27,5:04,9:01,85%,15%
+Ironman,Level 0,13,Specific Phase,Run,,RCI10,,,,RF15,,2:35,9:01,85%,15%
+Ironman,Level 0,14,Specific Phase,Swim,,,SAe3,,,,SCI1,5000,9:42,87%,13%
+Ironman,Level 0,14,Specific Phase,Cycle,,,,CCI5,,,CAe28,5:24,9:42,87%,13%
+Ironman,Level 0,14,Specific Phase,Run,,RCI10,,,,RF17,,2:45,9:42,87%,13%
+Ironman,Level 0,15,Specific Phase,Swim,,,STT1,,,,SF4,3850,7:02,81%,19%
+Ironman,Level 0,15,Specific Phase,Cycle,,,,CT4,,,CFo16,3:40,7:02,81%,19%
+Ironman,Level 0,15,Specific Phase,Run,,RT3,,,,RF12,,2:10,7:02,81%,19%
+Ironman,Level 0,16,Specific Phase,Swim,,,SCI15,,SAe5,,,5300,10:26,90%,10%
+Ironman,Level 0,16,Specific Phase,Cycle,,CCI5,,,,,CAe22,6:04,10:26,90%,10%
+Ironman,Level 0,16,Specific Phase,Run,,,,RAe12,,RFF3,,2:45,10:26,90%,10%
+Ironman,Level 0,17,Specific Phase,Swim,,,SCI16,,SF9,,,5250,11:25,91%,9%
+Ironman,Level 0,17,Specific Phase,Cycle,,CCI5,,,,,CAe23,6:34,11:25,91%,9%
+Ironman,Level 0,17,Specific Phase,Run,,,,RAe13,,RF6,,3:15,11:25,91%,9%
+Ironman,Level 0,18,Specific Phase,Swim,,,STT1,,SF4,,,3850,7:22,80%,20%
+Ironman,Level 0,18,Specific Phase,Cycle,,,,CT8,,,CFo16,4:00,7:22,80%,20%
+Ironman,Level 0,18,Specific Phase,Run,,RT3,,,,RF12,,2:10,7:22,80%,20%
+Ironman,Level 0,19,Specific Phase,Swim,,,ST8,,SAe5,,,5550,12:26,92%,8%
+Ironman,Level 0,19,Specific Phase,Cycle,,CCI5,,,,,CAe24,7:04,12:26,92%,8%
+Ironman,Level 0,19,Specific Phase,Run,,,,RAe18,,RF9,,3:40,12:26,92%,8%
+Ironman,Level 0,20,Taper,Swim,,,SMI2,,SAe5,,,5550,7:42,90%,10%
+Ironman,Level 0,20,Taper,Cycle,,CRE13,,,,,CAe2,3:30,7:42,90%,10%
+Ironman,Level 0,20,Taper,Run,,,,RT16,RSP21,RF6,,2:30,7:42,90%,10%
+Ironman,Level 0,21,Taper,Swim,,,SSI1,SCI1,,,,3250,3:00,90%,10%
+Ironman,Level 0,21,Taper,Cycle,,CF9,,,CRe1,,,1:20,3:00,90%,10%
+Ironman,Level 0,21,Taper,Run,,,,RF3,RTa1,,,0:40,3:00,90%,10%
+Ironman,Level 1,1,General Phase,Swim,,,STT2,,SF3,,SCI1,4250,7:41,84%,16%
+Ironman,Level 1,1,General Phase,Cycle,,CF6,CF9,CCI1,,CFo18,,3:58,7:41,84%,16%
+Ironman,Level 1,1,General Phase,Run,,RSP1,,,RRe5,,RF9,2:25,7:41,84%,16%
+Ironman,Level 1,2,General Phase,Swim,,,ST1,,SF3,,SMI1,5000,8:15,83%,17%
+Ironman,Level 1,2,General Phase,Cycle,,CF8,CF10,CFF9,,CFo17,,4:09,8:15,83%,17%
+Ironman,Level 1,2,General Phase,Run,,RSP9,,,RRe6,,RF10,2:34,8:15,83%,17%
+Ironman,Level 1,3,General Phase,Swim,,,SMI1,,STT1,,SF1,5100,7:01,80%,20%
+Ironman,Level 1,3,General Phase,Cycle,,CF5,,CT30,,,CAn7,3:12,7:01,80%,20%
+Ironman,Level 1,3,General Phase,Run,,RSP21,,RRe3,,RT16,,2:15,7:01,80%,20%
+Ironman,Level 1,4,General Phase,Swim,,,SMI1,,STT1,,SF1,5100,8:12,80%,20%
+Ironman,Level 1,4,General Phase,Cycle,,CF7,CF5,CCI2,,CFo19,,4:00,8:12,80%,20%
+Ironman,Level 1,4,General Phase,Run,,RSP5,,,RRe6,,RF11,2:38,8:12,80%,20%
+Ironman,Level 1,5,General Phase,Swim,,,SMI2,,SF2,,ST3,5350,8:59,81%,19%
+Ironman,Level 1,5,General Phase,Cycle,,CF7,CF7,CCI3,,CFF13,,4:26,8:59,81%,19%
+Ironman,Level 1,5,General Phase,Run,,RHR9,,,RRe5,,RF12,2:55,8:59,81%,19%
+Ironman,Level 1,6,General Phase,Swim,,,SMI1,,STT1,,SF1,5100,7:01,80%,20%
+Ironman,Level 1,6,General Phase,Cycle,,CF5,,CT30,,,CAn7,3:12,7:01,80%,20%
+Ironman,Level 1,6,General Phase,Run,,RSP21,,RRe3,,RT16,,2:15,7:01,80%,20%
+Ironman,Level 1,7,General Phase,Swim,,,SMI2,,SF4,,ST1,5250,8:42,81%,19%
+Ironman,Level 1,7,General Phase,Cycle,,,CF10,CCI3,,CFF14,,4:01,8:42,81%,19%
+Ironman,Level 1,7,General Phase,Run,,RHR9,,,RRe7,,RF12,3:05,8:42,81%,19%
+Ironman,Level 1,8,General Phase,Swim,,,SCI17,,SF5,,SSP1,5500,10:05,84%,16%
+Ironman,Level 1,8,General Phase,Cycle,,,CF11,CCI4,,CAn8,,5:05,10:05,84%,16%
+Ironman,Level 1,8,General Phase,Run,,RCI1,,,RRe7,,RF12,3:20,10:05,84%,16%
+Ironman,Level 1,9,General Phase,Swim,,,SMI1,,STT1,,SF1,5100,7:24,78%,22%
+Ironman,Level 1,9,General Phase,Cycle,,CF4,,CT31,,,CFF14,3:35,7:24,78%,22%
+Ironman,Level 1,9,General Phase,Run,,RSP21,,RRe3,,RT16,,2:15,7:24,78%,22%
+Ironman,Level 1,10,General Phase,Swim,,,SCI17,,SAe1,,SSP1,5750,9:59,83%,17%
+Ironman,Level 1,10,General Phase,Cycle,,,CRe9,CCI4,,CFo20,,4:50,9:59,83%,17%
+Ironman,Level 1,10,General Phase,Run,,RAn4,,,RRe9,,RF14,3:25,9:59,83%,17%
+Ironman,Level 1,11,General Phase,Swim,,,SCI15,,SAe2,,SSP5,6000,10:58,84%,16%
+Ironman,Level 1,11,General Phase,Cycle,,,CF11,CCI5,,CFo16,,5:34,10:58,84%,16%
+Ironman,Level 1,11,General Phase,Run,,RAn4,,,RRe9,,RF15,3:35,10:58,84%,16%
+Ironman,Level 1,12,General Phase,Swim,,,SMI1,,STT1,,SF4,5600,7:33,80%,20%
+Ironman,Level 1,12,General Phase,Cycle,,CF4,,CT8,,,CFF14,3:35,7:33,80%,20%
+Ironman,Level 1,12,General Phase,Run,,RT4,,,,RF12,,2:14,7:33,80%,20%
+Ironman,Level 1,13,Specific Phase,Swim,,,SCI15,,SAe2,,SSP5,6000,11:28,87%,13%
+Ironman,Level 1,13,Specific Phase,Cycle,,,CF11,CCI5,,CAe35,,6:04,11:28,87%,13%
+Ironman,Level 1,13,Specific Phase,Run,,RCI10,,,RF9,,RF15,3:35,11:28,87%,13%
+Ironman,Level 1,14,Specific Phase,Swim,,,SCI17,,SAe3,,SCI1,6500,12:18,87%,13%
+Ironman,Level 1,14,Specific Phase,Cycle,,,CF11,CCI5,,CAe20,,6:34,12:18,87%,13%
+Ironman,Level 1,14,Specific Phase,Run,,RCI10,,,RF9,,RF17,3:45,12:18,87%,13%
+Ironman,Level 1,15,Specific Phase,Swim,,,SMI1,,STT1,,SF4,5600,8:33,79%,21%
+Ironman,Level 1,15,Specific Phase,Cycle,,CF4,,CT8,,,CFo16,4:35,8:33,79%,21%
+Ironman,Level 1,15,Specific Phase,Run,,RT4,,,,RF12,,2:14,8:33,79%,21%
+Ironman,Level 1,16,Specific Phase,Swim,,,SCI15,,SAe5,,SCI14,6500,12:20,86%,14%
+Ironman,Level 1,16,Specific Phase,Cycle,,,CCI5,,CF9,,CAe21,6:34,12:20,86%,14%
+Ironman,Level 1,16,Specific Phase,Run,,RCI12,,RAe12,,,RF3,3:47,12:20,86%,14%
+Ironman,Level 1,17,Specific Phase,Swim,,,SCI16,,SF9,SMI2,,7000,13:14,86%,14%
+Ironman,Level 1,17,Specific Phase,Cycle,,,CCI5,,CF9,,CAe22,7:04,13:14,86%,14%
+Ironman,Level 1,17,Specific Phase,Run,,RCI12,,RAe13,,,RF3,4:02,13:14,86%,14%
+Ironman,Level 1,18,Specific Phase,Swim,,,SMI1,,STT1,,SF4,5600,8:33,79%,21%
+Ironman,Level 1,18,Specific Phase,Cycle,,CF4,,CT8,,,CFo16,4:35,8:33,79%,21%
+Ironman,Level 1,18,Specific Phase,Run,,RT4,,,,RF12,,2:14,8:33,79%,21%
+Ironman,Level 1,19,Specific Phase,Swim,,,ST8,,SAe5,SSI1,,7300,13:28,87%,13%
+Ironman,Level 1,19,Specific Phase,Cycle,,,CCI5,,CCI17,,CAe23,7:04,13:28,87%,13%
+Ironman,Level 1,19,Specific Phase,Run,,RCI10,,RAe18,,,RF6,4:10,13:28,87%,13%
+Ironman,Level 1,20,Specific Phase,Swim,,,SSI1,,SF10,STa1,,6750,14:08,90%,10%
+Ironman,Level 1,20,Specific Phase,Cycle,,,CCI5,,CCI17,,CAe24,7:34,14:08,90%,10%
+Ironman,Level 1,20,Specific Phase,Run,,RCI13,,RAe20,,,RF9,4:30,14:08,90%,10%
+Ironman,Level 1,21,Taper,Swim,STa1,,SMI2,,,SAe5,,6550,10:11,86%,14%
+Ironman,Level 1,21,Taper,Cycle,,CSP3,CRe13,,CT30,,CAe2,5:01,10:11,86%,14%
+Ironman,Level 1,21,Taper,Run,,RF5,,RT16,,RSP21,RF6,3:10,10:11,86%,14%
+Ironman,Level 1,22,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:38,85%,15%
+Ironman,Level 1,22,Taper,Cycle,,CF9,,CFF4,,CRe1,,2:00,4:38,85%,15%
+Ironman,Level 1,22,Taper,Run,,RFF4,,RF3,,RTa1,,1:20,4:38,85%,15%
+Ironman,Level 2,1,General Phase,Swim,STT1,,ST1,,SF3,,SCI1,6600,9:33,85%,15%
+Ironman,Level 2,1,General Phase,Cycle,,CF9,CF9,CCI1,,CAn5,,5:00,9:33,85%,15%
+Ironman,Level 2,1,General Phase,Run,,RSP16,,,RRe5,,RF9,2:31,9:33,85%,15%
+Ironman,Level 2,2,General Phase,Swim,SCI14,,ST3,,SF4,,SCI1,6700,10:44,84%,16%
+Ironman,Level 2,2,General Phase,Cycle,,CF9,CF9,CCI13,,CFo14,,5:45,10:44,84%,16%
+Ironman,Level 2,2,General Phase,Run,,RAn1,,,RRe6,,RF10,2:55,10:44,84%,16%
+Ironman,Level 2,3,General Phase,Swim,SF1,,SMI1,,SF2,,ST4,7100,11:34,83%,17%
+Ironman,Level 2,3,General Phase,Cycle,,CF9,CRe9,CCI13,,CAn6,,6:00,11:34,83%,17%
+Ironman,Level 2,3,General Phase,Run,,RCI1,,RSI1,RRe3,,RF11,3:23,11:34,83%,17%
+Ironman,Level 2,4,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:24,79%,21%
+Ironman,Level 2,4,General Phase,Cycle,,CF9,,CT31,,,CAn4,3:30,7:24,79%,21%
+Ironman,Level 2,4,General Phase,Run,,RAn4,,,,RT19,,2:15,7:24,79%,21%
+Ironman,Level 2,5,General Phase,Swim,SCI15,,ST1,,SF6,,SCI1,7000,11:01,79%,21%
+Ironman,Level 2,5,General Phase,Cycle,,CF6,CF9,CCI15,,CFo14,,5:30,11:01,79%,21%
+Ironman,Level 2,5,General Phase,Run,,RCI2,,,RRe9,,RF12,3:22,11:01,79%,21%
+Ironman,Level 2,6,General Phase,Swim,SCI4,,ST2,,SF5,,SCI2,7500,11:41,80%,20%
+Ironman,Level 2,6,General Phase,Cycle,,CF7,CRe10,CCI16,,CFo15,,6:05,11:41,80%,20%
+Ironman,Level 2,6,General Phase,Run,,RAn4,,RSI1,RRe3,,RF12,3:18,11:41,80%,20%
+Ironman,Level 2,7,General Phase,Swim,SF3,,SMI2,,SF2,,ST5,7600,11:57,80%,20%
+Ironman,Level 2,7,General Phase,Cycle,,CF7,CRe10,CCI6,,CFo16,,6:17,11:57,80%,20%
+Ironman,Level 2,7,General Phase,Run,,RCI8,,,RRe5,,RF12,3:20,11:57,80%,20%
+Ironman,Level 2,8,General Phase,Swim,,,SMI1,,STT2,,SF5,5000,7:17,79%,21%
+Ironman,Level 2,8,General Phase,Cycle,,CF9,,CT31,,,CAn4,3:30,7:17,79%,21%
+Ironman,Level 2,8,General Phase,Run,,RAn4,,,,RT19,,2:15,7:17,79%,21%
+Ironman,Level 2,9,General Phase,Swim,SCI4,,SSI1,,SF5,,SCI2,7500,11:13,80%,20%
+Ironman,Level 2,9,General Phase,Cycle,,CF9,CRe10,CF11,,CMI1,,5:45,11:13,80%,20%
+Ironman,Level 2,9,General Phase,Run,,RCI8,,,RRe3,,RF12,3:10,11:13,80%,20%
+Ironman,Level 2,10,General Phase,Swim,ST1,,SMI2,,SF6,,ST3,7750,11:41,80%,20%
+Ironman,Level 2,10,General Phase,Cycle,,CFo18,CRe10,CF10,,CMI2,,5:58,11:41,80%,20%
+Ironman,Level 2,10,General Phase,Run,,RAn4,,RMI1,RRe3,,RF12,3:21,11:41,80%,20%
+Ironman,Level 2,11,General Phase,Swim,SCI14,,SMI2,,SAe2,,ST3,7950,12:27,79%,21%
+Ironman,Level 2,11,General Phase,Cycle,,CFo18,CRe9,CF10,,CMI4,,6:13,12:27,79%,21%
+Ironman,Level 2,11,General Phase,Run,,RT12,,RSP18,RRe4,,RF12,3:48,12:27,79%,21%
+Ironman,Level 2,12,General Phase,Swim,,,SMI1,,STT2,,SF5,5000,8:02,80%,20%
+Ironman,Level 2,12,General Phase,Cycle,,CF3,,CT31,,,CFF16,4:00,8:02,80%,20%
+Ironman,Level 2,12,General Phase,Run,,RAn3,,,,RT19,,2:30,8:02,80%,20%
+Ironman,Level 2,13,Specific Phase,Swim,,,SCI16,,SAe2,,ST4,7000,12:13,85%,15%
+Ironman,Level 2,13,Specific Phase,Cycle,,CF10,CRe9,CCI3,,CAe19,,6:31,12:13,85%,15%
+Ironman,Level 2,13,Specific Phase,Run,,RCI3,,RF6,,,RAe10,3:34,12:13,85%,15%
+Ironman,Level 2,14,Specific Phase,Swim,,,SCI15,,SAe3,,SCI6,7500,13:10,85%,15%
+Ironman,Level 2,14,Specific Phase,Cycle,,CF10,CRe9,CCI5,,CAe20,,7:04,13:10,85%,15%
+Ironman,Level 2,14,Specific Phase,Run,,RCI3,,RF6,,,RAe11,3:49,13:10,85%,15%
+Ironman,Level 2,15,Specific Phase,Swim,,,SMI3,,SAe5,,SSP5,7650,14:02,86%,14%
+Ironman,Level 2,15,Specific Phase,Cycle,,CF10,CRe9,CCI4,,CAe21,,7:35,14:02,86%,14%
+Ironman,Level 2,15,Specific Phase,Run,,RCI3,,RF7,,,RAe12,4:09,14:02,86%,14%
+Ironman,Level 2,16,Specific Phase,Swim,,,SMI1,,STT1,,SF3,5350,8:39,81%,19%
+Ironman,Level 2,16,Specific Phase,Cycle,,CF3,,CT31,,,CFF18,4:30,8:39,81%,19%
+Ironman,Level 2,16,Specific Phase,Run,,RAn3,,,,RT19,,2:30,8:39,81%,19%
+Ironman,Level 2,17,Specific Phase,Swim,,,SSP6,,SAe4,ST7,,7250,13:34,87%,13%
+Ironman,Level 2,17,Specific Phase,Cycle,,CF6,CRe9,,CCI6,,CAe21,7:27,13:34,87%,13%
+Ironman,Level 2,17,Specific Phase,Run,,RCI1,,RAe12,,,RF5,3:55,13:34,87%,13%
+Ironman,Level 2,18,Specific Phase,Swim,,,SMI2,,SF10,ST8,,7500,14:22,87%,13%
+Ironman,Level 2,18,Specific Phase,Cycle,,,CRe11,,CCI6,,CAe22,7:42,14:22,87%,13%
+Ironman,Level 2,18,Specific Phase,Run,,RCI11,,RAe9,,,RAe1,4:23,14:22,87%,13%
+Ironman,Level 2,19,Specific Phase,Swim,,,SMI3,,SAe5,SSP6,,7900,15:27,87%,13%
+Ironman,Level 2,19,Specific Phase,Cycle,,,CRe12,,CCI6,,CAe34,8:27,15:27,87%,13%
+Ironman,Level 2,19,Specific Phase,Run,,RCI11,,RAe21,,,RAe1,4:38,15:27,87%,13%
+Ironman,Level 2,20,Specific Phase,Swim,,,SMI1,,,STT1,SF3,5350,9:01,81%,19%
+Ironman,Level 2,20,Specific Phase,Cycle,,CF3,,CT25,,,CFF18,4:22,9:01,81%,19%
+Ironman,Level 2,20,Specific Phase,Run,,RAn3,,,RT16,,RAe1,3:00,9:01,81%,19%
+Ironman,Level 2,21,Specific Phase,Swim,,,SMI2,,SAe6,SSP6,,8000,16:16,89%,11%
+Ironman,Level 2,21,Specific Phase,Cycle,,,CRe13,,CCI6,,CAe18,9:12,16:16,89%,11%
+Ironman,Level 2,21,Specific Phase,Run,,RCI11,,RAe21,,,RAe1,4:38,16:16,89%,11%
+Ironman,Level 2,22,Taper,Swim,STa1,,SMI2,,,SAe5,,6550,10:50,84%,16%
+Ironman,Level 2,22,Taper,Cycle,,CSP12,CRe13,,CT30,,CAe2,5:30,10:50,84%,16%
+Ironman,Level 2,22,Taper,Run,,RF7,,RT16,,RSP21,RF6,3:20,10:50,84%,16%
+Ironman,Level 2,23,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:38,85%,15%
+Ironman,Level 2,23,Taper,Cycle,,CF9,,CFF4,,CRe1,,2:00,4:38,85%,15%
+Ironman,Level 2,23,Taper,Run,,RFF4,,RF3,,RTa1,,1:20,4:38,85%,15%
+Ironman,Level 3,1,General Phase,Swim,STT1,,SCI1,,SF5,,ST1,7100,10:12,84%,16%
+Ironman,Level 3,1,General Phase,Cycle,,CF9,CF9,CCI1,,CAn5,,5:00,10:12,84%,16%
+Ironman,Level 3,1,General Phase,Run,,RSP17,,,RRe5,,RF11,3:00,10:12,84%,16%
+Ironman,Level 3,2,General Phase,Swim,SCI4,,ST2,,SF5,,SCI2,7500,11:18,84%,16%
+Ironman,Level 3,2,General Phase,Cycle,,CF9,CF9,CCI13,,CFo14,,5:45,11:18,84%,16%
+Ironman,Level 3,2,General Phase,Run,,RAn1,,,RRe6,,RF12,3:15,11:18,84%,16%
+Ironman,Level 3,3,General Phase,Swim,SF3,,SMI2,,SF2,,ST5,7600,12:08,83%,17%
+Ironman,Level 3,3,General Phase,Cycle,,CF9,CRe10,CCI14,,CAn6,,6:15,12:08,83%,17%
+Ironman,Level 3,3,General Phase,Run,,RCI1,,RSI1,RRe3,,RF12,3:33,12:08,83%,17%
+Ironman,Level 3,4,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:24,79%,21%
+Ironman,Level 3,4,General Phase,Cycle,,CF9,,CT31,,,CAn4,3:30,7:24,79%,21%
+Ironman,Level 3,4,General Phase,Run,,RAn4,,,,RT19,,2:15,7:24,79%,21%
+Ironman,Level 3,5,General Phase,Swim,SCI4,,SSI1,,SF5,,SCI2,7500,11:25,80%,20%
+Ironman,Level 3,5,General Phase,Cycle,,CF6,CF9,CCI15,,CFo14,,5:30,11:25,80%,20%
+Ironman,Level 3,5,General Phase,Run,,RCI2,,,RRe9,,RF16,3:37,11:25,80%,20%
+Ironman,Level 3,6,General Phase,Swim,ST1,,SMI2,,SF6,,ST3,7750,12:25,81%,19%
+Ironman,Level 3,6,General Phase,Cycle,,CF9,CRe10,CCI16,,CFo15,,6:15,12:25,81%,19%
+Ironman,Level 3,6,General Phase,Run,,RAn3,,RSI1,RRe3,,RF16,3:48,12:25,81%,19%
+Ironman,Level 3,7,General Phase,Swim,SCI14,,SMI2,,SAe2,,ST3,7950,13:03,81%,19%
+Ironman,Level 3,7,General Phase,Cycle,,CF9,CRe11,CCI6,,CFo16,,6:42,13:03,81%,19%
+Ironman,Level 3,7,General Phase,Run,,RCI8,,,RRe9,,RF16,3:55,13:03,81%,19%
+Ironman,Level 3,8,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,7:24,79%,21%
+Ironman,Level 3,8,General Phase,Cycle,,CF9,,CT31,,,CAn4,3:30,7:24,79%,21%
+Ironman,Level 3,8,General Phase,Run,,RAn4,,,,RT19,,2:15,7:24,79%,21%
+Ironman,Level 3,9,General Phase,Swim,SCI15,,SMI2,,SAe2,,ST2,8000,12:35,81%,19%
+Ironman,Level 3,9,General Phase,Cycle,,CF9,CRe10,CF11,,CMI3,,6:30,12:35,81%,19%
+Ironman,Level 3,9,General Phase,Run,,RCI9,,,RRe5,,RF16,3:39,12:35,81%,19%
+Ironman,Level 3,10,General Phase,Swim,SSI1,,SMI2,,SSP4,,ST2,8350,13:32,80%,20%
+Ironman,Level 3,10,General Phase,Cycle,,CFo17,CRe10,CF11,,CMI4,,6:59,13:32,80%,20%
+Ironman,Level 3,10,General Phase,Run,,RAn3,,RMI2,RRe3,,RF16,4:01,13:32,80%,20%
+Ironman,Level 3,11,General Phase,Swim,SCI11,,SAe4,,SMI1,,SSP5,8650,14:35,81%,19%
+Ironman,Level 3,11,General Phase,Cycle,,CFo17,CRe11,CF11,,CMI5,,7:44,14:35,81%,19%
+Ironman,Level 3,11,General Phase,Run,,RT12,,RSP18,RRe6,,RF16,4:13,14:35,81%,19%
+Ironman,Level 3,12,General Phase,Swim,,,SMI1,,STT1,,SF3,5350,8:39,81%,19%
+Ironman,Level 3,12,General Phase,Cycle,,CF3,,CT31,,,CFF18,4:30,8:39,81%,19%
+Ironman,Level 3,12,General Phase,Run,,RAn3,,,,RT19,,2:30,8:39,81%,19%
+Ironman,Level 3,13,Specific Phase,Swim,SSI1,,SMI2,,SSP4,,ST2,8350,14:06,85%,15%
+Ironman,Level 3,13,Specific Phase,Cycle,,CF10,CRe10,CCI16,,CAe11,,7:55,14:06,85%,15%
+Ironman,Level 3,13,Specific Phase,Run,,RCI3,,RF7,,,RAe10,3:39,14:06,85%,15%
+Ironman,Level 3,14,Specific Phase,Swim,SRe1,,SSI2,,SMI6,,SCI2,8300,14:44,85%,15%
+Ironman,Level 3,14,Specific Phase,Cycle,,CF10,CRe11,CCI6,,CAe12,,8:12,14:44,85%,15%
+Ironman,Level 3,14,Specific Phase,Run,,RCI3,,RF8,,,RAe11,3:59,14:44,85%,15%
+Ironman,Level 3,15,Specific Phase,Swim,SCI11,,SAe4,,SMI1,,SSP5,8650,15:42,87%,13%
+Ironman,Level 3,15,Specific Phase,Cycle,,CF10,CRe10,CCI16,,CAe14,,8:45,15:42,87%,13%
+Ironman,Level 3,15,Specific Phase,Run,,RCI3,,,RF9,,RAe12,4:19,15:42,87%,13%
+Ironman,Level 3,16,Specific Phase,Swim,,,SMI1,,STT1,,SF3,5350,8:39,81%,19%
+Ironman,Level 3,16,Specific Phase,Cycle,,CF3,,CT31,,,CFF18,4:30,8:39,81%,19%
+Ironman,Level 3,16,Specific Phase,Run,,RAn3,,,,RT19,,2:30,8:39,81%,19%
+Ironman,Level 3,17,Specific Phase,Swim,SRe1,,SSI2,,SMI6,SCI2,,8300,16:34,87%,13%
+Ironman,Level 3,17,Specific Phase,Cycle,,CF10,CRe13,,CCI6,,CAe16,9:42,16:34,87%,13%
+Ironman,Level 3,17,Specific Phase,Run,,RCI3,,RAe12,,,RAe1,4:19,16:34,87%,13%
+Ironman,Level 3,18,Specific Phase,Swim,SMI2,,SCI15,,SF10,ST1,,8750,17:41,88%,12%
+Ironman,Level 3,18,Specific Phase,Cycle,,CF11,CRe13,,CCI6,,CAe17,10:27,17:41,88%,12%
+Ironman,Level 3,18,Specific Phase,Run,,RCI3,,RAe9,,,RAe1,4:34,17:41,88%,12%
+Ironman,Level 3,19,Specific Phase,Swim,SCI11,,SAe5,,SMI1,SSP5,,8950,18:45,88%,12%
+Ironman,Level 3,19,Specific Phase,Cycle,,CF11,CRe14,,CCI6,,CAe18,11:12,18:45,88%,12%
+Ironman,Level 3,19,Specific Phase,Run,,RCI3,,RAe21,,,RAe1,4:49,18:45,88%,12%
+Ironman,Level 3,20,Specific Phase,Swim,,,SMI1,,STT1,,SF3,5350,10:09,83%,17%
+Ironman,Level 3,20,Specific Phase,Cycle,,CF3,,CT12,,,CFF18,5:30,10:09,83%,17%
+Ironman,Level 3,20,Specific Phase,Run,,RAn3,,,,RT16,RAe1,3:00,10:09,83%,17%
+Ironman,Level 3,21,Specific Phase,Swim,SCI15,,SCI1,,SAe4,SMI1,,8250,18:32,88%,12%
+Ironman,Level 3,21,Specific Phase,Cycle,,CF11,CRe14,,CCI6,,CAe18,11:12,18:32,88%,12%
+Ironman,Level 3,21,Specific Phase,Run,,RCI3,,RAe21,,,RAe1,4:49,18:32,88%,12%
+Ironman,Level 3,22,Taper,Swim,SCI14,,SMI2,,,SF10,,6950,11:58,85%,15%
+Ironman,Level 3,22,Taper,Cycle,,CSP12,CRe14,,CT30,,CAe4,6:30,11:58,85%,15%
+Ironman,Level 3,22,Taper,Run,,RF7,,RT16,,RSP21,RF6,3:20,11:58,85%,15%
+Ironman,Level 3,23,Taper,Swim,,,SSI1,,SCI1,STa1,,4250,4:38,85%,15%
+Ironman,Level 3,23,Taper,Cycle,,CF9,,CFF4,,CRe1,,2:00,4:38,85%,15%
+Ironman,Level 3,23,Taper,Run,,RFF4,,RF3,,RTa1,,1:20,4:38,85%,15%
+Maintenance,Maintenance,1,Maintenance,Swim,,,STT2,,SF1,,SCI1,4000,6:04,85%,15%
+Maintenance,Maintenance,1,Maintenance,Cycle,,,CF9,CCI1,,CFo22,,3:00,6:04,85%,15%
+Maintenance,Maintenance,1,Maintenance,Run,,RF3,,,RRe4,,RF6,1:50,6:04,85%,15%
+Maintenance,Maintenance,2,Maintenance,Swim,,,ST1,,SMI1,,SF2,4850,6:59,85%,15%
+Maintenance,Maintenance,2,Maintenance,Cycle,,CF3,CF9,CCI2,,CFo22,,3:30,6:59,85%,15%
+Maintenance,Maintenance,2,Maintenance,Run,,RF4,,,RRe4,,RF7,2:00,6:59,85%,15%
+Maintenance,Maintenance,3,Maintenance,Swim,,,STT2,,SF2,,SCI1,4100,5:36,80%,20%
+Maintenance,Maintenance,3,Maintenance,Cycle,,,CF3,CT29,,,CFF27,2:25,5:36,80%,20%
+Maintenance,Maintenance,3,Maintenance,Run,,RF8,,,,RCI1,,1:55,5:36,80%,20%
+Maintenance,Maintenance,4,Maintenance,Swim,,,SCI14,,SSP5,,SF3,4450,6:44,80%,20%
+Maintenance,Maintenance,4,Maintenance,Cycle,,,CF9,CCI2,,CFo18,,3:13,6:44,80%,20%
+Maintenance,Maintenance,4,Maintenance,Run,,RSP3,,,RRe5,,RF9,2:10,6:44,80%,20%
+Maintenance,Maintenance,5,Maintenance,Swim,,,SSP7,,SF4,,SSP6,5000,7:31,80%,20%
+Maintenance,Maintenance,5,Maintenance,Cycle,,,CRe10,CCI3,,CF11,,3:46,7:31,80%,20%
+Maintenance,Maintenance,5,Maintenance,Run,,RSP7,,,RSP2,,RF10,2:16,7:31,80%,20%
+Maintenance,Maintenance,6,Maintenance,Swim,,,STT2,,SCI2,,SF1,4500,6:18,79%,21%
+Maintenance,Maintenance,6,Maintenance,Cycle,,,CF3,CT29,,,CCI13,2:55,6:18,79%,21%
+Maintenance,Maintenance,6,Maintenance,Run,,RF10,,,,RT11,,2:00,6:18,79%,21%
+Maintenance,Maintenance,7,Maintenance,Swim,,,SMI2,,SAe7,,ST1,5250,8:08,80%,20%
+Maintenance,Maintenance,7,Maintenance,Cycle,,,CRe9,CAn1,,CCI18,,3:45,8:08,80%,20%
+Maintenance,Maintenance,7,Maintenance,Run,,RCI2,,,RRe4,,RF11,2:47,8:08,80%,20%
+Maintenance,Maintenance,8,Maintenance,Swim,,,SCI17,,SAe1,,SSI1,5750,8:21,80%,20%
+Maintenance,Maintenance,8,Maintenance,Cycle,,,CF6,CAn1,,CCI19,,3:45,8:21,80%,20%
+Maintenance,Maintenance,8,Maintenance,Run,,RCI2,,,RRe3,,RF12,2:52,8:21,80%,20%
+Maintenance,Maintenance,9,Maintenance,Swim,,,STT2,,,SCI2,SF1,4500,6:28,80%,20%
+Maintenance,Maintenance,9,Maintenance,Cycle,,,CT29,CF5,,,CCI13,3:05,6:28,80%,20%
+Maintenance,Maintenance,9,Maintenance,Run,,RF10,,,RT11,,,2:00,6:28,80%,20%
+Maintenance,Maintenance,10,Maintenance,Swim,,,SMI1,,SAe7,,SSP5,5250,8:21,79%,21%
+Maintenance,Maintenance,10,Maintenance,Cycle,,CCI1,CF6,,,CCI19,,3:45,8:21,79%,21%
+Maintenance,Maintenance,10,Maintenance,Run,,RF3,,RCI1,,,RF12,3:00,8:21,79%,21%
+Maintenance,Maintenance,11,Maintenance,Swim,,,SCI1,,SAe1,,SCI5,6000,8:31,79%,21%
+Maintenance,Maintenance,11,Maintenance,Cycle,,CCI5,CF4,,,,CAe4,3:39,8:31,79%,21%
+Maintenance,Maintenance,11,Maintenance,Run,,RF3,,RAe5,,RCI12,,3:02,8:31,79%,21%
+Maintenance,Maintenance,12,Maintenance,Swim,,,STT2,,,SCI2,SF1,4500,6:53,78%,22%
+Maintenance,Maintenance,12,Maintenance,Cycle,,,CT30,CF5,,,CCI20,3:10,6:53,78%,22%
+Maintenance,Maintenance,12,Maintenance,Run,,RF12,,,RT13,,,2:20,6:53,78%,22%

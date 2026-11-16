@@ -1,0 +1,98 @@
+# Athlete profile: source of truth for CURRENT_ATHLETE (TASK-010).
+# Field meanings and units: src/triplan/physiology/athlete_profile.py. Decisions: docs/lode/ADR-012.
+# Validated on load (all fields required; Pydantic types + AthleteProfile.validation_errors()).
+name: driscoll42
+age: 37
+is_masters_athlete: false
+menstrual_tracking_enabled: false
+current_menstrual_phase: null
+thresholds_verified: false
+bike_cp: 135.0
+run_cp: 200.0
+anaerobic_work_capacity_w_prime: 18000.0
+swim_css: 40.0
+swim_pool_length: 25y
+aero_position_watts_delta: 15.0
+easy_run_pace_min_per_mile: 14.5
+barbell_1rm: {squat: 210.0, deadlift: 205.0, bench: 155.0, ohp: 115.0}
+dumbbell_cap_lbs: 75.0
+dumbbell_increment_lbs: 5.0
+barbell_max_load_lbs: 400.0
+barbell_increment_lbs: 5.0
+has_trap_bar: false
+has_pullup_bar: true
+has_nordic_anchor: true
+has_resistance_bands: false
+has_treadmill: true
+allow_squat_deadlift_same_session: true
+strength_split_preference: AUTO
+strength_priority: COEQUAL
+recovery_week_strength_sessions: 1
+sport_priority: [Strength, Bike, Run, Swim]
+tier1_relaxation_order: [reduce_weekly_tss, drop_stride_count, 'shorten_or_drop_anchor:Swim', 'reduce_frequency:Swim', 'shorten_or_drop_anchor:Run',
+  'reduce_frequency:Run', 'shorten_or_drop_anchor:Bike', 'reduce_frequency:Bike', reduce_rest_days_to_min_1, reduce_heavy_strength_count_to_min_1]
+starting_ctl: 5.0
+starting_atl: 3.0
+initial_metabolic_state: 15.0
+initial_connective_tissue_state: 20.0
+initial_running_acute_mech: 5.0
+initial_running_chronic_mech: 8.0
+orthopedic_status: HEALTHY
+max_running_acwr_reentry: 1.2
+max_running_acwr: 1.25
+reentry_run_ctl_exit: 15.0
+reentry_run_minutes_floor: 60.0
+max_weekly_run_minutes_increase: 15.0
+reentry_phase: true
+reentry_heavy_strength_sessions: 0
+default_run_surface: outdoor
+target_race_distance: olympic
+target_race_date: null
+weeks_to_race: 16
+constraints_review_date: '2027-05-15'
+mesocycle_build_weeks: 3
+mesocycle_recovery_weeks: 1
+base_weekly_tss: 160.0
+peak_weekly_tss: 380.0
+daily_time_caps: [45.0, 60.0, 45.0, 60.0, 45.0, 75.0, 60.0]
+weekday_single_workout_cap: 60.0
+two_session_windows: [false, false, false, false, false, false, false]
+allow_lift_cardio_combo: true
+combo_cardio_max_minutes: 20.0
+combo_cardio_sports_after_heavy_lower: [Bike]
+combo_cardio_sports_after_other_lift: [Bike, Run]
+facility_access:
+  Swim: [false, false, false, false, false, false, false]
+  Bike: [true, true, true, true, true, true, true]
+  Run: [true, true, true, true, true, true, true]
+  Strength: [true, true, true, true, true, true, true]
+max_48h_ans_cost: 450.0
+max_weekly_run_mech_strain: 75.0
+max_single_run_vol_ratio: 0.32
+enable_soft_48h_slacks: true
+target_sport_splits: {Swim: 0.0, Bike: 0.4, Run: 0.25, Strength: 0.35}
+target_bike_run_tss_splits: {Bike: 0.7, Run: 0.3}
+sport_freq_bounds:
+  Swim: [0, 0]
+  Bike: [2, 3]
+  Run: [2, 3]
+  Strength: [2, 3]
+min_rest_days: 1
+max_rest_days: 2
+intensity_low_min: 0.78
+intensity_low_target: 0.8
+intensity_mod_high_max: 0.2
+intensity_zone_x_max: 0.05
+key_sessions_per_week: [2, 3]
+target_sport_tss: {Swim: 0.0, Bike: 80.0, Run: 35.0, Strength: 20.0}
+target_movement_sets: {Anterior_Chain: 4.0, Posterior_Chain: 4.0, Push: 5.0, Pull: 5.0}
+min_barbell_set_share: 0.6
+max_daily_axial_load: 65.0
+max_weekly_axial_load: 160.0
+max_daily_neuro_load: 75.0
+pool_open_days: []
+outdoor_bike_days: []
+recording_device: {Bike: Edge 530, Run: Enduro 3, Swim: Enduro 3, Strength: Enduro 3}
+completed_activity_source: garmin_connect
+planned_workout_target: trainingpeaks
+trainingpeaks_push_mode: dry_run

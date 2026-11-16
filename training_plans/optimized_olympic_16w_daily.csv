@@ -1,0 +1,113 @@
+Week,Phase,Block_Label,Day,Code,Sport,Duration,TSS,High_Dur,Low_Dur,Intensity,Description
+1,General Foundation,Base Load,Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+1,General Foundation,Base Load,Tue,SCI1,Swim,50.1,51.0,14.5,35.6,EASY,"500 Zone 1, 5 x (100 Zone 3/15"" rest) 500 Zone 1"
+1,General Foundation,Base Load,Wed,RRe3,Run,30.0,19.8,0.0,30.0,EASY,30 minutes Zone 1
+1,General Foundation,Base Load,Thu,RCI13,Run,30.0,30.7,9.0,21.0,EASY,"10 minutes Zone 1, 3 x (3 minutes Zone 3/2 minutes Zone 1) 5 minutes Zone 1"
+1,General Foundation,Base Load,Fri,SCI14,Swim,38.7,43.7,17.3,21.4,HARD,"300 Zone 1, 3 x (200 Zone 3/15"" rest) 300 Zone 1"
+1,General Foundation,Base Load,Sat,BR1,Brick,90.0,83.2,0.0,90.0,EASY,"Bike 20 min Z1, 2 × (Run 10 min Z2 -> Bike 20 min Z2), 10 min Z1"
+1,General Foundation,Base Load,Sun,RHR2,Run,27.0,33.8,3.0,24.0,HARD,"5 minutes Zone 1, 5 minutes Zone 2, 6 x (30 seconds Zone 5 uphill/90 seconds Zone 1) 5 minutes Zone 1"
+2,General Foundation,Build (+12%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+2,General Foundation,Build (+12%),Tue,RFF11,Run,60.0,70.7,10.0,50.0,EASY,"5 minutes Zone 1, 45 minutes Zone 2, 10 minutes Zone 3"
+2,General Foundation,Build (+12%),Wed,SCI14,Swim,38.7,43.7,17.3,21.4,HARD,"300 Zone 1, 3 x (200 Zone 3/15"" rest) 300 Zone 1"
+2,General Foundation,Build (+12%),Thu,SRe1,Swim,53.5,44.8,0.0,53.5,EASY,1500 Zone 1
+2,General Foundation,Build (+12%),Fri,RHR2,Run,27.0,33.8,3.0,24.0,HARD,"5 minutes Zone 1, 5 minutes Zone 2, 6 x (30 seconds Zone 5 uphill/90 seconds Zone 1) 5 minutes Zone 1"
+2,General Foundation,Build (+12%),Sat,CRe9,Bike,60.0,36.0,0.0,60.0,EASY,60 minutes Zone 1
+2,General Foundation,Build (+12%),Sun,CCI1,Bike,60.0,62.8,15.0,45.0,HARD,"5 minutes Zone 1, 20 minutes Zone 2, 3 x (5 minutes Zone 3/3 minutes Zone 1) 5 minutes Zone 2, 6 minutes Zone 1"
+3,General Foundation,Recovery Deload (-17%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+3,General Foundation,Recovery Deload (-17%),Tue,RCI13,Run,30.0,30.7,9.0,21.0,EASY,"10 minutes Zone 1, 3 x (3 minutes Zone 3/2 minutes Zone 1) 5 minutes Zone 1"
+3,General Foundation,Recovery Deload (-17%),Wed,SCI14,Swim,38.7,43.7,17.3,21.4,HARD,"300 Zone 1, 3 x (200 Zone 3/15"" rest) 300 Zone 1"
+3,General Foundation,Recovery Deload (-17%),Thu,CFF3,Bike,30.0,34.3,10.0,20.0,EASY,"5 minutes Zone 1, 15 minutes Zone 2, 10 minutes Zone 3"
+3,General Foundation,Recovery Deload (-17%),Fri,RHR1,Run,45.0,53.4,2.0,43.0,EASY,"5 minutes Zone 1, 32 minutes Zone 2, 4 x (30 seconds Zone 5 uphill/90 seconds Zone 1)"
+3,General Foundation,Recovery Deload (-17%),Sat,SRe3,Swim,62.4,52.2,0.0,62.4,EASY,1750 Zone 1
+3,General Foundation,Recovery Deload (-17%),Sun,CRe9,Bike,60.0,36.0,0.0,60.0,EASY,60 minutes Zone 1
+4,Aerobic Capacity,Base Load,Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+4,Aerobic Capacity,Base Load,Tue,CFF27,Bike,60.0,63.7,10.0,50.0,EASY,"5 minutes Zone 1, 45 minutes Zone 2, 10 minutes Zone 3"
+4,Aerobic Capacity,Base Load,Wed,CT1,Bike,60.0,57.4,5.0,55.0,EASY,"15 minutes Zone 1, 5 minutes Zone 3, 40 minutes Zone 2"
+4,Aerobic Capacity,Base Load,Thu,RF9,Run,60.0,63.5,0.0,60.0,EASY,"5 minutes in Zone 1, 50 minutes Zone 2, 5 minutes Zone 1"
+4,Aerobic Capacity,Base Load,Fri,RCI15,Run,38.0,39.4,12.0,26.0,EASY,"15 minutes Zone 1, 3 x (4 minutes Zone 3/2 minutes Zone 1) 5 minutes Zone 1"
+4,Aerobic Capacity,Base Load,Sat,SCI1,Swim,50.1,51.0,14.5,35.6,EASY,"500 Zone 1, 5 x (100 Zone 3/15"" rest) 500 Zone 1"
+4,Aerobic Capacity,Base Load,Sun,SRe1,Swim,53.5,44.8,0.0,53.5,EASY,1500 Zone 1
+5,Aerobic Capacity,Overload (+12%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+5,Aerobic Capacity,Overload (+12%),Tue,RFF9,Run,60.0,73.2,15.0,45.0,HARD,"5 minutes Zone 1, 40 minutes Zone 2, 15 minutes Zone 3"
+5,Aerobic Capacity,Overload (+12%),Wed,RHR1,Run,45.0,53.4,2.0,43.0,EASY,"5 minutes Zone 1, 32 minutes Zone 2, 4 x (30 seconds Zone 5 uphill/90 seconds Zone 1)"
+5,Aerobic Capacity,Overload (+12%),Thu,CFF9,Bike,60.0,66.9,15.0,45.0,HARD,"5 minutes Zone 1, 40 minutes Zone 2, 15 minutes Zone 3"
+5,Aerobic Capacity,Overload (+12%),Fri,SRe9,Swim,35.6,29.8,0.0,35.6,EASY,1000 Zone 1
+5,Aerobic Capacity,Overload (+12%),Sat,SSP2,Swim,68.7,74.5,9.5,59.1,HARD,"250 Zone 1, 500 Zone 2, 7 x (50 Zone 4/20"" rest) 500 Zone 2, 500 Zone 1"
+5,Aerobic Capacity,Overload (+12%),Sun,CSP2,Bike,60.0,59.0,5.0,55.0,EASY,"5 minutes Zone 1, 5 minutes Zone 2, 5 x (1 minute Zone 4/2 minutes Zone 1) 30 minutes Zone 2, 5 minutes Zone 1"
+6,Aerobic Capacity,Recovery Deload (-18%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+6,Aerobic Capacity,Recovery Deload (-18%),Tue,RCI13,Run,30.0,30.7,9.0,21.0,EASY,"10 minutes Zone 1, 3 x (3 minutes Zone 3/2 minutes Zone 1) 5 minutes Zone 1"
+6,Aerobic Capacity,Recovery Deload (-18%),Wed,RHR1,Run,45.0,53.4,2.0,43.0,EASY,"5 minutes Zone 1, 32 minutes Zone 2, 4 x (30 seconds Zone 5 uphill/90 seconds Zone 1)"
+6,Aerobic Capacity,Recovery Deload (-18%),Thu,CFF1,Bike,25.0,26.3,5.0,20.0,EASY,"5 minutes Zone 1, 15 minutes Zone 2, 5 minutes Zone 3"
+6,Aerobic Capacity,Recovery Deload (-18%),Fri,STa1,Swim,34.0,32.9,5.4,28.5,EASY,"400 Zone 1, 4 x (50 Zone 4 / 30"" rest), 400 Zone 1"
+6,Aerobic Capacity,Recovery Deload (-18%),Sat,BR1,Brick,90.0,83.2,0.0,90.0,EASY,"Bike 20 min Z1, 2 × (Run 10 min Z2 -> Bike 20 min Z2), 10 min Z1"
+6,Aerobic Capacity,Recovery Deload (-18%),Sun,SSP6,Swim,54.4,68.6,20.4,34.0,HARD,"250 Zone 1, 500 Zone 2, 15 x (50 Zone 4/20"" rest) 250 Zone 1"
+7,Specific Threshold,Base Load,Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+7,Specific Threshold,Base Load,Tue,CFF9,Bike,60.0,66.9,15.0,45.0,HARD,"5 minutes Zone 1, 40 minutes Zone 2, 15 minutes Zone 3"
+7,Specific Threshold,Base Load,Wed,SSP5,Swim,47.6,56.4,13.6,34.0,HARD,"250 Zone 1, 500 Zone 2, 10 x (50 Zone 4/20"" rest) 250 Zone 1"
+7,Specific Threshold,Base Load,Thu,RRe7,Run,50.0,33.1,0.0,50.0,EASY,50 minutes Zone 1
+7,Specific Threshold,Base Load,Fri,RT11,Run,50.0,57.7,10.0,40.0,EASY,"5 minutes Zone 1, 15 minutes Zone 2, 10 minutes Zone 3, 15 minutes Zone 2, 5 minutes Zone 1"
+7,Specific Threshold,Base Load,Sat,SSI2,Swim,74.1,84.0,7.7,66.4,HARD,"250 Zone 1, 500 Zone 2, 12 x (25 Zone 5/10"" rest) 1000 Zone 2, 250 Zone 1"
+7,Specific Threshold,Base Load,Sun,CCI22,Bike,90.0,84.6,9.0,81.0,EASY,"10 minutes Zone 1, 20 minutes Zone 2, 3 x (3 minutes Zone 3/2 minutes Zone 1) 30 minutes Zone 2, 15 minutes Zone 1"
+8,Specific Threshold,Overload (+10%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+8,Specific Threshold,Overload (+10%),Tue,RAe1,Run,60.0,54.5,0.0,59.0,EASY,"10 minutes Zone 1, 3 x (10 minutes Zone 2/3 minutes Zone 1) 10 minutes Zone 1"
+8,Specific Threshold,Overload (+10%),Wed,RT16,Run,60.0,70.6,20.0,40.0,HARD,"10 minutes Zone 1, 10 minutes Zone 2, 20 minutes Zone 3, 10 minutes Zone 2, 10 minutes Zone 1"
+8,Specific Threshold,Overload (+10%),Thu,ST4,Swim,71.9,83.6,21.7,50.2,HARD,"250 Zone 1, 750 Zone 3, 1000 Zone 2, 250 Zone 1"
+8,Specific Threshold,Overload (+10%),Fri,CFF6,Bike,47.0,52.2,12.0,35.0,EASY,"5 minutes Zone 1, 30 minutes Zone 2, 12 minutes Zone 3"
+8,Specific Threshold,Overload (+10%),Sat,CCI24,Bike,120.0,120.6,15.0,106.0,HARD,"10 minutes Zone 1, 20 minutes Zone 2, 3 x (5 minutes Zone 3/2 minutes Zone 1) 60 minutes Zone 2, 10 minutes Zone 1"
+8,Specific Threshold,Overload (+10%),Sun,SRe3,Swim,62.4,52.2,0.0,62.4,EASY,1750 Zone 1
+9,Specific Threshold,Recovery Deload (-20%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+9,Specific Threshold,Recovery Deload (-20%),Tue,SSP5,Swim,47.6,56.4,13.6,34.0,HARD,"250 Zone 1, 500 Zone 2, 10 x (50 Zone 4/20"" rest) 250 Zone 1"
+9,Specific Threshold,Recovery Deload (-20%),Wed,RF7,Run,50.0,52.3,0.0,50.0,EASY,"5 minutes in Zone 1, 40 minutes Zone 2, 5 minutes Zone 1"
+9,Specific Threshold,Recovery Deload (-20%),Thu,SF3,Swim,58.6,59.1,0.0,58.6,EASY,"300 Zone 1, 1150 Zone 2, 300 Zone 1"
+9,Specific Threshold,Recovery Deload (-20%),Fri,RCI15,Run,38.0,39.4,12.0,26.0,EASY,"15 minutes Zone 1, 3 x (4 minutes Zone 3/2 minutes Zone 1) 5 minutes Zone 1"
+9,Specific Threshold,Recovery Deload (-20%),Sat,CSP17,Bike,79.0,75.1,8.0,71.0,EASY,"10 minutes Zone 1, 15 minutes Zone 2, 8 x (1 minute Zone 4/2 minutes Zone 1) 15 minutes Zone 2, 15 minutes Zone 1"
+9,Specific Threshold,Recovery Deload (-20%),Sun,CCI1,Bike,60.0,62.8,15.0,45.0,HARD,"5 minutes Zone 1, 20 minutes Zone 2, 3 x (5 minutes Zone 3/3 minutes Zone 1) 5 minutes Zone 2, 6 minutes Zone 1"
+10,Peak Threshold,Base Load,Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+10,Peak Threshold,Base Load,Tue,RSP1,Run,45.0,51.1,4.0,41.0,EASY,"5 minutes Zone 1, 28 minutes Zone 2, 4 x (1 minute Zone 4/2 minutes Zone 1)"
+10,Peak Threshold,Base Load,Wed,CFF27,Bike,60.0,63.7,10.0,50.0,EASY,"5 minutes Zone 1, 45 minutes Zone 2, 10 minutes Zone 3"
+10,Peak Threshold,Base Load,Thu,ST4,Swim,71.9,83.6,21.7,50.2,HARD,"250 Zone 1, 750 Zone 3, 1000 Zone 2, 250 Zone 1"
+10,Peak Threshold,Base Load,Fri,RT11,Run,50.0,57.7,10.0,40.0,EASY,"5 minutes Zone 1, 15 minutes Zone 2, 10 minutes Zone 3, 15 minutes Zone 2, 5 minutes Zone 1"
+10,Peak Threshold,Base Load,Sat,BR2,Brick,120.0,114.5,0.0,120.0,EASY,"Bike 20 min Z1, 3 × (Run 10 min Z2 -> Bike 20 min Z2), 10 min Z1"
+10,Peak Threshold,Base Load,Sun,ST3,Swim,64.7,72.6,14.5,50.2,HARD,"250 Zone 1, 500 Zone 3, 1000 Zone 2, 250 Zone 1"
+11,Peak Threshold,Peak Overload (+11%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+11,Peak Threshold,Peak Overload (+11%),Tue,ST2,Swim,56.6,63.5,14.5,42.1,HARD,"250 Zone 1, 500 Zone 3, 750 Zone 2, 250 Zone 1"
+11,Peak Threshold,Peak Overload (+11%),Wed,CFF27,Bike,60.0,63.7,10.0,50.0,EASY,"5 minutes Zone 1, 45 minutes Zone 2, 10 minutes Zone 3"
+11,Peak Threshold,Peak Overload (+11%),Thu,ST4,Swim,71.9,83.6,21.7,50.2,HARD,"250 Zone 1, 750 Zone 3, 1000 Zone 2, 250 Zone 1"
+11,Peak Threshold,Peak Overload (+11%),Fri,RT13,Run,50.0,62.7,20.0,30.0,HARD,"5 minutes Zone 1, 10 minutes Zone 2, 20 minutes Zone 3, 10 minutes Zone 2, 5 minutes Zone 1"
+11,Peak Threshold,Peak Overload (+11%),Sat,BR2,Brick,120.0,114.5,0.0,120.0,EASY,"Bike 20 min Z1, 3 × (Run 10 min Z2 -> Bike 20 min Z2), 10 min Z1"
+11,Peak Threshold,Peak Overload (+11%),Sun,RF12,Run,90.0,97.1,0.0,90.0,EASY,"5 minutes in Zone 1, 80 minutes Zone 2, 5 minutes Zone 1"
+12,Peak Threshold,Recovery Deload (-24%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+12,Peak Threshold,Recovery Deload (-24%),Tue,RFF6,Run,47.0,57.1,12.0,35.0,HARD,"5 minutes Zone 1, 30 minutes Zone 2, 12 minutes Zone 3"
+12,Peak Threshold,Recovery Deload (-24%),Wed,SSP5,Swim,47.6,56.4,13.6,34.0,HARD,"250 Zone 1, 500 Zone 2, 10 x (50 Zone 4/20"" rest) 250 Zone 1"
+12,Peak Threshold,Recovery Deload (-24%),Thu,CFF27,Bike,60.0,63.7,10.0,50.0,EASY,"5 minutes Zone 1, 45 minutes Zone 2, 10 minutes Zone 3"
+12,Peak Threshold,Recovery Deload (-24%),Fri,RF6,Run,45.0,46.6,0.0,45.0,EASY,"5 minutes in Zone 1, 35 minutes Zone 2, 5 minutes Zone 1"
+12,Peak Threshold,Recovery Deload (-24%),Sat,BR1,Brick,90.0,83.2,0.0,90.0,EASY,"Bike 20 min Z1, 2 × (Run 10 min Z2 -> Bike 20 min Z2), 10 min Z1"
+12,Peak Threshold,Recovery Deload (-24%),Sun,ST3,Swim,64.7,72.6,14.5,50.2,HARD,"250 Zone 1, 500 Zone 3, 1000 Zone 2, 250 Zone 1"
+13,Race Specific,Race Pace 1 (Brick Focus),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+13,Race Specific,Race Pace 1 (Brick Focus),Tue,CFF27,Bike,60.0,63.7,10.0,50.0,EASY,"5 minutes Zone 1, 45 minutes Zone 2, 10 minutes Zone 3"
+13,Race Specific,Race Pace 1 (Brick Focus),Wed,RT16,Run,60.0,70.6,20.0,40.0,HARD,"10 minutes Zone 1, 10 minutes Zone 2, 20 minutes Zone 3, 10 minutes Zone 2, 10 minutes Zone 1"
+13,Race Specific,Race Pace 1 (Brick Focus),Thu,SF5,Swim,74.8,77.2,0.0,74.8,HARD,"300 Zone 1, 1650 Zone 2, 300 Zone 1"
+13,Race Specific,Race Pace 1 (Brick Focus),Fri,ST1,Swim,48.5,54.5,14.5,34.0,HARD,"250 Zone 1, 500 Zone 3, 500 Zone 2, 250 Zone 1"
+13,Race Specific,Race Pace 1 (Brick Focus),Sat,CFF13,Bike,105.0,111.0,15.0,90.0,HARD,"5 minutes Zone 1, 85 minutes Zone 2, 15 minutes Zone 3"
+13,Race Specific,Race Pace 1 (Brick Focus),Sun,RF9,Run,60.0,63.5,0.0,60.0,EASY,"5 minutes in Zone 1, 50 minutes Zone 2, 5 minutes Zone 1"
+14,Race Specific,Race Pace 2 (Simulation),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+14,Race Specific,Race Pace 2 (Simulation),Tue,CFF27,Bike,60.0,63.7,10.0,50.0,EASY,"5 minutes Zone 1, 45 minutes Zone 2, 10 minutes Zone 3"
+14,Race Specific,Race Pace 2 (Simulation),Wed,RFF11,Run,60.0,70.7,10.0,50.0,EASY,"5 minutes Zone 1, 45 minutes Zone 2, 10 minutes Zone 3"
+14,Race Specific,Race Pace 2 (Simulation),Thu,ST4,Swim,71.9,83.6,21.7,50.2,HARD,"250 Zone 1, 750 Zone 3, 1000 Zone 2, 250 Zone 1"
+14,Race Specific,Race Pace 2 (Simulation),Fri,RT11,Run,50.0,57.7,10.0,40.0,EASY,"5 minutes Zone 1, 15 minutes Zone 2, 10 minutes Zone 3, 15 minutes Zone 2, 5 minutes Zone 1"
+14,Race Specific,Race Pace 2 (Simulation),Sat,CFF13,Bike,105.0,111.0,15.0,90.0,HARD,"5 minutes Zone 1, 85 minutes Zone 2, 15 minutes Zone 3"
+14,Race Specific,Race Pace 2 (Simulation),Sun,SAe7,Swim,66.4,68.8,0.0,66.4,HARD,"250 Zone 1, 3 x (500 Zone 2, 60"" rest) 250 Zone 1"
+15,Taper & Sharpen,Taper 1 (-25%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+15,Taper & Sharpen,Taper 1 (-25%),Tue,RRe2,Run,25.0,16.5,0.0,25.0,EASY,25 minutes Zone 1
+15,Taper & Sharpen,Taper 1 (-25%),Wed,SSP6,Swim,54.4,68.6,20.4,34.0,HARD,"250 Zone 1, 500 Zone 2, 15 x (50 Zone 4/20"" rest) 250 Zone 1"
+15,Taper & Sharpen,Taper 1 (-25%),Thu,RHR2,Run,27.0,33.8,3.0,24.0,HARD,"5 minutes Zone 1, 5 minutes Zone 2, 6 x (30 seconds Zone 5 uphill/90 seconds Zone 1) 5 minutes Zone 1"
+15,Taper & Sharpen,Taper 1 (-25%),Fri,SSP5,Swim,47.6,56.4,13.6,34.0,HARD,"250 Zone 1, 500 Zone 2, 10 x (50 Zone 4/20"" rest) 250 Zone 1"
+15,Taper & Sharpen,Taper 1 (-25%),Sat,BR2,Brick,120.0,114.5,0.0,120.0,EASY,"Bike 20 min Z1, 3 × (Run 10 min Z2 -> Bike 20 min Z2), 10 min Z1"
+15,Taper & Sharpen,Taper 1 (-25%),Sun,RFF4,Run,40.0,48.2,10.0,30.0,HARD,"5 minutes Zone 1, 25 minutes Zone 2, 10 minutes Zone 3"
+16,Race Week,Race Week (-50%),Mon,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+16,Race Week,Race Week (-50%),Tue,RFF1,Run,25.0,28.9,5.0,20.0,EASY,"5 minutes Zone 1, 15 minutes Zone 2, 5 minutes Zone 3"
+16,Race Week,Race Week (-50%),Wed,REST,-,0.0,0.0,0.0,0.0,REST,Rest / Active Recovery
+16,Race Week,Race Week (-50%),Thu,CF6,Bike,45.0,40.7,0.0,45.0,EASY,"5 minutes in Zone 1, 35 minutes Zone 2, 5 minutes Zone 1"
+16,Race Week,Race Week (-50%),Fri,CFF3,Bike,30.0,34.3,10.0,20.0,EASY,"5 minutes Zone 1, 15 minutes Zone 2, 10 minutes Zone 3"
+16,Race Week,Race Week (-50%),Sat,RFF2,Run,30.0,34.5,5.0,25.0,EASY,"5 minutes Zone 1, 20 minutes Zone 2, 5 minutes Zone 3"
+16,Race Week,Race Week (-50%),Sun,SSP1,Swim,57.0,62.5,6.8,50.2,HARD,"250 Zone 1, 500 Zone 2, 5 x (50 Zone 4/20"" rest) 500 Zone 2, 250 Zone 1"

@@ -1,0 +1,25 @@
+{
+  "project_name": "Triathlon Workout & Season Planner",
+  "startup_token_budget": 7500,
+  "startup_files": [
+    "docs/STATE_SUMMARY.md",
+    "docs/LODE_MAP.md",
+    "docs/INVARIANTS.md",
+    "docs/TASKS.md",
+    "SPEC.md"
+  ],
+  "global_guardrail_domains": [
+    "safety",
+    "perf"
+  ],
+  "domains": {
+    "general": "Cross-cutting architecture, tooling, environment, and repository standards",
+    "optimizer": "HiGHS Mixed-Integer Linear Programming (MILP) solver, multiseed races, and objective weighting",
+    "mpc": "Closed-loop Model Predictive Control (MPC), receding-horizon updates, and mesocycle step-cycles",
+    "physiology": "Dual-load modeling (Aerobic TSS vs Mechanical Strain), ANS costing, and tissue remodeling",
+    "workouts": "80/20 workout library loading, sport schemas, zone calculations, and brick workout generation",
+    "integrations": "TrainingPeaks private REST API syncing, FIT file parsing, and 8020 workout scraping",
+    "safety": "Orthopedic guardrails, mechanical ACWR bounds, rolling strain caps, and injury protocols",
+    "perf": "Multiprocessing parallelism, CPU core scaling, timeout bounds, and solver benchmark budgets"
+  }
+}

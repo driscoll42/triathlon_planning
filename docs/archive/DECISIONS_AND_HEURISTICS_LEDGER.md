@@ -1,0 +1,676 @@
+# Triathlon Workout & Season Planner — Verbatim Architectural Decisions & Heuristics Ledger
+
+> *Auto-rendered from `docs/.context/lode.db`.*
+
+## Part 1: Architectural Decisions
+### `ADR-001` — Adopt Progressive Disclosure & SQLite Lineage Architecture [`ACTIVE` | `general`]
+
+# `ADR-001`: Adopt Progressive Disclosure & SQLite Lineage Architecture
+
+## 1. Context & Problem
+As autonomous coding agents interact with long-running engineering projects, monolithic state documentation (`MEMORY.md` or unbounded changelogs) rapidly grows past 20,000+ tokens. This causes severe reasoning degradation, temporal state collisions (re-introducing discarded ideas or invalidated benchmark claims), and high token consumption on every turn.
+
+## 2. Considered Alternatives
+1. **Option A (Monolithic MEMORY.md):** Single markdown file containing all state. Rejected due to context bloating, compaction loss, and lack of temporal edge tracking.
+2. **Option B (Vector Database RAG):** External vector DB. Rejected because similarity embeddings fail to distinguish active decisions from superseded historical notes.
+3. **Option C (ADOPTED):** Progressive Disclosure Core (<7,500 tokens) backed by zero-dependency Python SQLite WAL + FTS5 BM25 lineage engine (`scripts/lodectx.py`).
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `docs/`, `scripts/lodectx.py`, `docs/.context/lode.db`.
+- **Locked Parameters / Contract:** Startup Core (`GEMINI.md`, `STATE_SUMMARY.md`, `LODE_MAP.md`, `INVARIANTS.md`, `TASKS.md`) must strictly stay under 7,500 estimated tokens (`chars / 4`). *(File set re-scoped 2026-11-16 by `ADR-016`: charter excluded, `SPEC.md` included.)*
+- **Enforcement Mechanism:** Automated token budget check via `python scripts/lodectx.py stats`.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** Token metrics in `lodectx.py stats` demonstrating < 4,000 tokens for baseline startup core.
+- **Supersedes:** None. Foundational architecture decision.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Agents only load active, verified decisions and domain manuals on-demand; zero temporal collisions.
+- **Negative / Operational Cost:** Engineering decisions and heuristics must be scaffolded and ingested through `lodectx.py`.
+- **When to Revisit:** If repository domain structure exceeds 25 domains or token budget needs recalibration.
+
+### `ADR-002` — Adopt HiGHS Mixed-Integer Linear Programming Solver via highspy [`ACTIVE` | `optimizer`]
+
+# `ADR-002`: Adopt HiGHS Mixed-Integer Linear Programming Solver via highspy
+
+## 1. Context & Problem
+Generating weekly triathlon schedules across 71 swim, 218 bike, and 190 run workouts yields $1.2 \times 10^{16}$ possible combinations. The original greedy random replacement search required 60 seconds on 30 CPU threads to evaluate 10,000 combinations, often failing to satisfy tight multi-zone and TSS targets simultaneously.
+
+## 2. Considered Alternatives
+1. **Option A (Greedy Random Perturbation):** Random sampling with 25 replacement iterations. Rejected because it takes 60 seconds, provides no mathematical optimality guarantee, and struggles with hard daily time caps.
+2. **Option B (Genetic Algorithms):** Stochastic search across chromosomes. Rejected due to convergence inconsistency and slow constraint handling for rolling strain caps.
+3. **Option C (ADOPTED):** Formulate weekly scheduling as a Mixed-Integer Linear Program (MILP) solved via HiGHS (`highspy`).
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `highs_optimization.py`, `closed_loop_optimizer.py`.
+- **Locked Parameters / Contract:** Model workout selection as binary decision variables $x_{w,d} \in \{0, 1\}$. Candidate pool must be pre-pruned using `filter_viable_workouts`.
+- **Enforcement Mechanism:** Unit test suite in `stress_test_optimizer.py` verifying optimal solve status in < 3.0 seconds.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** `EXP-001` benchmarks demonstrating optimal solutions in 0.25 to 1.5 seconds vs. 60+ seconds for greedy search.
+- **Supersedes:** None (replaces legacy greedy search in `util.py:generate_random_workout_plan`).
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Guaranteed global optimality within defined tolerances; sub-second solution time; deterministic constraint satisfaction.
+- **Negative / Operational Cost:** Non-linear physiological relationships must be linearized or pre-computed into static coefficients.
+- **When to Revisit:** If non-linear dynamic constraints (e.g. continuous hydration curves) cannot be accurately linearized.
+
+### `ADR-003` — Enforce Single-Run Volume Ceiling at 32 Percent of Weekly Running Duration [`ACTIVE` | `safety`]
+
+# `ADR-003`: Enforce Single-Run Volume Ceiling at 32 Percent of Weekly Running Duration
+
+## 1. Context & Problem
+In endurance triathlon training, disproportionately long runs account for the majority of bone stress injuries, tibial stress syndrome, and plantar fasciitis. When the optimizer attempts to satisfy total weekly running TSS on a weekend, it can inadvertently allocate 45-55% of weekly volume to a single long run.
+
+## 2. Considered Alternatives
+1. **Option A (Uncapped Duration):** Rely only on absolute daily caps (e.g. 140 min). Rejected because 140 min inside a 200 min weekly run budget represents 70% of weekly load, an extreme orthopedic hazard.
+2. **Option B (Fixed Duration Ceiling e.g. 90m):** Rigid duration limit. Rejected because as total volume scales from 4 to 8 hours of running, a 90m ceiling prevents adequate long-run stimuli for half/full Ironman athletes.
+3. **Option C (ADOPTED):** Dynamic proportional ceiling: $\forall d, \text{Run Duration}_d \le 0.32 \cdot \sum_t \text{Run Duration}_t$.
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `closed_loop_optimizer.py:MesoCycleTargetsAndConstraints.max_single_run_vol_ratio`.
+- **Locked Parameters / Contract:** Single run volume ratio is hard-locked to $\le 0.32$ in standard profiles and $\le 0.25$ in `RESTRICTED_RUN` mode.
+- **Enforcement Mechanism:** Exact linear inequality constraint inside `TriathlonMILPScheduler._build_milp_model()`.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** Empirical orthopedic injury data and stress test scenario `Scenario 1: Baseline Nominal` in `stress_test_optimizer.py`.
+- **Supersedes:** None.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Mathematically eliminates excessive long-run orthopedic spikes while scaling naturally with weekly volume.
+- **Negative / Operational Cost:** Forces the optimizer to distribute running volume across 3-4 days rather than 1-2 days.
+- **When to Revisit:** When preparing ultra-distance trail athletes where single runs intentionally exceed 35% of weekly volume.
+
+### `ADR-004` — Decouple Aerobic TSS and Mechanical Strain with Asynchronous Tissue Remodeling [`ACTIVE` | `physiology`]
+
+# `ADR-004`: Decouple Aerobic TSS and Mechanical Strain with Asynchronous Tissue Remodeling
+
+## 1. Context & Problem
+Standard Performance Management Charts (PMC) model athlete fitness using a single exponentially weighted moving average of TSS ($\tau=42\text{ days}$). In multi-sport triathlon training, cycling and swimming generate high cardiovascular TSS with zero eccentric mechanical impact, while running induces severe ground-reaction impacts ($2.5-3.0\times$ body weight). Single-load models cause overuse injuries when high aerobic fitness outpaces tendon and bone collagen synthesis.
+
+## 2. Considered Alternatives
+1. **Option A (Monolithic TSS):** Single metric for all sports. Rejected because 100 TSS of cycling has completely different injury kinetics than 100 TSS of downhill intervals.
+2. **Option B (Sport-Specific Uncoupled PMCs):** Three separate PMCs for Swim, Bike, Run. Rejected because aerobic cardiovascular adaptations transfer cross-sport, whereas peripheral tissue strain does not.
+3. **Option C (ADOPTED):** Dual-load convolution model separating Aerobic TSS from Mechanical Strain with differential remodeling rates ($\tau_m=35d$ vs $\tau_c=120d$) and tracking the Orthopedic Dissociation Index ($ODI \le 1.35$).
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `closed_loop_optimizer.py:CandidateWorkout`, `athlete_profile.py`.
+- **Locked Parameters / Contract:** Cardiovascular time constant $\tau_m = 35\text{ days}$; connective tissue constant $\tau_c = 120\text{ days}$ ($\tau_c = 210\text{ days}$ for Masters athletes); $ODI = \text{Metabolic Load} / \text{Connective Tissue Load} \le 1.35$.
+- **Enforcement Mechanism:** Daily receding-horizon constraint evaluation inside `ClosedLoopMPCController`.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** Maunder & Seiler durability research and Friel triathlete injury epidemiology.
+- **Supersedes:** None.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Accurately detects and prevents "cardio-orthopedic mismatch" where high aerobic fitness destroys fragile connective tissue.
+- **Negative / Operational Cost:** Candidate workouts must include both `aerobic_tss` and `mechanical_strain` attributes.
+- **When to Revisit:** If wearable biomechanics sensors (e.g. Stryd impact shock or force plates) provide direct real-time tibial acceleration data.
+
+### `ADR-005` — Implement Three-Tier Closed-Loop Model Predictive Control with Daily Readiness Scaling [`ACTIVE` | `mpc`]
+
+# `ADR-005`: Implement Three-Tier Closed-Loop Model Predictive Control with Daily Readiness Scaling
+
+## 1. Context & Problem
+Static multi-month training plans fail rapidly in practice due to accumulated autonomic fatigue, illness, poor sleep, or life schedule disruptions. Static plans either force an exhausted athlete into high-injury workouts or fall apart completely when missed sessions throw off downstream periodization.
+
+## 2. Considered Alternatives
+1. **Option A (Static 16-Week Pre-Computed Schedule):** Generate the entire season once. Rejected because static plans cannot accommodate biological readiness fluctuations or life disruptions.
+2. **Option B (Reactive Heuristic Rulebook):** Hardcoded conditional checks (e.g., if missed workout, push to tomorrow). Rejected because shifting workouts blindly cascades into consecutive hard days or volume spikes.
+3. **Option C (ADOPTED):** 3-Tier Closed-Loop Model Predictive Control (MPC) with daily morning readiness scaling ($R_t \in [0.70, 1.10]$) and weekly receding-horizon MILP re-solving.
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `closed_loop_optimizer.py:ClosedLoopMPCController`.
+- **Locked Parameters / Contract:**
+  - Tier 1: Daily Morning Readiness Scalar $R_t \in [0.70, 1.10]$ computed from HRV RMSSD, sleep, and soreness.
+  - Tier 2: Weekly Receding-Horizon re-optimization using actual executed load history.
+  - Tier 3: Mesocycle 3:1 step cycles with 15-25% loading reductions on recovery weeks.
+- **Enforcement Mechanism:** `ClosedLoopMPCController.step_day()` and `replan_weekly_schedule()`.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** Control theory benchmarks demonstrating zero acute overload violations over 16-week simulation runs in `stress_test_optimizer.py`.
+- **Supersedes:** None.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Dynamically protects athlete from overtraining syndrome while preserving season macrocycle progression.
+- **Negative / Operational Cost:** Requires daily biometric inputs or sensible defaults when wearables are unavailable.
+- **When to Revisit:** When automated bidirectional syncing with Garmin/Whoop/Oura cloud APIs is integrated.
+
+### `ADR-006` — Adopt 15-Seed Parallel HiGHS Race with Per-Worker Timeout Limits [`ACTIVE` | `perf`]
+
+# `ADR-006`: Adopt 15-Seed Parallel HiGHS Race with Per-Worker Timeout Limits
+
+## 1. Context & Problem
+Branch-and-cut MILP solvers exhibit extreme performance variability depending on the initial random seed chosen for simplex perturbations and branching tie-breaking. A single thread with an unlucky seed can take 15-30+ seconds to close the MIP gap on constrained combinatorial problems, whereas a favorable seed discovers an optimal basis in 0.3 seconds.
+
+## 2. Considered Alternatives
+1. **Option A (Single-Seed HiGHS Solver):** Standard execution with default seed 0. Rejected due to long tail latency when branching heuristics stall.
+2. **Option B (Deterministic Multi-Threading):** Running 1 worker with 32 internal threads. Rejected because internal tree parallelism suffers from lock contention and cannot explore radically different root heuristics concurrently.
+3. **Option C (ADOPTED):** Parallel portfolio race spawning 15 independent workers with randomized seeds and 2 threads each, taking the first solutions to prove optimality or lowest MIP gap within 4.0 seconds.
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `highs_optimization.py:optimize_weekly_workouts_multiseed()`.
+- **Locked Parameters / Contract:** Worker count = 15; threads per worker = 2 (30 total cores); per-worker time limit = 4.0s; candidate pruning active.
+- **Enforcement Mechanism:** Subprocess pool isolation with explicit join timeouts.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** `EXP-001` benchmarks demonstrating 95% of runs finding global optimum in < 1.2s total wall-clock time.
+- **Supersedes:** None.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Reduces p99 scheduling latency from 25s down to < 2.0s; leverages high-core CPUs (e.g. AMD Ryzen 5950X).
+- **Negative / Operational Cost:** Higher instantaneous CPU utilization across multiple cores for 1-2 seconds.
+- **When to Revisit:** When deploying on low-core serverless environments where worker pool size must be scaled down to 2-4 workers.
+
+### `ADR-007` — Modularize Repository Layout, Data Assets, and Reference Artifacts [`ACTIVE` | `general`]
+
+# `ADR-007`: Modularize Repository Layout, Data Assets, and Reference Artifacts
+
+## 1. Context & Problem
+Early prototyping led to significant root-directory file sprawl:
+1. All Python source modules (`classes.py`, `closed_loop_optimizer.py`, `highs_optimization.py`, etc.) were flat in the root directory.
+2. Raw workout dataset files (`Bike.xlsx`, `Run.xlsx`, `Swim.xlsx`, `parsed_workouts_preview.json`, `workout_library.html`) and raw FIT download caches (`fit_files/`) resided in the project root.
+3. Environment files (`.env.example`, `trainingpeak.env`, `.garmin_cookie.env`) sat in the root directory.
+4. Agent operating charters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) cluttered the root.
+5. Initial bootstrapping generated a 120 KB duplicate scaffolding kit (`lode_starter_kit/`) containing duplicate templates and bash scripts that became redundant after Lode initialization.
+6. Rapid experimental iteration left 35 ad-hoc diagnostic and exploratory scripts in `./scratch/` and an untracked `all_known_codes.txt` in the root.
+7. Heavy reference literature (over 300 MB of PDFs and EPUBs in `Books/`) was unignored and at risk of accidental git staging.
+
+This cluttered the top-level directory, obscured primary system modules, and broke clear separation of concerns between code, static data, reference literature, configurations, and operational scripts.
+
+## 2. Considered Alternatives
+1. **Option A (Rejected - Flat Root):** Keep all files flat in the project root. Rejected because it impairs discoverability, creates confusion about what is active code versus transient data/debug artifacts, and risks committing massive binary blobs or secrets.
+2. **Option B (ADOPTED):** Modularize into clean top-level directories:
+   - `src/`: Standard Python package containing all core modules (`classes.py`, `closed_loop_optimizer.py`, `highs_optimization.py`, `athlete_profile.py`, `main.py`, `stress_test_optimizer.py`, `clean_file.py`, `sync_8020_to_tp.py`, `util.py`, `__init__.py`) managed via root `pyproject.toml`.
+   - `config/`: Environment configuration (`.env.example`, `trainingpeak.env`, `garmin.env`), keeping all credential files out of root and strictly gitignored.
+   - `.agents/`: Agent operating charters and rules (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `rules/operating_charter.md`).
+   - `data/`: Centralized workout spreadsheets (`Bike.xlsx`, `Run.xlsx`, `Swim.xlsx`, `brick_workouts.csv`), scrape caches, JSON payloads, and FIT downloads.
+   - `references/`: Empirical endurance literature and textbooks (gitignored for large binaries).
+   - `scripts/`: Operational tools, SQLite lineage engine (`lodectx.py`), benchmarks, and plan comparators.
+   - `training_plans/`: Generated season CSV schedules and race markdown specifications.
+   - Root: Minimalist entry points (`pyproject.toml`, `requirements.txt`, `ReadMe.md`, `.gitignore`).
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `src/classes.py:_resolve_data_path()`, `src/clean_file.py`, `src/sync_8020_to_tp.py`, `src/util.py`, `config/`, `.agents/`, `.gitignore`, `pyproject.toml`.
+- **Locked Parameters / Contract:**
+  1. All workout dataset ingestion MUST check `data/<file>` first, falling back to root for backwards compatibility.
+  2. All Python library modules MUST reside in `src/` with `src/__init__.py` and root `pyproject.toml`.
+  3. Environment credentials MUST reside in `config/` (`config/.env`, `config/trainingpeak.env`, `config/garmin.env`) and NEVER in the root directory.
+  4. Agent instructions MUST reside in `.agents/` and `.agents/rules/*.md`.
+  5. Temporary/scratch scripts MUST NOT be committed to the root or tracked in git; permanent benchmarks must live in `scripts/` with `if __name__ == '__main__':` execution guards.
+  6. External reference literature MUST reside in `references/` and large binaries (`*.pdf`, `*.epub`, `*.azw3`) MUST remain gitignored.
+  7. Redundant initialization scaffolding (`lode_starter_kit/`) and obsolete ad-hoc files (`all_known_codes.txt`, throwaway diagnostic dumps) MUST be pruned.
+- **Enforcement Mechanism:** Verified by `src/stress_test_optimizer.py` automated suite and deterministic import checks.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** Execution of 10-scenario `src/stress_test_optimizer.py` suite; all 10 scenarios solved with `OPTIMAL` status with zero regressions under `src/` and `data/` layout.
+- **Supersedes:** None (New architectural hygiene baseline).
+
+## 5. Consequences & Trade-Offs
+- **Positive:**
+  - Immaculate root directory with zero file clutter.
+  - Standard `src/` layout compatible with `pip install -e .` and modern tooling.
+  - Zero risk of committing 300+ MB book binaries or credentials to git.
+  - Backward-compatible path resolution across all modules and scripts.
+- **Negative / Operational Cost:** Execution commands must use `python src/main.py` or `python src/stress_test_optimizer.py` (or `-m src.main`).
+- **When to Revisit:** If the platform is packaged as a namespace package or published to PyPI.
+
+### `ADR-008` — Adopt Dual-Objective Hybrid Athlete Optimization with Equipment Partitioning and Biomechanical Conflict Matrix [`ACTIVE` | `optimizer`]
+
+# `ADR-008`: Adopt Dual-Objective Hybrid Athlete Optimization with Equipment Partitioning and Biomechanical Conflict Matrix
+
+## 1. Context & Problem
+Classical triathlon training schedules treat strength training as an auxiliary or unmodeled afterthought. When athletes concurrently pursue endurance goals (Swim, Bike, Run) and maximal barbell/dumbbell strength (Squat, Bench, Deadlift, Overhead Press), naive scheduling creates severe physiological and orthopedic failure modes:
+1. **Lumbar Shear Catastrophe:** Heavy deadlifts produce up to $18.45\text{ kN}$ compressive and $3.28\text{ kN}$ shear load on L4/L5. Stacking or placing a heavy deadlift within 24 hours of high-impact threshold or long running causes lumbar erector failure and acute disc injury.
+2. **Molecular Signaling Interference (AMPK vs. mTORC1):** Endurance training activates AMPK (inhibiting protein synthesis), whereas resistance training activates mTORC1. Uncoordinated same-day scheduling without a $\ge 6\text{h}$ intra-day separation blunts hypertrophy and strength gains.
+3. **Equipment Asymmetry:** Athletes often possess an Olympic barbell at a commercial facility and a home gym capped at $75\text{ lb}$ dumbbells. Failing to partition movements forces inappropriate loading paradigms (e.g., trying to execute heavy bilateral leg training on light dumbbells).
+4. **Split Incoherence:** Unconstrained optimization blends incompatible split archetypes (e.g. mixing Texas Method full-body workouts with Upper/Lower split workouts in the same week).
+
+## 2. Considered Alternatives
+1. **Option A (Rejected — Sequential Heuristic Post-Pass):** Solve the endurance schedule first, then greedily insert resistance workouts into rest days.
+   - *Reason Rejected:* Violates the "Hard-Days-Hard" principle by turning easy endurance days into high-strain lifting days, causing chronic autonomic nervous system (ANS) non-functional overreaching. Furthermore, it cannot enforce joint weekly axial load ceilings ($X_{\text{wk}} \le 320$) across endurance and lifting.
+2. **Option B (Rejected — Non-Linear / NLP Modeling):** Model continuous fatigue interaction decay curves via non-linear solvers (e.g. Ipopt / SciPy `minimize`).
+   - *Reason Rejected:* Non-convex optimization suffers from local minima, slow convergence ($> 30\text{s}$), and inability to enforce discrete binary workout assignment invariants with mathematical guarantees.
+3. **Option C (ADOPTED — HiGHS MILP with Exact Linearizations & Split Cuts):** Formulate the problem as a deterministic Mixed-Integer Linear Program in HiGHS (`HybridAthleteMILPOptimizer`), using exact linear ratio transformations, binary split coherence cuts, Canonical No-Good Integer Cuts, and hard biomechanical conflict matrices.
+
+## 3. Decision & Production Invariant
+The primary hybrid optimizer is standardized in `src/closed_loop_optimizer.py` as `HybridAthleteMILPOptimizer`:
+- **Equipment Partitioning:** Enforce $\ge 60\%$ weekly strength set volume on Olympic barbell compound movements via exact linear ratio constraint:
+  $$\sum_{d=1}^7 \sum_{i \in \mathcal{W}_{\text{STR}}} \left((1 - \beta_{\text{BB}}) V_i^{\text{BB}} - \beta_{\text{BB}} V_i^{\text{DB}}\right) x_{i,d} \ge 0 \quad (\beta_{\text{BB}} = 0.60)$$
+  Dumbbells capped at $75\text{ lb}$ are strictly allocated to unilateral assistance and accessory hypertrophy.
+- **Biomechanical Conflict Prevention Matrix:**
+  1. *Deadlift vs. Heavy/Long Run:* Absolute same-day exclusion ($x_{i,d} + x_{j,d} \le 1$) and mandatory adjacent-day lockout ($x_{i,d} + x_{j,d+1} \le 1$ and $x_{i,d+1} + x_{j,d} \le 1$). Stacking with swimming is preferred for hydrostatic spinal decompression.
+  2. *Squat vs. High-Torque Bike / Threshold Run:* Absolute same-day exclusion ($x_{i,d} + x_{j,d} \le 1$).
+  3. *Heavy Press vs. CSS Threshold Swim:* Absolute same-day exclusion ($x_{i,d} + x_{j,d} \le 1$) to prevent rotator cuff and subacromial impingement.
+  4. *Strength Frequency & Rest:* Maximum 2 workouts/day, non-consecutive strength days ($\sum_{i \in \mathcal{S}} x_{i,d} + \sum_{i \in \mathcal{S}} x_{i,d+1} \le 1$).
+- **Axial Spinal & Neuromuscular Ceilings:**
+  - Daily axial load $X_d \le 120.0$; weekly axial load $\sum_d X_d \le 320.0$.
+  - Daily neuromuscular load $N_d \le 130.0$; weekly neuromuscular load $\sum_d N_d \le 360.0$.
+- **Split Archetype Coherence & Canonical No-Good Cuts:** Binary variable $z_{\text{split}} \in \{0, 1\}$ strictly selects between Option A (Full-Body HLM / Texas Method) and Option B (Upper/Lower Split). The solver yields secondary distinct Pareto solutions via Canonical No-Good cuts:
+  $$\sum_{(i,d) \in S_A} x_{i,d} - \sum_{(i,d) \notin S_A} x_{i,d} \le |S_A| - 1$$
+- **Polarized Time-in-Zone Invariant:** Exact linear constraints enforce $\ge 78\%$ weekly aerobic duration in $Z_1/Z_2$ and $\le 20\%$ in $Z_4/Z_5$.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** `src/stress_test_optimizer.py` Scenario 11 ("Dual-Objective Hybrid Athlete Optimization"). Option A (Full-Body HLM) solves in $0.182\text{s}$ with objective value $-40.70$. Option B (Upper/Lower) solves in $0.155\text{s}$. Both solutions achieve $100\%$ compliance across all 4 movement patterns ($\ge 10$ sets), $0$ axial or neuromuscular violations, and strict 24h deadlift-run spacing.
+- **Supersedes:** Extends and formalizes single-discipline optimizer constraints previously specified in `ADR-002` and `ADR-003`.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Mathematically proves absence of overtraining and conflicting muscular recruitment; enables athletes to concurrently pursue Ironman/triathlon endurance and 1,000-lb barbell club strength safely.
+- **Negative / Operational Cost:** Requires candidate workouts to carry axial, neuromuscular, and movement pattern metadata; un-tagged custom workouts must be enriched via `enrich_workouts_from_df()`.
+- **When to Revisit:** Revisit if the athlete acquires heavier home dumbbells ($>100\text{ lb}$) allowing bilateral home compound loading, or if integrating continuous velocity-based training (VBT) sensor feedback into Tier 2 MPC.
+
+### `ADR-009` — Adopt Canonical 80/20 7-Zone Power System and Two-Point Critical Power Protocol [`ACTIVE` | `physiology`]
+
+# `ADR-009`: Adopt Canonical 80/20 7-Zone Power System and Two-Point Critical Power Protocol
+
+## 1. Context & Problem
+Because the athlete engages in concurrent heavy barbell strength training (squats and deadlifts), their anaerobic work capacity ($W'$) is substantially elevated relative to pure endurance specialists. Standard single-effort aerobic proxy tests with fixed multipliers (such as the cycling ramp test at $0.75 \times \text{MAP}$ or un-cleared 20-minute time trials at $0.95 \times P_{20}$) draw heavily upon this enlarged anaerobic battery. Consequently, single-effort tests systematically overestimate sustainable aerobic threshold ($LT_2$) and Maximum Lactate Steady State ($MLSS$), leading to severe overtraining, premature glycogen depletion, and elevated orthopedic strain.
+
+Furthermore, commercial 5-zone systems (such as Stryd 5-Zone or MyProCoach 5-Zone) define Zone 2 as spanning 80%–90% of CP. This improperly extends above the true first lactate threshold ($LT_1$), prescribing training in the moderate-intensity "grey zone" and defeating the polar/pyramidal 80/20 recovery architecture.
+
+## 2. Considered Alternatives
+1. **Option A (Fixed-Multiplier Ramp or 20-min TT):** Relying on $0.75 \times \text{MAP}$ or $0.95 \times P_{20}$. Rejected because the hybrid athlete's high anaerobic capacity ($W'$) inflates short-duration output, producing non-sustainable threshold targets.
+2. **Option B (Commercial 5-Zone Scale - Stryd / MyProCoach):** Standard 5-zone power partitioning. Rejected because their Zone 2 extends past $LT_1$ into Zone X (80%–90% CP), causing chronic autonomic fatigue and blunting base volume.
+3. **Option C (ADOPTED):** Calibrate Critical Power using the Two-Point Linear Work-Time Model ($P_3$ 180s + $P_{12}$ 720s) or Kolie Moore 35–45m MLSS baseline, and enforce the canonical **80/20 7-Zone Scale** with explicit penalization of Zone X (moderate drift) and Zone Y (threshold gap).
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `SPEC.md`, `docs/domains/physiology.md`, `docs/domains/workouts.md`, `src/athlete_profile.py`, `src/classes.py`.
+- **Locked Parameters / Contract:**
+  1. **Two-Point CP Math:**
+     $$CP = \frac{4 P_{12} - P_3}{3}, \quad W' = 180 \cdot (P_3 - CP)$$
+  2. **80/20 7-Zone System:**
+     - Zone 1 (Active Recovery): Run 50%–76% CP, Bike 50%–70% CP (ANS weight 0.0)
+     - Zone 2 (Aerobic Endurance, Ceiling = $LT_1$): Run 76%–88% CP, Bike 70%–83% CP (ANS weight 0.0)
+     - Zone X (Moderate Drift Grey Zone): Run 88%–94% CP, Bike 83%–91% CP (ANS weight 0.7 penalty)
+     - Zone 3 (Sub-Threshold / Tempo, Ceiling = $LT_2$): Run 94%–100% CP, Bike 91%–100% CP (ANS weight 1.0)
+     - Zone Y (Threshold Gap): Run 100%–103% CP, Bike 100%–102% CP (ANS weight 1.4 penalty)
+     - Zone 4 (Supra-Threshold / $\text{VO}_2\text{max}$): Run 103%–120% CP, Bike 102%–110% CP (ANS weight 1.8)
+     - Zone 5 (Anaerobic / Repetition): Run >120% CP, Bike >110% CP (ANS weight 3.5)
+  3. **Positional Aero Rule:** Indoor/Aero CP must be tested in triathlon aero position; upright road hoods power is 3%–7% (10–20W) higher and must not be mixed without scaling.
+  4. **Single Source of Truth:** Disable `Auto-CP` in Stryd and `Auto-FTP` in Garmin; lock manual CP integer identically across Stryd, TrainingPeaks, and optimizer profiles.
+- **Enforcement Mechanism:** System invariants in `docs/INVARIANTS.md`, athlete profile validations, and workout parser zone mapping.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** Monod & Scherrer two-parameter work-time linear formulation; empirical Kolie Moore MLSS baselining; 80/20 Endurance physiological demarcation (Fitzgerald & Warden).
+- **Supersedes:** None. Establishes the authoritative multi-sport power and zone calibration baseline.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Eliminates anaerobic bias from threshold calculation; guarantees low-intensity training stays strictly below $LT_1$; penalizes accidental grey-zone drift.
+- **Negative / Operational Cost:** Testing requires two all-out efforts separated by 30 minutes (or a dedicated 35–45m MLSS test), and manual synchronization across three platforms.
+- **When to Revisit:** If athlete ceases heavy compound barbell lifting or switches to laboratory gas-exchange / blood lactate testing.
+
+### `ADR-010` — Adopt Multi-Device Hardware Telemetry Rules and FIT Ingestion Invariants [`ACTIVE` | `integrations`]
+
+# `ADR-010`: Adopt Multi-Device Hardware Telemetry Rules and FIT Ingestion Invariants
+
+## 1. Context & Problem
+The athlete's telemetry pipeline spans five distinct hardware devices:
+1. Stryd "Wind" Foot Pod (Model 17, 2019)
+2. Garmin Enduro 3 Watch
+3. Garmin Swim 2 Watch
+4. Garmin Edge 530 Bike Computer
+5. Tacx Neo 2T Smart Trainer
+
+Without rigorous hardware-specific ingestion rules, catastrophic data corruption occurs:
+- Garmin watches write native wrist running power to standard `.fit` `power` (inflated +20% to +30%), while Stryd power is stored in Connect IQ developer fields.
+- Pool swim duration parsed from `session.total_elapsed_time` includes rest intervals at the wall, inflating active swim time and distorting sTSS.
+- Concurrent recording on bike computer and watch produces duplicate FIT uploads for the same ride, artificially doubling weekly TSS.
+- Tacx Neo 2T inductive sensor `left_right_balance` stream exhibits violent spurious spikes, falsely indicating orthopedic asymmetry.
+
+## 2. Considered Alternatives
+1. **Option A (Generic FIT Field Ingestion):** Parse standard record fields (`power`, `total_elapsed_time`) across all devices indiscriminately. Rejected due to Garmin native power contamination and wall-rest time inflation.
+2. **Option B (Manual Device Tagging):** Require the athlete to manually tag and reformat each FIT file before ingestion. Rejected as error-prone and unscalable.
+3. **Option C (ADOPTED):** Hardware-aware ingestion harness enforcing explicit Developer Field extraction, active length parsing for pool swims, 300-second multi-device timestamp deduplication, and sensor-specific exclusions.
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `src/clean_file.py`, `src/sync_8020_to_tp.py`, `SPEC.md`, `docs/domains/integrations.md`.
+- **Locked Parameters / Contract:**
+  1. **Stryd Model 17 Extraction:** Read power strictly from Connect IQ developer field (`field.is_dev == True` and `field.name == 'Power'`). Ingest auxiliary fields `Form Power`, `Leg Spring Stiffness` (LSS, kN/m), and `Air Power`. Account for 0W `Air Power` on treadmill. Pair to Enduro 3 strictly via ANT+ (`FP-XXXXX`).
+  2. **Garmin Enduro 3 & Swim 2 Ingestion:** In pool swims, active duration and sTSS must be computed strictly by summing `length` records where `length_type == 'active'`. Drills (`swim_stroke == 'drill'`) are excluded from SWOLF/stroke rate. Enduro 3 is the primary Unified Training Status hub.
+  3. **Garmin Edge 530 & Tacx Neo 2T:** 1-second recording with zeros included. Overlapping rides between Edge 530 and Enduro 3 within $\le 300\text{s}$ are deduplicated to exactly one file. Neo 2T optical brake requires zero spin-down calibration; execute CP tests in Slope/Incline mode (+1.5% to +2.0%); ignore `left_right_balance` stream; keep connected to AC power during recovery.
+- **Enforcement Mechanism:** *Planned* `src/fit_ingest.py` (`TASK-024`, validated by `EXP-005`). **Implementation status (2026-11-15 truth pass, `TASK-009`): not implemented** — `src/clean_file.py` is the 80/20 HTML workout-library scraper and does not parse recorded activity `.fit` files. Since `ADR-012`, Swim 2 is retired and devices do not dual-record; the 300s dedup rule applies to historical files.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** Comparative `.fit` stream analysis between Garmin wrist power and Stryd Connect IQ developer field; empirical pool swim lap vs length analysis; Tacx Neo 2T inductive balance telemetry verification.
+- **Supersedes:** None. Establishes the authoritative multi-device hardware ingestion architecture.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Guarantees 100% clean, uncontaminated power and biomechanical metrics across all 5 devices; prevents artificial double-counting of load.
+- **Negative / Operational Cost:** Parser must handle variable developer field schemas and implement spatial-temporal deduplication windows.
+- **When to Revisit:** If athlete replaces Stryd Model 17 with Next-Gen pod or upgrades bike computer / trainer hardware.
+
+### `ADR-011` — Integrate Closed-Loop Critical Power Retesting Engine with Dual Telemetry Triggers and Mesocycle Synchronization [`ACTIVE` | `physiology`]
+
+# `ADR-011`: Integrate Closed-Loop Critical Power Retesting Engine with Dual Telemetry Triggers and Mesocycle Synchronization
+
+## 1. Context & Problem
+Athletes often intuitively push to retest threshold power too frequently or artificially force their Critical Power (CP) upward under the misconception that elevating CP is required to "force" physiological development. In polarized/pyramidal 80/20 training, inflating CP shifts prescribed Zone 2 workouts into the moderate-intensity grey zone (Zone X / Zone 3, above $LT_1$), inducing chronic autonomic suppression, glycogen depletion, and elevated orthopedic strain.
+
+Conversely, static CP assignments lead to undertraining over multi-month seasons as cardiovascular stroke volume and peripheral capillarization improve. A deterministic closed-loop mechanism is required to govern retesting cadence: balancing periodic mesocycle check-ins against data-driven physiological triggers (cardiovascular decoupling suppression and Efficiency Factor gains) while strictly forbidding high-intensity testing during deconditioned re-entry phases.
+
+## 2. Considered Alternatives
+1. **Option A (Fixed Arbitrary Testing Schedule, e.g. Every 4 Weeks):** Imposing maximal 3m/12m testing every mesocycle. Rejected because frequent maximal tests exact high autonomic/mechanical toll, disrupt training continuity, and risk tissue injury during build cycles.
+2. **Option B (Unrestricted Telemetry Auto-FTP Jumps):** Automatically incrementing CP on every ride/run breakthrough (e.g. Garmin Auto-FTP). Rejected because single high-motivation bursts or un-cleared spikes contaminate baseline zones with anaerobic work ($W'$), violating `ADR-009`.
+3. **Option C (ADOPTED):** Dual-Trigger Retesting Engine:
+   - **Re-Entry Protection Guard:** Absolute lockout of all-out testing during initial re-entry ($\le 4\text{ weeks}$ bike, $\le 6\text{ weeks}$ run).
+   - **Calendar Mesocycle Cadence:** Synchronized retesting every 8 to 12 weeks during recovery deload weeks.
+   - **Data-Driven Telemetry Trigger:** Trigger testing or $+3\text{–}5\%$ calibration prompts when rolling aerobic decoupling drops below $3.0\%$ and 28-day Efficiency Factor ($EF$) trends $\ge +5.0\%$.
+   - **Runaway Ceiling Guard:** Hard clamp capping single-test CP step increases at $\le 10\%$ to prevent injury and overreaching.
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `src/athlete_profile.py`, `src/closed_loop_optimizer.py`, `docs/domains/physiology.md`.
+- **Locked Parameters / Contract:**
+  1. **Candidate Test Library:** Expose canonical benchmark test workouts (`BK_CP_TEST`, `RN_CP_TEST`, `SW_CSS_TEST`) adhering to the Monod-Scherrer Two-Point Work-Time protocol ($P_3 + P_{12}$).
+  2. **Re-Entry Lockout:** `ClosedLoopMPCController.evaluate_cp_retest_triggers` locks testing during early re-entry.
+  3. **Telemetry Adaptation Criteria:** Trigger flag requires at least two concordant signals:
+     - Rolling aerobic decoupling ($Pw:HR$ or $Pa:HR$) $< 3.0\%$ across steady Zone 2 sessions $\ge 60\text{ min}$.
+     - Rolling 28-day Efficiency Factor trend $\ge +5.0\%$.
+     - $\ge 3$ consecutive breakthrough interval sessions completed with low RPE / suppressed HR.
+  4. **Max Jump Cap:** Single retest step update capped at $\le 10.0\%$ via `apply_cp_retest_result`.
+- **Enforcement Mechanism:** Unit tests in `test_athlete_profile.py` / `stress_test_optimizer.py` and MPC Tier 2 recalibration checks.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** Monod-Scherrer work-time linearity; Seiler Polarized Training and aerobic decoupling ($Pa:HR < 5\%$ ceiling); Coggan Efficiency Factor formulations.
+- **Supersedes:** None. Complements and operationalizes `ADR-009`.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Eliminates premature testing injuries; dynamically accommodates fitness gains without manual guesswork; prevents grey-zone overtraining caused by vanity threshold spikes.
+- **Negative / Operational Cost:** Requires consistent heart rate and power telemetry streams to compute decoupling and Efficiency Factor metrics.
+- **When to Revisit:** If athlete transitions to continuous blood-lactate biosensors or direct VO2 metabolic cart testing.
+
+### `ADR-012` — Lock Athlete Decision Record for Nov 2026 Re-Entry and Olympic Season [`ACTIVE` | `mpc`]
+
+# `ADR-012`: Lock Athlete Decision Record for Nov 2026 Re-Entry and Olympic Season
+
+## 1. Context & Problem
+`docs/TASKS.md` held 20 blocking or shaping athlete decisions (`DECISION-001..020`). Without them, the optimizer ran on conflicting or placeholder inputs: three different swim CSS values, a 16-week Olympic placeholder, pool access on conflicting days, strength zeroed in recovery weeks, and CP values of unknown age. On 2026-11-15 the athlete answered all 20. Where they asked for a recommendation (001, 006, 012–014, 016, 017, 019), this ADR records the recommendation that was adopted.
+
+## 2. Considered Alternatives
+1. **Option A (Rejected):** Leave decisions inline in `TASKS.md`. Rejected because they are durable athlete facts, not engineering tasks, and they bloat the startup core.
+2. **Option B (Rejected):** Hard-code the answers in the solver. Rejected because it breaks the single source of truth (`ADR-009`) and the answers will change in about 6 months.
+3. **Option C (ADOPTED):** Record the answers here and encode them as typed fields in `src/athlete_profile.py`. The fields that the unified engine (`TASK-015..019`) must still read are listed in §3.
+
+## 3. Decision & Production Invariant
+**Target Component / Path:** `src/athlete_profile.py` (`AthleteProfile` / `CURRENT_ATHLETE`).
+
+| ID | Decision (2026-11-15) | Profile encoding |
+|---|---|---|
+| 001 | No swimming since 2024-08. 2024 pool moving pace was ~2:18–2:27/100m, which puts CSS at ~2:12 then. Adding ~10 s/100m for more than 2 years off gives a **provisional CSS of 2:30/100m (40.0 m/min)**. This replaces 24.0 and 35.29 m/min. Do a 400/200 CSS test on the 2nd weekend after pool access returns. Default pool: 25 yd. | `swim_css=40.0`, `swim_pool_length="25y"` |
+| 002 | **Olympic** is the next race. No date yet. Recommended: late Aug 2027, so the 16-week race block starts when pool access returns (~May 2027). The optimizer must also be validated on sprint, 70.3 and IM (`TASK-027`). | `target_race_date=None` |
+| 003 | Confirmed no runs or rides for more than 90 days (last run 2026-07-13, last ride 2026-06-20). **No injury history**, so no orthopedic hard caps. | `orthopedic_status="HEALTHY"` |
+| 004 | The 45–75 min/day budget is a **real ceiling for at least 6 months** (childcare), reviewed 2027-05-15. No AM/PM split days assumed, so the limit is 1 session/day. | `two_session_windows=[False]*7`, `weekday_single_workout_cap=60` |
+| 005 | CP values are months old. Bike CP was tested **in aero** on the Neo 2T. **Provisional bike 135 W, run 200 W** (~10% / ~7% detraining discount; 2025 best 20-min power was 156 W). First tests follow `ADR-011` lockouts: bike Two-Point CP at the start of week 5, run CP at the week-8 deload. Until then, run easy runs by HR and the talk test. | `bike_cp=135`, `run_cp=200`, `thresholds_verified=False` |
+| 006 | Safety first: Tier-0 caps are never relaxed. Sport priority: **Strength > Bike > Run > Swim**. Tier-1 relaxation order, first to last: weekly TSS → strides → Swim anchor/frequency → Run anchor/frequency → Bike anchor/frequency → rest days (never below 1) → heavy strength count (never below 1). | `sport_priority`, `tier1_relaxation_order` |
+| 007 | **No pool for ~6 months.** After that, weekends only (Sat/Sun). | `facility_access["Swim"]` all False, `pool_open_days=[]` |
+| 008 | Split chosen by the solver (`AUTO`). Rack available every day. Plates 2.5–45 lb (bar load up to ~400 lb, 5 lb jumps). Dumbbells 5–75 lb in 5 lb steps. **Squat and deadlift may share a session.** No trap bar. | `facility_access["Strength"]` all True, `barbell_*`, `dumbbell_increment_lbs`, `has_trap_bar=False` |
+| 009 | Strength is **co-equal** with triathlon. Recovery, taper and race weeks keep **1 maintenance (non-heavy) session** instead of 0. | `strength_priority="COEQUAL"`, `recovery_week_strength_sessions=1` |
+| 010 | **3:1** mesocycles (3 build weeks + 1 recovery week). | `mesocycle_build_weeks=3`, `mesocycle_recovery_weeks=1` |
+| 011 | No fixed calendar commitments. | – |
+| 012 | All rides on the trainer (Neo 2T). All runs outdoors by default. Treadmill is recommended on ice, in extreme cold or dark, and optionally for walk-run re-entry or intervals. On a treadmill, Stryd Model 17 `Air Power`=0, so power reads ~2–4% lower at the same speed. Steer by power, not belt speed, and tag `sub_sport=treadmill`. | `outdoor_bike_days=[]`, `default_run_surface="outdoor"` |
+| 013 | **Canonical 80/20** (Fitzgerald, *80/20 Triathlon*; Seiler): measured as time-in-zone over endurance minutes only (strength excluded). Z1+Z2 ≥ 78% hard floor, 80% soft target (85–90% in re-entry/base). **Z3+ZY+Z4+Z5 ≤ 20% combined** (this corrects the current Z4+Z5-only rule). Zone X ≤ 5%, penalized toward 0. 2–3 key sessions/week (0–1 in the first 4 re-entry weeks). No "medium" grey-zone sessions. | `intensity_*`, `key_sessions_per_week` |
+| 014 | Running ACWR ceiling **1.20 during re-entry** (run CTL < 15), then **1.25**. Re-entry also uses absolute minutes, because the ratio is unstable at near-zero chronic load: 60 min/week of run/walk is always allowed, and weekly run minutes rise by at most 15. | `max_running_acwr*`, `reentry_*`, `max_weekly_run_minutes_increase` |
+| 015 | Convert mile-based long runs at **easy pace 14:30/mi** (2026 median was 15:08/mi at HR 143). Update this as fitness returns. | `easy_run_pace_min_per_mile=14.5` |
+| 016 | The 14 custom library rows and `recommended_workout_legos.csv` were written by agents, not taken from the 80/20 library. Treat them as **provisional**. Replace Trap Bar DL with conventional DL. Pull-up bar, bands and a Nordic anchor still need confirming. | `TASK-028` |
+| 017 | Raw completed activity FIT files already exist: `data/garmin/activities/fit_files/` (2,020 files, 2013–2026). `data/fit_files/` holds 80/20 workout *definitions*. No athlete action needed. | `TASK-024` input |
+| 018 | One device per sport, no dual-recording: Edge 530 for bike; Enduro 3 for run, swim and strength. Swim 2 is retired. The 300 s dedup rule stays for historical data. | `recording_device` |
+| 019 | **Garmin Connect** is authoritative for completed activities (raw FIT with Stryd developer fields). TrainingPeaks holds the *plan* only. | `completed_activity_source`, `planned_workout_target` |
+| 020 | TrainingPeaks push mode: **dry run**. | `trainingpeaks_push_mode="dry_run"` |
+| 021 | **Lift + easy cardio combo:** a strength session may be followed right away, in the same window, by ≤20 min of strictly Z1/Z2 Bike or Run. Lift comes first. After heavy lower-body lifting, Bike only (no impact on a loaded spine, per `HEUR-004`). The pair counts as one window toward the day's cap. This is an exception to the 6h AMPK/mTOR rule (`INVARIANTS.md`). | `allow_lift_cardio_combo`, `combo_cardio_*` |
+| 022 | Equipment: pull-up bar ✔, treadmill ✔, Nordic anchor ✔, resistance bands ✘. Banded rows become DB rear-delt fly or prone Y-T-W. | `has_pullup_bar`, `has_treadmill`, `has_nordic_anchor`, `has_resistance_bands=False` |
+| 023 | **Re-entry heavy lifting:** keep the conservative daily axial 65 / neuro 75 caps. During re-entry, **0 heavy lifts/week** are allowed, overriding the DECISION-006 floor of 1. Maintenance and accessory lifting continues. Flip `reentry_phase` off to restore phase defaults. | `reentry_phase=True`, `reentry_heavy_strength_sessions=0` |
+
+**Enforcement Mechanism:** These profile fields are **not yet read by the solver** and must be wired in by the unified engine work: the 80/20 definition (013), ACWR caps and minute floors (014), relaxation order (006), the 3:1 season matrix (010) and two-window gating (004). Tracked in `TASK-016`, `TASK-018`, `TASK-019` and `TASK-026`.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** Garmin history in `data/garmin/activities/activities_summary.json` (2,020 activities): swim paces 2023–24, max 20-min bike power by year, run pace and HR by year. Athlete answers dated 2026-11-15.
+- **Supersedes:** None. Operationalizes `ADR-005` (3:1), `ADR-009`/`ADR-011` (CP protocol, retest lockouts) and `ADR-010` (devices).
+
+## 5. Consequences & Trade-Offs
+- **Positive:** One coherent athlete model. Provisional thresholds are deliberately conservative, keeping Z2 below LT1.
+- **Negative / Operational Cost:** With 1 window/day and ≥1 rest day there are 6 windows/week. Strength 3× + Bike 2× + Run 2× fits only through the `DECISION-021` lift + easy cardio combo, which the engine must model as a compound candidate (`TASK-019`).
+- **When to Revisit:** 2027-05-15 (pool access, time budget), after the first CP or CSS tests, or when a race date is set.
+
+### `ADR-013` — Enforce Three-Tier Lexicographic Constraint Hierarchy with Shared Tier-0 Safety Layer [`ACTIVE` | `optimizer`]
+
+# `ADR-013`: Enforce Three-Tier Lexicographic Constraint Hierarchy with Shared Tier-0 Safety Layer
+
+## 1. Context & Problem
+The TASK-008 tests showed safety rules being broken while the solver still reported success:
+- **Soft safety caps.** `TriathlonMILPScheduler` gave the 32% single-run cap and the rolling 48h TSS/ANS/strain caps penalty slacks (`enable_soft_48h_slacks`). The solver paid the penalty and scheduled a 33.3% run.
+- **Silent rewrites.** It also silently relaxed `rho` when there were fewer than 4 runs, rewrote frequency minimums it could not meet (and wrote the change into the caller's config), and de-anchored oversized anchors.
+- **Missing rules in the hybrid engine.** `HybridAthleteMILPOptimizer` had no hard/easy adjacency, no 48h caps, no weekly neuromuscular cap, no frequency bounds, and no deadlift lockout against long runs. It applied the run cap only to `long_run` workouts. Its 610-TSS demo plans exceeded the 360 weekly neuro cap and put a deadlift the day before a long run.
+- **Fallback.** When a week was infeasible, the season planner replaced it with a generic recovery config that ignored the athlete profile.
+
+## 2. Considered Alternatives
+1. **Option A (Rejected):** Patch each engine separately. The two engines would drift apart again, and they are due to merge (TASK-015).
+2. **Option B (Rejected):** A single weighted objective mixing Tier-1 slacks (weight 1000) with Tier-2 goals. The 1% relative MIP gap scales with that weight, so Tier-2 quality degrades whenever a slack is active. Large weights also let large TSS deviations trade against session minimums.
+3. **Option C (ADOPTED):** A shared Tier-0 builder, named integer Tier-1 slacks weighted lexicographically, and a two-phase solve.
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `src/safety_constraints.py`, used by both engines in `src/closed_loop_optimizer.py`. The season planner no longer has a fallback.
+- **Locked Parameters / Contract:**
+  1. **Tier 0 (hard, never relaxed):** the following hold in every engine.
+     - Day caps and facility/modality gating (pre-filtered); weekday single-session cap.
+     - Rolling 48h TSS ≤ 295, ANS ≤ 700, mechanical strain ≤ 260.
+     - Daily/weekly axial ≤ 120/320; daily/weekly neuro ≤ 130/360 (profile values override these).
+     - Hard/easy: no two consecutive hard days. At most one heavy/long run per day, with ≥ 48h between them.
+     - HEUR-004: no deadlift within ±24h of a threshold or long run. Unflagged heavy strength is treated as a deadlift.
+     - Same-day antagonism: squat vs. high-torque bike or threshold/long run; heavy press vs. CSS swim.
+     - Non-consecutive strength days.
+     - Single-run share across all runs: ≤ 32% with ≥ 4 runs (ADR-003). A week with N < 4 runs gets an explicit pigeonhole cap (3 runs: 40%, 2 runs: 60%; `pigeonhole_run_share`). The applied cap is reported in each plan's `run_share`.
+  2. **Tier 1 (integer slacks with names and plain-English messages, reported in `plan["relaxations"]`):** anchors, minimum sport frequency, minimum strides, heavy-strength count (floor 1), and minimum rest days (floor 1). Exceeding the maximum rest days is the cheapest relaxation. Maximum bounds stay hard.
+     - Weight = `8^rank` in the athlete's `tier1_relaxation_order` (DECISION-006). No category can exceed 7 units of slack, so these weights are exactly lexicographic.
+  3. **Lexicographic solve:** Phase A minimizes Tier-1 slack only (`mip_rel_gap 0`, `abs_gap 0.5`). That optimum is then locked with a row, and Phase B optimizes Tier 2 (`mip_rel_gap 1%`). Top-K cuts reuse the lock.
+  4. **Explainer:** `explain_feasibility()` runs before every solve. It names oversized anchors, workouts excluded by axial/neuro caps, unmeetable sport minimums, too few distinct workouts, heavy-strength conflicts, and pigeonhole run counts. An infeasible Tier 0 returns `[]` together with `last_diagnostics`. The season planner records such a week as INFEASIBLE with its reasons and treats it as a rest week.
+  5. **Immutability:** the scheduler deep-copies its config. `enable_soft_48h_slacks` is now a deprecated no-op.
+- **Enforcement Mechanism:** `tests/test_safety_constraints.py` (isolated rule tests); `tests/test_stress_scenarios.py` (run-share, 48h/axial/neuro caps, HEUR-004, frequency/relaxation consistency, and config immutability across all scenarios).
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** pytest (113 pass). Stress scenarios 1/2b/8 dropped from 33.3%/33.3%/32.4% single-run shares to ≤ 32%. Scenario 3 (oversized anchor) and 6a (pool closed, Swim (2,2)) now return plans with named relaxations instead of INFEASIBLE or silent rewrites. Hybrid scenario-11 TSS fell from 610 to 434 because the old plans broke the 360 weekly neuro cap and HEUR-004.
+- **Supersedes:** None formally. This replaces the soft-slack "infeasibility recovery" described in `TriathlonMILPScheduler`'s former docstring. Do not reintroduce soft Tier-0 caps or profile-discarding fallbacks.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Safety rules cannot be traded for TSS. Every shortfall is named. Both engines share one rule set, which is a step toward TASK-015.
+- **Negative / Operational Cost:** About 3× more run-share rows (one per count level). Phase A adds an extra solve (sub-second on current libraries). Weeks that cannot meet Tier 0 now surface as INFEASIBLE and need a human decision. Example: the athlete profile's axial cap of 65 excludes the library's only heavy lift, while the heavy-strength floor is 1.
+- **When to Revisit:** When TASK-015 merges the engines, or if the pigeonhole caps (40%/60%) should be tuned by evidence.
+
+### `ADR-014` — Adopt Single Validated Canonical Workout Library and YAML Athlete Profile [`ACTIVE` | `workouts`]
+
+# `ADR-014`: Adopt Single Validated Canonical Workout Library and YAML Athlete Profile
+
+## 1. Context & Problem
+Workouts lived in seven places: three 80/20 xlsx files, stale CSV copies of them, a root-level legos CSV, two diverging brick CSVs, a strength CSV, and two hand-coded Python lists. `enrich_workouts_from_df` guessed behavior flags at solve time. `'SS' in code` marked CSS swims as strides, `duration <= 75` decided whether a ride was indoor, and swim IF made 87% of swims "hard". Five codes named different workouts in different sources, and two rows' zone minutes did not match their duration. Nothing validated any of it.
+
+## 2. Considered Alternatives
+1. **Option A (Rejected):** Keep the sources and add validation at each loader. That leaves duplicate truths and solve-time inference in place.
+2. **Option B (Rejected):** A Parquet library. It is not hand-editable or reviewable in a diff.
+3. **Option C (ADOPTED):** One hand-editable CSV with a 7-zone schema, explicit flag columns, `provenance` and library-set membership. It is validated by Pandera (table) and Pydantic (rows) on every load. The athlete profile moves to YAML, validated by Pydantic types plus `AthleteProfile.validation_errors()`.
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `data/workout_library.csv`, `src/library/{schema,build,loader}.py`, `config/athlete_profile.yaml`, and `src/athlete_profile.py` (`load_athlete_profile`, `save_athlete_profile`).
+- **Locked Parameters / Contract:**
+  1. **Columns (`WORKOUT_COLUMNS`):** 7-zone minutes `z1, z2, zx, z3, zy, z4, z5` (80/20 prescriptions keep ZX = ZY = 0). Engines see ZX folded into Z3 and ZY into Z4. Plus 18 explicit boolean flags, `provenance` ∈ {`8020_library`, `agent_authored`, `hand_coded_default`, `hand_coded_hybrid`}, and set membership `lib_default` / `lib_hybrid`.
+  2. **Checks:**
+     - Pandera: unique code; sport and provenance from closed vocabularies; TSS > 0; zone sum within 1 minute of duration.
+     - Pydantic: cross-field rules (no strength flags on a ride, a ride is exactly one of indoor/outdoor, swims need a pool).
+  3. **Build-time derivation:** `library.build.derive_8020_rows` applies documented rules (key session = ≥ 15 min Z3+ or ≥ 5 min Z4+; strides only where the description says "stride"; every 80/20 ride is trainer-eligible). After a re-scrape, `refresh_from_8020_scrape` replaces only 80/20 rows and keeps authored rows untouched. The xlsx files are a raw scrape cache, read only at build time.
+  4. **Engines** load via `library.loader.load_candidates(library="default"|"hybrid"|provenance=...)`. `util.load_workouts()` reads the same table. Solve-time inference is deleted.
+  5. **Profile:** every YAML field is required, so nothing silently falls back to a default. Unknown fields are rejected. Semantic rules: 7-day lists, ratio ranges, splits summing to 1, frequency min ≤ max, FTP = CP, known relaxation vocabulary.
+- **Enforcement Mechanism:** `tests/test_workout_library.py` (schema rejects, audit fixes, idempotent refresh, YAML contract). The one-time migration is recorded in `scripts/migrations/m2026_11_15_build_canonical_library.py`.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** 528 rows validate. Of these, 451 are 80/20, 35 agent-authored, 24 hand-coded default and 18 hand-coded hybrid. Stride workouts are corrected from 30+ (swims tagged by code substring) to 7. Corrections: `RTa1` 10 → 11 min, `BK_FR_TQ2` 75 → 81 min. The default and hybrid engine libraries load value-identical to the former hand-coded lists, apart from the documented renames, the `RUN_TB1_BRICK` hard flag, and two new stride rows.
+- **Supersedes:** None. Do not reintroduce per-source loaders or substring flag inference.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** One reviewed source of truth with lineage (`provenance`, `source`, `notes`, `needs_review`). Bad data fails loudly at load.
+- **Negative / Operational Cost:** Flag rules changed some 80/20 classifications (swims, long rides), so engine behavior on the large library shifts. Durability is still on two scales (0–10 vs 0–85) until TASK-023. Strength TSS is unrecalibrated until TASK-021. Swim minutes are still precomputed with the legacy CSS until TASK-013.
+- **When to Revisit:** When ingested actual sessions (TASK-024) need their own table, or the library outgrows CSV review.
+
+### `ADR-015` — Adopt src-layout triplan package with domain subpackages [`ACTIVE` | `general`]
+
+# `ADR-015`: Adopt src-layout triplan package with domain subpackages
+
+## 1. Context & Problem
+ADR-007 moved code into `src/` but left a flat module namespace: `from classes import ...`, `from library.loader import ...`. This forced `sys.path.insert` hacks in 11 files (src, scripts, tests), a 1,871-line `closed_loop_optimizer.py` monolith (candidate models, two MILP schedulers, pruning, physiology state, MPC controller, season generator), duplicated attributes in `classes.workout`, and two divergent dependency lists (`requirements.txt` vs `pyproject.toml`). Windows `spawn` multiprocessing pickles workers by module path (HEUR-001), so ambiguous flat module names were also fragile.
+
+## 2. Considered Alternatives
+1. **Option A (Rejected):** Keep flat modules and centralize the `sys.path` hack in a helper. Still non-installable, still ambiguous imports.
+2. **Option B (Rejected):** Backward-compat shims (`closed_loop_optimizer.py` re-exporting new locations). Hides stale callers and keeps the monolith name alive.
+3. **Option C (ADOPTED):** One installable src-layout package `triplan` with domain subpackages, absolute imports, editable install, `pyproject.toml` as the only dependency source. No shims; every caller updated.
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `src/triplan/` (package), `pyproject.toml` (`[tool.setuptools.packages.find] where=["src"]`), `[project.scripts] triplan = triplan.cli:main`.
+- **Module map (dependency direction model -> library/physiology -> solver -> control):**
+  - `model/`: `candidates.py` (CandidateWorkout, MesoCycleTargetsAndConstraints), `classes.py` (triVariables, workout).
+  - `library/`: `schema.py`, `build.py`, `loader.py`, `candidates.py` (build_default/hybrid_candidate_library), `clean_file.py`, `util.py`.
+  - `solver/`: `scheduler.py` (TriathlonMILPScheduler), `hybrid.py` (HybridAthleteMILPOptimizer), `pruning.py` (prune_candidate_library), `highs_optimization.py`, `highs_runtime.py`, `safety_constraints.py` (Tier-0).
+  - `physiology/`: `athlete_profile.py`, `state.py` (AthletePhysiologicalState).
+  - `control/`: `mpc.py` (ClosedLoopMPCController), `season.py` (format_plan_to_dataframe, generate_closed_loop_season_schedule).
+  - `io/`: `trainingpeaks.py`. `perf/`: `stress.py` (11 stress scenarios). `cli.py` / `__main__.py`: demo pipeline.
+- **Locked Contract:** Intra-package imports are absolute (`from triplan.solver.scheduler import ...`); no `sys.path` manipulation anywhere in `src/`, `scripts/`, `tests/`. Repo-root `data/` and `config/` are resolved relative to `__file__` (four levels above `src/triplan/SUB/MODULE.py`). Multiprocessing worker functions stay top-level in importable modules. Dependencies are declared only in `pyproject.toml` (`test` and `garmin` extras); `requirements.txt` is the single line `-e .[test,garmin]`.
+- **Enforcement Mechanism:** `pip install -e ".[test,garmin]"`; the 143-test pytest suite imports only `triplan.*`; a golden diff of the 11 stress scenarios (statuses, schedules, objectives) was byte-identical before and after the move.
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** TASK-014 golden stress-suite diff (identical) and 143/143 passing tests.
+- **Supersedes:** None. Refines ADR-007 (layout rule "Code in `src/`" becomes "Code in `src/triplan/DOMAIN/`").
+
+## 5. Consequences & Trade-Offs
+- **Positive:** Installable package, unambiguous imports, cohesive modules, one dependency source, scripts run from any cwd after the editable install.
+- **Negative / Operational Cost:** `model.candidates` imports `DEFAULT_RELAXATION_ORDER` from `solver.safety_constraints` (default value of a dataclass field), a mild layering inversion; `physiology.athlete_profile` lazily imports `solver`/`control` inside methods to avoid cycles. Absolute historical paths in older ADR/PRD texts are left as written.
+- **When to Revisit:** If `solver` grows beyond ~8 modules, or if the package is published (then drop `pythonpath=["src"]` and the `__file__`-relative repo-root lookups in favor of an explicit data-dir setting).
+
+### `ADR-016` — Scope the Startup Token Budget to the Charter's Read List [`ACTIVE` | `general`]
+
+# `ADR-016`: Scope the Startup Token Budget to the Charter's Read List
+
+## 1. Context & Problem
+`ADR-001` set the < 7,500-token startup core as `GEMINI.md` + `STATE_SUMMARY.md` + `LODE_MAP.md` + `INVARIANTS.md` + `TASKS.md`. By 2026-11-16 `lodectx.py stats` reported 10,758 tokens (`TASK-030`). Two scoping errors made the measured set diverge from what an agent actually reads:
+1. The charter (`GEMINI.md`, symlinked as `CLAUDE.md`, `.agents/{GEMINI,CLAUDE,AGENTS}.md`; ~3,070 tokens) is injected by the agent harness every session. Agents do not open it through progressive disclosure, and it is user-owned instructions, so the lineage engine cannot trim it.
+2. `SPEC.md` is item 5 of the charter's §1 mandatory read list but was not counted.
+3. `TASKS.md` (~3,450 tokens) carried full multi-paragraph task specs for 20+ items.
+
+## 2. Considered Alternatives
+1. **Option A (Rejected): Keep the charter in the counted set.** The four docs would have to fit in ~4,400 tokens, which means cutting `INVARIANTS.md` and `SPEC.md` content that is load-bearing (hardware and safety rules).
+2. **Option B (Rejected): Raise the budget.** This defeats `ADR-001`'s purpose.
+3. **Option C (ADOPTED): Count exactly the charter's §1 read list, and move task specs to an on-demand `docs/BACKLOG.md`.**
+
+## 3. Decision & Production Invariant
+- **Target Component / Path:** `docs/lode.json` (`startup_files`), `scripts/lodectx.py` (`DEFAULT_CONFIG`, `LODE_MAP.md` header rendered from config), `docs/TASKS.md`, `docs/BACKLOG.md`.
+- **Locked Parameters / Contract:** Startup core = `docs/STATE_SUMMARY.md` + `docs/LODE_MAP.md` + `docs/INVARIANTS.md` + `docs/TASKS.md` + `SPEC.md`, and it must stay < 7,500 tokens (`chars / 4`). `TASKS.md` holds one line per open item. Full specs go in `docs/BACKLOG.md`, which is read on demand for the task being started and deleted on close. The charter is budgeted separately by its owner.
+- **Enforcement Mechanism:** `python scripts/lodectx.py stats` (PASS/FAIL).
+
+## 4. Empirical Evidence & Validation Lineage
+- **Validated By:** `lodectx.py stats` on 2026-11-16 measured 10,968 tokens (FAIL) before this change and 6,758 tokens (PASS) after it.
+- **Supersedes:** None. This refines the scope of `ADR-001`'s locked contract; the rest of `ADR-001` stands.
+
+## 5. Consequences & Trade-Offs
+- **Positive:** The measured set matches what agents read. There are ~700 tokens of headroom, and `TASKS.md` growth is bounded to one line per item.
+- **Negative / Operational Cost:** Task specs now live in two places (index + backlog), and both must be updated when tasks open or close.
+- **When to Revisit:** If the charter's §1 read list changes, or the charter itself grows past ~4,000 tokens.
+
+---
+
+## Part 2: Operational Heuristics
+### `HEUR-001` — Guard Against Python Multiprocessing Worker Deadlocks on Windows in HiGHS Seed Race [`ACTIVE` | `perf`]
+
+# `HEUR-001`: Guard Against Python Multiprocessing Worker Deadlocks on Windows in HiGHS Seed Race
+
+- **Target Subsystem / Path:** `highs_optimization.py:optimize_weekly_workouts_multiseed()`.
+- **Symptom / Failure Mode:** Process hangs indefinitely on Windows when spawning multiprocessing workers, or throws `TypeError: cannot pickle 'highspy._core.Highs' object`.
+- **Root Physics / Mechanism:** On Windows, Python uses `spawn` instead of `fork` to start worker processes. Any arguments passed across process boundaries must be serialized via `pickle`. C++ wrapped pointers inside `highspy.Highs` cannot be pickled across IPC channels.
+- **Permanent Operational Rule:** Never pass instantiated `Highs` solver objects into `multiprocessing.Pool` or `Process`. Pass sanitized `pandas.DataFrame` or parameter dicts, and instantiate the local `highspy.Highs()` solver instance entirely inside the target worker function.
+- **Verification Check:** `python -c "import highs_optimization, pandas as pd; highs_optimization.optimize_weekly_workouts_multiseed(pd.DataFrame(), time_limit_per_worker=0.1, num_workers=2)"`.
+
+### `HEUR-002` — Prevent Orthopedic Dissociation Index Spikes in Build Cycles [`ACTIVE` | `safety`]
+
+# `HEUR-002`: Prevent Orthopedic Dissociation Index Spikes in Build Cycles
+
+- **Target Subsystem / Path:** `closed_loop_optimizer.py:MesoCycleTargetsAndConstraints.max_weekly_run_mech_strain`.
+- **Symptom / Failure Mode:** Athlete reports sudden Achilles tendinopathy or shin splints in week 6-8 of build phase despite low cardiovascular fatigue and positive HRV scores.
+- **Root Physics / Mechanism:** Cardiovascular fitness ($\tau_m=35d$) adapts 3.4x faster than collagenous tendon/bone tissue ($\tau_c=120d$). As aerobic thresholds rise, athletes feel capable of absorbing high mileage, driving the Orthopedic Dissociation Index ($ODI$) above 1.35 and causing collagen micro-tearing before synthesis completes.
+- **Permanent Operational Rule:** Never allow weekly running mechanical strain to increase by more than 10% between consecutive step-cycle loading weeks, regardless of how high aerobic CTL climbs. Maintain $ODI \le 1.35$.
+- **Verification Check:** `python -c "from closed_loop_optimizer import MesoCycleTargetsAndConstraints; cfg=MesoCycleTargetsAndConstraints(); assert cfg.max_weekly_run_mech_strain <= 350.0"`.
+
+### `HEUR-003` — Specify Openpyxl Engine Explicitly in pandas read_excel [`ACTIVE` | `workouts`]
+
+# `HEUR-003`: Specify Openpyxl Engine Explicitly in pandas read_excel
+
+- **Target Subsystem / Path:** `util.py:load_workouts()`, `clean_file.py`.
+- **Symptom / Failure Mode:** `xlrd.biffh.XLRDError: Excel xlsx file; not supported` during workout library loading.
+- **Root Physics / Mechanism:** Modern versions of `xlrd` (>=2.0.0) removed support for `.xlsx` files and only support legacy `.xls`. If pandas cannot infer or defaults to `xlrd`, reading `Run.xlsx` or `Bike.xlsx` crashes immediately.
+- **Permanent Operational Rule:** Every call to `pd.read_excel()` on `.xlsx` files must explicitly specify `engine='openpyxl'`.
+- **Verification Check:** `python -c "import pandas as pd; pd.read_excel('Run.xlsx', engine='openpyxl')"`.
+
+### `HEUR-004` — Axial Spinal Fatigue and Running Impact Interaction: Enforcing 24h Buffer Between Heavy Deadlifts and Threshold/Long Runs [`ACTIVE` | `safety`]
+
+# `HEUR-004`: Axial Spinal Fatigue and Running Impact Interaction: Enforcing 24h Buffer Between Heavy Deadlifts and Threshold/Long Runs
+
+- **Target Subsystem / Path:** `src/closed_loop_optimizer.py` (`HybridAthleteMILPOptimizer`), `src/classes.py` (`HybridVariables`).
+- **Symptom / Failure Mode:** Acute lumbar erector cramping, sacroiliac joint destabilization, disc herniation risk, hamstring strain during late run intervals, and severe biomechanical breakdown under repetitive running impact ($2.5-3.0\times$ BW).
+- **Root Physics / Mechanism:** Heavy conventional and Romanian deadlifts impose up to $18.45\text{ kN}$ compressive force and $3.28\text{ kN}$ shear load on the L4/L5 lumbar spine. Following heavy deadlifting, lumbar muscular stabilization and proprioception are severely depressed for 24–48 hours. Running ground reaction forces ($160-180\text{ strides/min}$) then transfer directly to the passive spinal column rather than active musculature, inducing catastrophic shear stress. Conversely, attempting heavy deadlifts with running-fatigued posterior stabilizers leads to spinal flexion under load.
+- **Permanent Operational Rule:**
+  1. **Zero Same-Day Pairing:** Heavy deadlift workouts and threshold/long run workouts must NEVER share a calendar day ($x_{i,d} + x_{j,d} \le 1$).
+  2. **24-Hour Adjacent Buffer:** Heavy deadlift workouts and threshold/long run workouts must NEVER be placed on consecutive calendar days ($x_{i,d} + x_{j,d+1} \le 1$ and $x_{i,d+1} + x_{j,d} \le 1$).
+  3. **Synergistic Stacking:** Deadlifts should be stacked on days with swimming sessions (hydrostatic pressure and horizontal buoyancy decompress the spine while promoting active recovery) or on dedicated lower-body days separated from running.
+- **Verification Check:**
+  `python -c "import sys; sys.path.insert(0, 'src'); from closed_loop_optimizer import HybridAthleteMILPOptimizer; opt = HybridAthleteMILPOptimizer(); res = opt.optimize(); assert res['status'] in ('OPTIMAL', 'FEASIBLE') and res['deadlift_run_conflicts'] == 0, 'Deadlift-Run conflict detected'"`
+
+### `HEUR-005` — Disambiguate Stryd CIQ Developer Power Field and Enforce ANT+ Pairing [`ACTIVE` | `integrations`]
+
+# `HEUR-005`: Disambiguate Stryd CIQ Developer Power Field and Enforce ANT+ Pairing
+
+- **Target Subsystem / Path:** `src/clean_file.py`, `src/athlete_profile.py`, Garmin Enduro 3 sensor pairing.
+- **Symptom / Failure Mode:** Running power in `.fit` files reads 20% to 30% higher than Stryd values (e.g., 340W native vs 270W Stryd), or Stryd foot pod fails to connect to the Garmin Enduro 3 watch prior to a run.
+- **Root Physics / Mechanism:**
+  1. Garmin does not use a native ANT+ Running Power profile for third-party foot pods. The `Stryd Zones` Connect IQ data field writes Stryd wattage into a Connect IQ developer field named `'Power'` (capital `P`), while Garmin native wrist running power writes to standard field `'power'` (lowercase `p`). Naive iteration over `record` fields overwrites or confuses the two streams.
+  2. Stryd Model 17 (2019 "Wind" release) features a single-channel Bluetooth LE chip. If a mobile phone app holds the BLE connection, a watch attempting BLE pairing is locked out.
+- **Permanent Operational Rule:**
+  1. In `.fit` parsers, running power MUST be extracted where `field.is_dev == True` and `field.name == 'Power'`.
+  2. Also extract developer fields `Form Power`, `Leg Spring Stiffness` (LSS, kN/m), and `Air Power`.
+  3. Turn Garmin Native Running Power `Off` in Enduro 3 Run Settings (`Activities & Apps -> Run -> Run Settings -> Running Power -> Off`).
+  4. Pair Stryd Model 17 to Enduro 3 strictly via **ANT+** (`FP-XXXXX`), setting Pace & Distance = Always.
+- **Verification Check:**
+  `python -c "from src.clean_file import parse_fit_power; assert parse_fit_power('sample_run.fit')['source'] == 'stryd_dev_field'"`
+
+### `HEUR-006` — Tacx Neo 2T Incline-Mode Testing and Invalidate Left-Right Balance [`ACTIVE` | `integrations`]
+
+# `HEUR-006`: Tacx Neo 2T Incline-Mode Testing and Invalidate Left-Right Balance
+
+- **Target Subsystem / Path:** `src/clean_file.py`, Tacx Training/Utility app settings, smart trainer testing protocols.
+- **Symptom / Failure Mode:**
+  1. Erg-mode resistance clamps athlete cadences during maximal 3-minute or 12-minute CP tests, causing early failure ("spiral of death").
+  2. Tacx Neo 2T unexpectedly shuts down and drops ANT+ FE-C / BLE connections during the 30-minute recovery period between test intervals.
+  3. Telemetry analysis falsely flags a severe single-leg strength deficit due to erratic balance numbers.
+- **Root Physics / Mechanism:**
+  1. The Neo 2T motor brake has $\pm 1\%$ accuracy and auto-calibrates without spin-down. However, ERG mode prevents self-paced pacing required for Monod-Scherrer CP testing.
+  2. When operated unplugged, the Neo 2T relies on pedaling to power its electronics. When pedaling ceases for $>1-2$ minutes during recovery, the unit powers down completely.
+  3. The Neo 2T estimates `left_right_balance` via internal inductive stator coil sensors rather than direct pedal-spindle strain gauges. Dynamic cadence and torque transients create spurious sensor spikes despite total wattage accuracy.
+- **Permanent Operational Rule:**
+  1. Never perform spin-down calibrations on Tacx Neo 2T.
+  2. Execute all 3-min/12-min CP tests and Kolie Moore tests in **Slope/Incline Mode** (+1.5% to +2.0% fixed grade) with **Road Feel = Off** and **Downhill Drive = Off**.
+  3. Keep the external AC power brick plugged in at all times during workouts and tests with rest intervals.
+  4. Explicitly ignore and discard the `left_right_balance` stream from Neo 2T `.fit` files.
+- **Verification Check:**
+  `python -c "from src.clean_file import clean_bike_fit; df = clean_bike_fit('sample_ride.fit'); assert 'left_right_balance' not in df.columns or df['left_right_balance'].isna().all()"`
+
+### `HEUR-007` — Pool Swim Active Length Parsing and Multi-Device Deduplication Window [`ACTIVE` | `integrations`]
+
+# `HEUR-007`: Pool Swim Active Length Parsing and Multi-Device Deduplication Window
+
+- **Target Subsystem / Path:** `src/clean_file.py`, `src/sync_8020_to_tp.py`, pool swim and multi-device ride ingestion.
+- **Symptom / Failure Mode:**
+  1. Pool swim duration and sTSS are severely inflated (by 20% to 50%), distorting weekly aerobic load and failing 80/20 intensity ratios.
+  2. Weekly TSS is doubled when an athlete records a ride simultaneously on both a Garmin Edge 530 bike computer and a Garmin Enduro 3 watch.
+  3. SWOLF calculations and average stroke rate collapse or yield divide-by-zero errors when swim drill logs are present.
+- **Root Physics / Mechanism:**
+  1. Garmin Swim 2 and Enduro 3 pool swim files store individual laps as `length` messages. With Auto-Rest enabled, `session.total_elapsed_time` includes all rest seconds at the lane wall.
+  2. Drills (`swim_stroke == 'drill'` or `event == 'drill'`) record zero stroke counts (`total_strokes == None/0`), corrupting stroke efficiency metrics if not filtered out.
+  3. Athletes frequently record rides on an Edge 530 (for handlebar cockpit viewing) and an Enduro 3 (for Garmin Unified Training Status). Syncing both creates duplicate activities in TrainingPeaks.
+- **Permanent Operational Rule:**
+  1. In pool swim `.fit` parsing, compute active swim duration strictly by summing `length` messages where `length_type == 'active'`.
+  2. Filter out lengths where `swim_stroke == 'drill'` from SWOLF and stroke rate averages, but retain their duration in low-intensity aerobic swim time.
+  3. Ingest only ONE `.fit` file per activity when start timestamps match within 300 seconds (`abs(start_time_A - start_time_B) < 300s`), prioritizing Edge 530 for cycling data quality.
+- **Verification Check:**
+  `python -c "from src.clean_file import deduplicate_fit_uploads, parse_pool_swim; assert deduplicate_fit_uploads(files) and parse_pool_swim('swim.fit')['active_only']"`
+

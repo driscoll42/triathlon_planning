@@ -1,0 +1,3 @@
+# Dependencies are defined in pyproject.toml (single source of truth, TASK-014 / ADR-015).
+# Install everything for development with:
+-e .[test,garmin]
