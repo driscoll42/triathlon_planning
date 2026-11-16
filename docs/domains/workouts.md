@@ -44,6 +44,7 @@ The modular LEGO catalog standardizes sessions across all 5 disciplines:
 1. **Strength Disciplines (`data/strength_workouts.csv`):**
    - *Anatomical Adaptation (`STR_AA1`):* High-volume (15–20 reps) dumbbell/core movements establishing tendon stiffness.
    - *Maximum Strength (`STR_MS1_HEAVY`, `STR_MS2_HEAVY`):* 85%–88% 1RM barbell compound drivers (Back Squat, Conventional Deadlift, OHP, Bench; no trap bar per `TASK-028`).
+   - *Cap-compatible heavy lifts (`STR_HV1_SQUAT`, `STR_HV2_DEADLIFT`, `STR_HV3_SQUAT_SL`, `STR_HV4_DEADLIFT_SL`, `TASK-033`):* 87.5% 1RM main lift, 2-3 heavy lower-body barbell sets + bench, axial 53-62 / neuro 66-73 so they fit CURRENT_ATHLETE's daily caps (65/75). Loads from `library.build.strength_loads`; added by `scripts/migrations/m2026_11_16_cap_compatible_heavy_lifts.py` (the MS rows at axial 80-95 remain but are unschedulable under those caps).
    - *In-Season Maintenance (`STR_SM1_MAINT`, `STR_SM2_MAINT`):* 30–45m sessions sustaining neural drive with minimal DOMS.
    - *Plyometrics (`STR_PLYO1`):* Depth jumps (<200ms GCT), pogo hops, and broad jumps for leg-spring stiffness ($LSS$).
    - *Upper Hypertrophy (`STR_UPPER_HYP`):* DB incline press, weighted pull-ups, and DB rear-delt flys for aero and swimming posture.
