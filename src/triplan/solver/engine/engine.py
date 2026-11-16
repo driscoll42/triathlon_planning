@@ -13,8 +13,8 @@ The three historical engines are option presets (see ``engine.config`` for every
 * ``legacy_options()`` -> ``optimize_weekly_schedule`` (one workout/day, exact count, day scheduler
   goals, single solve)
 
-Builder seams for follow-up work: TASK-018 (carry-in state, in-model ACWR) becomes a new builder
-module appended after ``orthopedic``; TASK-019 (session structure, 80/20 TiZ) extends
+Builder seams: TASK-018 (ADR-019) added ``builders.load_dynamics`` (carry-in constants, in-model running ACWR, CTL
+ramp, run-minutes guard; ``carry_in=`` constructor argument); TASK-019 (session structure, 80/20 TiZ) extends
 ``intensity_structure``. TASK-020 (ADR-018) added selection/layout cuts (``_add_cut``), dominance
 pruning before ``WorkoutTable`` construction and the week-reversal symmetry row (``builders.symmetry``).
 """
@@ -29,8 +29,8 @@ import numpy as np
 
 from triplan.library.compound import make_lift_easy_combos
 from triplan.solver.engine import session_quality as sq
-from triplan.solver.engine.builders import (calendar, goals, intensity_structure, orthopedic, session_structure,
-                                            strength, symmetry)
+from triplan.solver.engine.builders import (calendar, goals, intensity_structure, load_dynamics, orthopedic,
+                                            session_structure, strength, symmetry)
 from triplan.solver.engine.config import EngineOptions, WEEKENDS, WeekConfig, WorkoutTable
 from triplan.solver.engine.context import BuildContext
 from triplan.solver.engine.model import INF, WeekModel, add_row_to_highs
@@ -54,8 +54,9 @@ class UnifiedWeekEngine:
     """Build and solve one training week for any option preset."""
 
     def __init__(self, workouts: Sequence[Any], config: Any, options: EngineOptions,
-                 notes: Optional[List[str]] = None) -> None:
+                 notes: Optional[List[str]] = None, carry_in: Optional[Any] = None) -> None:
         self.config = config
+        self.carry_in = carry_in           # WeekCarryIn (TASK-018): previous-week constants; None = isolated week
         self.opt = options
         self.dominance: Optional[DominanceReport] = None
         workouts = list(workouts)
@@ -105,7 +106,7 @@ class UnifiedWeekEngine:
         opt = self.opt
         model = WeekModel(empty_row_policy=opt.empty_row_policy)
         ctx = BuildContext(model=model, table=self.table, cfg=self.cfg, opt=opt, limits=self.limits,
-                           sets=self.sets, allowed=self.allowed, key=self.key)
+                           sets=self.sets, allowed=self.allowed, key=self.key, carry_in=self.carry_in)
         calendar.add_variables(ctx, goals.cost_terms(ctx))
         goals.declare_goals(ctx)
         if opt.safety or opt.tier1:
@@ -136,6 +137,7 @@ class UnifiedWeekEngine:
             orthopedic.add_weekly_run_strain_cap(ctx)
         if opt.tier1:
             orthopedic.add_tier1(ctx)
+        load_dynamics.add_carry_in(ctx)       # TASK-018: carry-in constants, in-model ACWR / CTL ramp / run minutes
         if opt.barbell_share:
             strength.add_barbell_share(ctx)
         session_structure.add_session_structure(ctx)

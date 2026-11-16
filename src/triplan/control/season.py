@@ -8,7 +8,9 @@ import logging
 from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
 from triplan.control.mpc import ClosedLoopMPCController
 from triplan.library.candidates import build_default_candidate_library
+from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run_strain
 from triplan.physiology.state import AthletePhysiologicalState
+from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import build_season_matrix, filter_test_workouts, normalize_distance
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
@@ -110,11 +112,12 @@ def generate_closed_loop_season_schedule(
         run_lockout_weeks=getattr(profile, "reentry_run_test_lockout_weeks", 6),
         min_gap_weeks=getattr(profile, "cp_test_min_gap_weeks", 8),
     )
-    last_test_week: Dict[str, int] = {}   # per-sport hand-off state between weeks (TASK-018 extends this)
 
-    # Initialize Controller and Physiological State
+    # Initialize Controller and Physiological State (seeded from the profile incl. run CTL, TASK-018)
     athlete_state = profile.to_athlete_state() if profile else AthletePhysiologicalState()
     mpc = ClosedLoopMPCController(athlete_state)
+    # Week-to-week hand-off (TASK-018, ADR-019): boundary day loads, EWMA ACWR / CTL state, ADR-011 test weeks.
+    carry = initial_carry_in(athlete_state, profile, lib)
 
     all_daily_rows = []
     season_summary_rows = []
@@ -181,16 +184,16 @@ def generate_closed_loop_season_schedule(
             if cfg.max_weekly_run_mech_strain > last_mech * max_ramp:
                 cfg.max_weekly_run_mech_strain = round(max(last_mech * max_ramp, 150.0), 1)
 
-        # Check safety bounds: ODI > 1.35 (1.20 in masters mode) or ACWR > 1.30 (1.15 in masters mode)
+        # Safety bound: ODI > 1.35 (1.20 in masters mode). The running-ACWR ceiling (1.20 during re-entry, 1.25
+        # after; ADR-012) is no longer a post-hoc shrink of the strain cap: it is a per-day linear row inside the
+        # week's MILP, fed by `carry` (TASK-018). ODI has no in-model form yet (TASK-022), so it stays here.
         odi_limit = 1.20 if athlete_state.masters_mode else 1.35
-        acwr_limit = 1.15 if athlete_state.masters_mode else 1.30
-        if profile is not None and (in_reentry or athlete_state.run_ctl < profile.reentry_run_ctl_exit):
-            acwr_limit = min(acwr_limit, profile.max_running_acwr_reentry)   # ADR-012 DECISION-014
+        acwr_cap, acwr_eps = carry.load.acwr_max, carry.load.acwr_eps
 
-        if pre_odi > odi_limit or pre_acwr > acwr_limit:
+        if pre_odi > odi_limit:
             recal_action = "SAFETY_RECALIBRATION_APPLIED"
             # Throttling mechanical run strain ceiling and shifting TSS to bike
-            scale_down = min(odi_limit / pre_odi, acwr_limit / pre_acwr)
+            scale_down = odi_limit / pre_odi
             cfg.max_weekly_run_mech_strain = round(cfg.max_weekly_run_mech_strain * scale_down, 1)
             cfg.target_bike_run_tss_splits = {"Bike": 0.70, "Run": 0.30}
 
@@ -213,8 +216,8 @@ def generate_closed_loop_season_schedule(
 
         # 4. Solve Week MILP
         # ADR-011 lockouts: forbidden CP/CSS tests are removed from the candidates BEFORE the solve.
-        week_lib = filter_test_workouts(lib, wk, last_test_week, **test_rules)
-        scheduler = TriathlonMILPScheduler(week_lib, cfg)
+        week_lib = filter_test_workouts(lib, wk, carry.last_test_week, **test_rules)
+        scheduler = TriathlonMILPScheduler(week_lib, cfg, carry_in=carry)
         plans = scheduler.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
 
         plan = plans[0] if plans else None
@@ -233,16 +236,21 @@ def generate_closed_loop_season_schedule(
             for day_wkts in plan["schedule"].values():
                 for w in day_wkts:
                     if w.flags.get("test"):
-                        last_test_week[w.sport] = week_num
+                        carry.last_test_week[w.sport] = week_num
             # Advance physiological states day by day
+            max_acwr, max_excess = 0.0, -1e9
             for d in range(7):
                 wkts = plan["schedule"][d]
                 d_aerobic = sum(w.aerobic_tss for w in wkts)
-                d_mech = sum(w.mechanical_strain for w in wkts if w.sport == "Run")
+                d_mech = sum(run_strain(w) for w in wkts)   # run leg of a lift + run combo included
                 d_bike = sum(w.aerobic_tss for w in wkts if w.sport == "Bike")
                 d_run = sum(w.aerobic_tss for w in wkts if w.sport == "Run")
                 d_swim = sum(w.aerobic_tss for w in wkts if w.sport == "Swim")
                 athlete_state.step_day(d_aerobic, d_mech, d_bike, d_run, d_swim)
+                max_acwr = max(max_acwr, athlete_state.running_mechanical_acwr)
+                max_excess = max(max_excess, athlete_state.running_acute_mech - acwr_cap * athlete_state.running_chronic_mech)
+            run_minutes = float(sum(run_minutes_of(w) for d in range(7) for w in plan["schedule"][d]))
+            carry = next_week_carry_in(carry, plan["schedule"], athlete_state, profile, lib, plan["total_tss"])
 
             if any(plan["schedule"][d] for d in range(7)):
                 df_week = format_plan_to_dataframe(plan, week_num=week_num, phase_name=phase_name)
@@ -267,6 +275,12 @@ def generate_closed_loop_season_schedule(
                 "TSB": round(athlete_state.total_tsb, 1),
                 "Ending_ODI": round(athlete_state.orthopedic_decoupling_index, 3),
                 "Ending_ACWR": round(athlete_state.running_mechanical_acwr, 3),
+                "Max_Run_ACWR": round(max_acwr, 3),
+                "Run_ACWR_Cap": round(acwr_cap, 3),
+                "Run_ACWR_Excess": round(max_excess, 3),     # max_d (A_d - cap * C_d); the in-model row bounds it by eps
+                "Run_ACWR_Eps": round(acwr_eps, 3),
+                "Run_Minutes": run_minutes,
+                "Run_CTL": round(athlete_state.run_ctl, 1),
                 "Recalibration": " + ".join(x for x in (recal_action, pert_info, heavy_note) if x),
                 "Solve_Status": plan.get("status"),
                 "MIP_Gap": plan.get("mip_gap"),

@@ -27,6 +27,8 @@ from triplan.solver.engine.model import INF
 
 def is_week_reversal_symmetric(ctx: BuildContext) -> bool:
     opt = ctx.opt
+    if ctx.carry_in is not None and ctx.carry_in.is_active:
+        return False   # TASK-018: boundary constants and the EWMA states make the week time-asymmetric
     if opt.legacy is not None or opt.session_model == "partition_brick":
         return False
     if ctx.limits.weekday_single_workout_cap is not None:

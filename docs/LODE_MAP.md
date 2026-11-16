@@ -39,6 +39,8 @@
 - **`ADR-016`** (`general`): Scope the Startup Token Budget to the Charter's Read List
 - **`ADR-017`** (`optimizer`): Unified WeekModel engine with modular constraint builders
 - **`ADR-018`** (`optimizer`): Single deterministic solve with selection cuts, dominance pruning and symmetry breaking replaces the multi-seed race
+- **`ADR-019`** (`mpc`): Carry-in state and in-model linearized running ACWR, CTL ramp and run-minutes rows
+- **`ADR-020`** (`physiology`): Sport-specific quality q_i classifies hard and key sessions; lift+easy combos are compound candidates; canonical 80/20 is a hard engine rule
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`

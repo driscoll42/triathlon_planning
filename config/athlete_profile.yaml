@@ -37,6 +37,9 @@ initial_metabolic_state: 15.0
 initial_connective_tissue_state: 20.0
 initial_running_acute_mech: 5.0
 initial_running_chronic_mech: 8.0
+starting_run_ctl: 1.0
+starting_run_atl: 0.6
+max_weekly_ctl_ramp: 7.0
 orthopedic_status: HEALTHY
 max_running_acwr_reentry: 1.2
 max_running_acwr: 1.25

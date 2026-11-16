@@ -110,6 +110,15 @@ class SafetyLimits:
         return float(self.pigeonhole_run_share.get(n_runs, 1.0))
 
 
+def run_strain(w: Any) -> float:
+    """Running mechanical strain of ``w`` (whole workout for a run, the cardio part of a lift + run combo)."""
+    if getattr(w, "sport", "") == "Run":
+        return float(getattr(w, "mechanical_strain", 0.0))
+    if getattr(w, "cardio_sport", "") == "Run":
+        return float(getattr(w, "cardio_mech_strain", 0.0))
+    return 0.0
+
+
 def _flags(w: Any) -> Dict[str, int]:
     return getattr(w, "flags", None) or {}
 
@@ -344,6 +353,15 @@ class Tier1Registry:
             return None
         col = self.hooks.add_var(0.0, float(ub), True)
         self.slacks.append(_Slack(col, category, label, self.weight(category), message))
+        return col
+
+    def add_named(self, category: str, label: str, ub: float, weight: float, message: str) -> Optional[int]:
+        """Register a slack with an explicit weight (outside the relaxation-order ranks), e.g. the TASK-018
+        running-ACWR floor waiver, which is cheaper than every ranked relaxation."""
+        if ub <= 0:
+            return None
+        col = self.hooks.add_var(0.0, float(ub), True)
+        self.slacks.append(_Slack(col, category, label, float(weight), message))
         return col
 
     def costs(self) -> Dict[int, float]:

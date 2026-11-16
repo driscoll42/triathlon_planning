@@ -434,3 +434,20 @@ def test_legacy_options_do_not_enable_the_new_rules():
     assert not any([o.prefilter_grey_zone, o.quality_classification, o.one_hard_per_day, o.key_sessions,
                     o.hard_days_hard, o.window_gating, o.lift_easy_combo, o.canonical_8020])
     assert hybrid_options().tiz_band is False and hybrid_options().canonical_8020 and meso_options().canonical_8020
+
+
+def test_carry_in_run_minutes_and_acwr_rows_see_the_combo_run_leg():
+    from triplan.solver.engine.carry_in import LoadState, WeekCarryIn
+    lib = [wk(0, "LIGHT", "Strength", 40, mech=50.0)]
+    c = cfg(sport_freq_bounds={"Swim": (0, 0), "Bike": (0, 0), "Run": (0, 7), "Strength": (1, 1)}, target_weekly_tss=40.0)
+    only_run = {"combo_cardio_sports_after_other_lift": ["Run"]}
+    eng = UnifiedWeekEngine(lib, {**c.__dict__, **only_run}, meso_options(),
+                            carry_in=WeekCarryIn(load=LoadState(run_acute=0, run_chronic=0, total_ctl=0, acwr_max=1.2,
+                                                                acwr_min=0.0, acwr_eps=0.0, run_minutes_cap=10.0)))
+    ctx = eng.build_model()
+    i = next(k for k, w in enumerate(eng.workouts) if w.cardio_sport == "Run")
+    names = ctx.model.row_names
+    starts, idx, val, rlb, rub = ctx.model.csr()
+    r = names.index("run_minutes_cap")
+    coef = dict(zip(idx[starts[r]:starts[r + 1]], val[starts[r]:starts[r + 1]]))
+    assert coef[ctx.x(i, 0)] == 20.0            # the run leg (20 min), not the 60 min session

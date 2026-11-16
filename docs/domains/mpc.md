@@ -65,3 +65,6 @@ The controller in `ClosedLoopMPCController` auto-regulates both endurance and st
 <!-- LODE_AUTOGEN_START -->
 <!-- Auto-rendered by lodectx.py sync-docs -->
 <!-- LODE_AUTOGEN_END -->
+
+### Cross-week carry-in and in-model ACWR (`ADR-019`, `TASK-018`)
+`control/season.py` hands a `WeekCarryIn` (`solver/engine/carry_in.py`, built by `control/carry.py`) from week k to week k+1: Sunday/Saturday `DayLoad`s (hard, heavy/long run, deadlift, strength flags; TSS/strain/ANS) become constants of the day-0 adjacency, 48h and strength rows, and the EWMA state `(A0, C0, CTL0, run CTL)` becomes constants of `engine/builders/load_dynamics.py`: per-day `A_d - rho C_d <= eps` (rho 1.20 while run CTL < 15, else 1.25), the Tier-1 0.80 floor waiver `relax_acwr_floor`, the weekly CTL ramp (`max_weekly_ctl_ramp`) and the absolute run-minutes guard `max(60, prev + 15)`. `eps` is the one-smallest-run bump from a detrained state, so the raw ratio can exceed rho at low chronic load (ADR-019). The season loop keeps only the ODI recalibration.
