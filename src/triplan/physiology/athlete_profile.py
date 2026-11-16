@@ -90,13 +90,21 @@ class AthleteProfile:
     initial_connective_tissue_state: float = 20.0 # Tendon / Bone matrix convolution state (tau=120d)
     initial_running_acute_mech: float = 5.0  # Acute mechanical running load (tau=7d)
     initial_running_chronic_mech: float = 8.0 # Chronic mechanical running load (tau=28d)
+    # TASK-018: per-sport PMC seed. Run CTL decides whether the re-entry ACWR cap (1.20) or the post-re-entry cap
+    # (1.25) applies, so it must be seeded from the profile instead of the AthletePhysiologicalState defaults.
+    # Bike / swim split the remainder of starting_ctl / starting_atl 55:25 (state default proportions).
+    starting_run_ctl: float = 1.0            # Last run 2026-07-13 (DECISION-003): essentially detrained
+    starting_run_atl: float = 0.6
+    # TASK-018: weekly Banister CTL ramp ceiling (CTL points / week), enforced in-model as a linear row. 7 is the
+    # upper end of the usual 5-8 TSS/day/week guidance; masters athletes are capped at 5 (ADR-019).
+    max_weekly_ctl_ramp: float = 7.0
 
     # Injury guard: 'HEALTHY', 'ACHILLES_REHAB', 'PATELLAR_GUARD', or 'RESTRICTED_RUN'
     orthopedic_status: str = "HEALTHY"
 
     # DECISION-014: running mechanical ACWR ceiling, tightened from 1.30. The ratio is unstable when chronic
     # load is near zero, so re-entry is also governed by absolute minutes (floor + max weekly increase).
-    # NOTE: closed_loop_optimizer.py still hardcodes 1.30; wiring these is part of TASK-018.
+    # TASK-018: enforced in-model per day (solver.engine.builders.load_dynamics), not post hoc.
     max_running_acwr_reentry: float = 1.20   # Applies while run CTL < reentry_run_ctl_exit
     max_running_acwr: float = 1.25           # Applies after re-entry
     reentry_run_ctl_exit: float = 15.0
@@ -275,6 +283,10 @@ class AthleteProfile:
         unknown = [c for c in self.tier1_relaxation_order if c not in vocab]
         if unknown:
             e.append(f"tier1_relaxation_order has unknown entries {unknown}")
+        if self.starting_run_ctl < 0 or self.starting_run_atl < 0:
+            e.append("starting_run_ctl / starting_run_atl must be >= 0")
+        if self.max_weekly_ctl_ramp <= 0:
+            e.append("max_weekly_ctl_ramp must be > 0")
         if self.recovery_week_strength_sessions < 0 or self.reentry_heavy_strength_sessions < 0:
             e.append("strength session counts must be >= 0")
         if self.mesocycle_build_weeks < 1 or self.mesocycle_recovery_weeks < 0:
@@ -306,6 +318,9 @@ class AthleteProfile:
         """Builds an AthletePhysiologicalState initialized with this profile."""
         from triplan.physiology.state import AthletePhysiologicalState
         is_masters = self.is_masters_athlete or (self.age >= 45)
+        run_ctl = min(self.starting_run_ctl, self.starting_ctl)   # the run share never exceeds the total
+        run_atl = min(self.starting_run_atl, self.starting_atl)
+        rest_ctl, rest_atl = self.starting_ctl - run_ctl, self.starting_atl - run_atl
         return AthletePhysiologicalState(
             day_index=0,
             metabolic_fitness_state=self.initial_metabolic_state,
@@ -315,6 +330,12 @@ class AthleteProfile:
             masters_mode=is_masters,
             total_ctl=self.starting_ctl,
             total_atl=self.starting_atl,
+            run_ctl=run_ctl,
+            run_atl=run_atl,
+            bike_ctl=rest_ctl * 55.0 / 80.0,
+            bike_atl=rest_atl * 55.0 / 80.0,
+            swim_ctl=rest_ctl * 25.0 / 80.0,
+            swim_atl=rest_atl * 25.0 / 80.0,
         )
 
     def to_mesocycle_config(self, phase_name: str = "base", tss_target: Optional[float] = None):

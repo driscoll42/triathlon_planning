@@ -7,6 +7,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# EWMA smoothing constants, the single source for ``step_day`` AND the in-model linearised ACWR / CTL-ramp
+# rows (``solver.engine.builders.load_dynamics``, TASK-018). TASK-021 (exact Banister decay) changes them here.
+ALPHA_ACUTE = 2.0 / (7.0 + 1.0)     # running mechanical acute load, tau = 7 d
+ALPHA_CHRONIC = 2.0 / (28.0 + 1.0)  # running mechanical chronic load, tau = 28 d
+ALPHA_ATL = 2.0 / (7.0 + 1.0)       # Banister ATL
+ALPHA_CTL = 2.0 / (42.0 + 1.0)      # Banister CTL
+
 
 @dataclass
 class AthletePhysiologicalState:
@@ -54,14 +61,12 @@ class AthletePhysiologicalState:
         self.connective_tissue_state = (1.0 - lambda_c) * self.connective_tissue_state + lambda_c * daily_run_mech
 
         # EWMA Mechanical ACWR
-        alpha_a = 2.0 / (7.0 + 1.0)
-        alpha_c = 2.0 / (28.0 + 1.0)
+        alpha_a, alpha_c = ALPHA_ACUTE, ALPHA_CHRONIC
         self.running_acute_mech = alpha_a * daily_run_mech + (1.0 - alpha_a) * self.running_acute_mech
         self.running_chronic_mech = alpha_c * daily_run_mech + (1.0 - alpha_c) * self.running_chronic_mech
 
         # Banister PMC (ATL tau=7d, CTL tau=42d)
-        alpha_atl = 2.0 / (7.0 + 1.0)
-        alpha_ctl = 2.0 / (42.0 + 1.0)
+        alpha_atl, alpha_ctl = ALPHA_ATL, ALPHA_CTL
         self.bike_atl = alpha_atl * daily_bike_tss + (1.0 - alpha_atl) * self.bike_atl
         self.bike_ctl = alpha_ctl * daily_bike_tss + (1.0 - alpha_ctl) * self.bike_ctl
         self.run_atl = alpha_atl * daily_run_tss + (1.0 - alpha_atl) * self.run_atl
