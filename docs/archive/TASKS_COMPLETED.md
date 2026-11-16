@@ -159,7 +159,7 @@
 - **Result:** sprint season, 18 re-entry base/build/overload weeks: median solved/target 1.40 -> 1.02, max 1.28 (was 1.75). Slow matrix 8 seasons: 0 fallback, 0 violations. Side effect owned by `TASK-038`: re-entry recovery weeks now solve 105-166 vs 72-112 target.
 - **Verification:** `tests/test_season_periodization.py` (+2: relief levels touch minimums only; 8-week re-entry season median in [0.9, 1.15]). Full suite 280 pass + 8 `slow` = 288 pass (518 s).
 
-## Phase 2 — TASK-038 — completed 2026-11-16 (PR #PRN)
+## Phase 2 — TASK-038 — completed 2026-11-16 (PR #15)
 
 - [x] **`TASK-038` (`optimizer`):** **Recovery/Taper/Race-Week TSS Overshoot Beyond Deload Relief** — after `TASK-034`, recovery weeks still solved up to +68 TSS (`CURRENT_ATHLETE`) / +244 (reference) and taper/race weeks up to +44 / +275 over target.
 
