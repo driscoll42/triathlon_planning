@@ -8,6 +8,13 @@ import numpy as np
 import pandas as pd
 from classes import triVariables as triv
 
+# Raw-scrape normalization constants (TASK-013). NOT athlete thresholds: the xlsx scrape cache stores
+# minutes/TSS computed with fixed reference values, and the canonical library (library.build)
+# re-derives every athlete-dependent number from config/athlete_profile.yaml.
+SCRAPE_REFERENCE_RUN_CP = 295.0
+SCRAPE_REFERENCE_BIKE_CP = 170.0
+SCRAPE_REFERENCE_SWIM_CSS = 35.29
+
 
 def calculate_TSS(zone_times, zone_multipliers, ftp):
     """Calculates the training stress of the activity.
@@ -29,12 +36,12 @@ def calculate_sTSS(zone_distances):
     total_distance = sum(zone_distances)
     if total_distance == 0:
         return 0.0, 0.0, 0.0, 0.0, 0.0
-    swim_speeds = triv.swim_zone_css_multiplier * triv.swim_css
+    swim_speeds = triv.swim_zone_css_multiplier * SCRAPE_REFERENCE_SWIM_CSS
     zone_times = zone_distances / swim_speeds
     low_time = zone_times[0] + zone_times[1]
     high_time = zone_times[2] + zone_times[3] + zone_times[4]
     normalized_swim_speed = total_distance / sum(zone_times)
-    intensity = normalized_swim_speed / triv.swim_css
+    intensity = normalized_swim_speed / SCRAPE_REFERENCE_SWIM_CSS
     stss = np.power(intensity, 3) * sum(zone_times) / 60.0 * 100
 
     return normalized_swim_speed, intensity, stss, low_time, high_time
@@ -177,7 +184,7 @@ def create_workout_dataframe(raw_rows, wkt_type):
                 triv.intensity_factor, triv.normalized_power]:
         df[col] = 0.0
 
-    swim_speeds = triv.swim_zone_css_multiplier * triv.swim_css
+    swim_speeds = triv.swim_zone_css_multiplier * SCRAPE_REFERENCE_SWIM_CSS
 
     for index, row in df.iterrows():
         descrip = row['Description']
@@ -280,12 +287,12 @@ def create_workout_dataframe(raw_rows, wkt_type):
             zone_vals = np.array([z1, z2, z3, z4, z5])
 
             if wkt_type == 'Run':
-                norm_p, int_f, tss_val = calculate_TSS(zone_vals, triv.run_zone_power_multiplier, triv.run_ftp)
+                norm_p, int_f, tss_val = calculate_TSS(zone_vals, triv.run_zone_power_multiplier, SCRAPE_REFERENCE_RUN_CP)
                 df.loc[index, triv.normalized_power] = norm_p
                 df.loc[index, triv.intensity_factor] = int_f
                 df.loc[index, triv.tss] = tss_val
             elif wkt_type == 'Bike':
-                norm_p, int_f, tss_val = calculate_TSS(zone_vals, triv.bike_zone_power_multiplier, triv.bike_ftp)
+                norm_p, int_f, tss_val = calculate_TSS(zone_vals, triv.bike_zone_power_multiplier, SCRAPE_REFERENCE_BIKE_CP)
                 df.loc[index, triv.normalized_power] = norm_p
                 df.loc[index, triv.intensity_factor] = int_f
                 df.loc[index, triv.tss] = tss_val

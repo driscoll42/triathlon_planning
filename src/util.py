@@ -27,7 +27,10 @@ def load_workouts(include_strength=True, library_path=None):
     return wkend_wts_df.reset_index(drop=True), wkday_wts_df.reset_index(drop=True)
 
 
-def calculate_plan_score(wkt, verbose=False):
+def calculate_plan_score(wkt, verbose=False, target_tss=None):
+    """Legacy plan quality score (reporting metric). target_tss defaults to triVariables.target_tss;
+    pass it explicitly instead of mutating the class global (TASK-013)."""
+    target_tss = triv.target_tss if target_tss is None else target_tss
     def calculate_sport_scores(wkt, exer):
         exer.dur_percent = exer.dur / wkt.duration
         spt_dur_tgt_score = 1.0 - abs(1.0 - exer.dur_percent / exer.tgt_percent)
@@ -77,7 +80,7 @@ def calculate_plan_score(wkt, verbose=False):
         wkt.high_split_tgt_score += high_split_tgt_score
 
     if triv.tot_tss_weight > 0.0:
-        wkt.tss_score = 1.0 - abs(1.0 - wkt.total_tss / triv.target_tss)
+        wkt.tss_score = 1.0 - abs(1.0 - wkt.total_tss / target_tss)
         if verbose: print('TSS Score:', round(wkt.tss_score, 2), 'TSS:', wkt.total_tss)
         wkt.tss_score *= triv.tot_tss_weight
 

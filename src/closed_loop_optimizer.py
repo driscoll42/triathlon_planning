@@ -1457,7 +1457,7 @@ class ClosedLoopMPCController:
                 daily_swim_tss=r.get("swim_tss", 0.0),
             )
 
-        updated_config = base_meso_config
+        updated_config = copy.deepcopy(base_meso_config)  # never mutate the caller's config (TASK-013)
         odi = self.state.orthopedic_decoupling_index
         acwr = self.state.running_mechanical_acwr
 

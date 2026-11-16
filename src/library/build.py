@@ -48,6 +48,10 @@ _LOW_CADENCE = re.compile(r"(\d{2,3})\s*(?:-\s*(\d{2,3}))?\s*rpm", re.IGNORECASE
 BIKE_ZONE_IF = (0.60, 0.765, 0.955, 1.06, 1.30)    # classes.triVariables.bike_zone_power_multiplier
 RUN_ZONE_IF = (0.63, 0.82, 0.97, 1.115, 1.35)      # classes.triVariables.run_zone_power_multiplier
 BRICK_ZONE_IF = (0.615, 0.79, 0.96, 1.09, 1.325)   # legacy util.load_workouts brick multipliers
+SWIM_ZONE_CSS_MULT = (0.795, 0.875, 0.98, 1.04, 1.10)  # zone swim speed as a fraction of CSS
+YARDS_PER_METER = 1.0936133
+# 80/20 swim time trials: 400 + 200 at Zone 3, the CSS test protocol (SPEC.md). Explicit list, not a substring rule.
+SWIM_TIME_TRIALS = {"STT1", "STT2"}
 
 
 def ans_cost(z: List[float], has_strides: bool) -> float:
@@ -118,6 +122,28 @@ def _blank_row() -> Dict[str, object]:
 _MILE_SEG = re.compile(r"([\d.]+)\s*miles?\s*(?:Zone\s*(\d)|(at race pace))", re.IGNORECASE)
 _MILE_REP = re.compile(r"(\d+)\s*x\s*\(([^)]*)\)", re.IGNORECASE)
 RACE_PACE_ZONE = 3  # "at race pace" (marathon pace, RLMS only) is treated as Zone 3
+_SWIM_SEG = re.compile(r"(\d+(?:\.\d+)?)\s*Zone\s*(\d)", re.IGNORECASE)
+
+
+def parse_swim_prescription(desc: str) -> List[float]:
+    """'250 Zone 1, 4 x (500 Zone 2, 60" rest) 250 Zone 1' -> pool units in (Z1..Z5); rests ignored."""
+    zd = [0.0] * 5
+
+    def add(text: str, mult: float) -> None:
+        for m in _SWIM_SEG.finditer(text):
+            zd[int(m.group(2)) - 1] += mult * float(m.group(1))
+
+    for rep in _MILE_REP.finditer(desc):
+        add(rep.group(2), float(rep.group(1)))
+    add(_MILE_REP.sub(" ", desc), 1.0)
+    if sum(zd) <= 0:
+        raise ValueError(f"no swim segments parsed from {desc!r}")
+    return zd
+
+
+def css_units_per_min(swim_css_m_per_min: float, pool_length: str) -> float:
+    """Athlete CSS (m/min) expressed in the pool's distance unit per minute."""
+    return swim_css_m_per_min * (YARDS_PER_METER if pool_length.endswith("y") else 1.0)
 
 
 def parse_mile_prescription(desc: str) -> List[float]:
@@ -153,8 +179,11 @@ def power_tss(zone_minutes: List[float], zone_if, cp: float):
     return round(np_, 2), round(if_, 4), round(100.0 * if_ ** 2 * tot / 60.0, 2)
 
 
-def materialize_distance_row(row: Dict[str, object], *, easy_pace_min_per_mile: float, run_cp: float) -> Dict[str, object]:
-    """Recompute minutes, TSS, flags and loads of a distance-prescribed row from athlete thresholds."""
+def materialize_distance_row(row: Dict[str, object], *, easy_pace_min_per_mile: float, run_cp: float,
+                             swim_css: float = 40.0, pool_length: str = "25y") -> Dict[str, object]:
+    """Recompute minutes, TSS, flags and loads of a distance-prescribed row from athlete thresholds.
+    Runs: minutes from zone paces (easy pace = Z2). Swims (TASK-013): minutes = distance / (CSS x zone
+    multiplier) in the pool's unit; sTSS = IF^3 x hours x 100 with IF = normalized speed / CSS."""
     if row.get("prescription") != "distance":
         return row
     sport = row["sport"]
@@ -163,6 +192,13 @@ def materialize_distance_row(row: Dict[str, object], *, easy_pace_min_per_mile: 
         paces = run_zone_paces(easy_pace_min_per_mile)
         z = [round(d * p, 3) for d, p in zip(zd, paces)]
         np_, if_, tss = power_tss(z, RUN_ZONE_IF, run_cp)
+    elif sport == "Swim" and row.get("distance_unit") == "pool_units":
+        css = css_units_per_min(swim_css, pool_length)
+        z = [round(d / (css * m), 3) for d, m in zip(zd, SWIM_ZONE_CSS_MULT)]
+        tot = sum(z)
+        np_ = round(sum(zd) / tot, 4)          # normalized swim speed (pool units / min)
+        if_ = round(np_ / css, 4)
+        tss = round((if_ ** 3) * tot / 60.0 * 100.0, 2)
     else:
         raise ValueError(f"{row['code']}: no materializer for {sport} in {row.get('distance_unit')!r}")
     out = dict(row)
@@ -174,15 +210,22 @@ def materialize_distance_row(row: Dict[str, object], *, easy_pace_min_per_mile: 
     return out
 
 
+def _profile_kwargs(profile) -> Dict[str, object]:
+    return dict(easy_pace_min_per_mile=profile.easy_run_pace_min_per_mile, run_cp=profile.run_cp,
+                swim_css=profile.swim_css, pool_length=profile.swim_pool_length)
+
+
 def materialize(df: pd.DataFrame, profile) -> pd.DataFrame:
-    """Re-derive every distance-prescribed row for this athlete (load time, TASK-012/013)."""
-    mask = df["prescription"] == "distance"
-    if not mask.any():
-        return df
-    rows = [materialize_distance_row(r, easy_pace_min_per_mile=profile.easy_run_pace_min_per_mile,
-                                     run_cp=profile.run_cp) for r in df[mask].to_dict(orient="records")]
+    """Athlete-specific values at load time (TASK-012/013): distance-prescribed rows are re-derived,
+    and normalized power of time-prescribed runs/rides is IF x the athlete's current CP."""
     out = df.copy()
-    out.loc[mask, WORKOUT_COLUMNS] = pd.DataFrame(rows, index=df.index[mask])[WORKOUT_COLUMNS]
+    for sport, cp in (("Run", profile.run_cp), ("Bike", profile.bike_cp)):
+        m = (out["prescription"] == "time") & (out["sport"] == sport)
+        out.loc[m, "normalized_power"] = (out.loc[m, "intensity_factor"] * cp).round(2)
+    mask = out["prescription"] == "distance"
+    if mask.any():
+        rows = [materialize_distance_row(r, **_profile_kwargs(profile)) for r in out[mask].to_dict(orient="records")]
+        out.loc[mask, WORKOUT_COLUMNS] = pd.DataFrame(rows, index=out.index[mask])[WORKOUT_COLUMNS]
     return out
 
 
@@ -242,8 +285,22 @@ def derive_8020_rows(frames: Dict[str, pd.DataFrame], source_files: Dict[str, st
                            z1_dist=zd[0], z2_dist=zd[1], z3_dist=zd[2], z4_dist=zd[3], z5_dist=zd[4], duration_min=1.0, tss=1.0,
                            notes=("Mile-prescribed; minutes/TSS recomputed at load from easy_run_pace_min_per_mile (TASK-012)."
                                   + (" 'Race pace' treated as Zone 3." if "race pace" in desc.lower() else "")))
-                rows.append(materialize_distance_row(row, easy_pace_min_per_mile=profile.easy_run_pace_min_per_mile,
-                                                     run_cp=profile.run_cp))
+                rows.append(materialize_distance_row(row, **_profile_kwargs(profile)))
+                continue
+            if sport == "Swim":
+                zd = parse_swim_prescription(desc)
+                listed = float(r.get("Distance") or 0.0)
+                if abs(sum(zd) - listed) > 0.5:
+                    raise ValueError(f"{code}: parsed swim distance {sum(zd)} != listed {listed}")
+                row = _blank_row()
+                row.update(code=code, name=code, sport=sport, provenance="8020_library", source=source_files[sport],
+                           description=desc, prescription="distance", distance=listed, distance_unit="pool_units",
+                           z1_dist=zd[0], z2_dist=zd[1], z3_dist=zd[2], z4_dist=zd[3], z5_dist=zd[4], duration_min=1.0,
+                           tss=1.0, is_test=code in SWIM_TIME_TRIALS,
+                           notes=("Distance-prescribed; minutes/sTSS recomputed at load from swim_css + pool length (TASK-013)."
+                                  + (" CSS time trial (400 + 200 Zone 3); scraper had dropped its Zone 3 segments."
+                                     if code in SWIM_TIME_TRIALS else "")))
+                rows.append(materialize_distance_row(row, **_profile_kwargs(profile)))
                 continue
             if tss <= 0:
                 raise ValueError(f"{code}: TSS 0 and not a mile-prescribed run; cannot derive")
@@ -252,8 +309,10 @@ def derive_8020_rows(frames: Dict[str, pd.DataFrame], source_files: Dict[str, st
             duration = float(r.get("Duration") or 0.0)
             row.update(code=code, name=code, sport=sport, provenance="8020_library", source=source_files[sport],
                        description=str(r.get("Description") or ""), duration_min=duration, tss=tss,
-                       intensity_factor=float(r.get("Intensity Factor") or 0.0),
-                       normalized_power=float(r.get("Normalized Power") or 0.0))
+                       intensity_factor=float(r.get("Intensity Factor") or 0.0))
+            # NP = IF x the athlete's CP (the scrape cache used fixed reference CPs; TASK-013)
+            cp = profile.run_cp if sport == "Run" else profile.bike_cp
+            row["normalized_power"] = round(row["intensity_factor"] * cp, 2)
             if sport == "Swim":
                 row.update(distance=float(r.get("Distance") or 0.0), distance_unit="pool_units")
             corr = ZONE_CORRECTIONS.get(code)

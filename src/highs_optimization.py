@@ -781,14 +781,8 @@ def evaluate_plan_with_original_score(wkt_codes: list, raw_df: pd.DataFrame, tar
         wkt.swim.zone_5 = swim_wkts["Zone 5"].sum()
         wkt.swim.tss = swim_wkts["TSS"].sum()
 
-    old_tss = triv.target_tss
-    if target_tss is not None:
-        triv.target_tss = target_tss
-
-    calculate_plan_score(wkt, verbose=False)
-    score = round(wkt.score, 2)
-    triv.target_tss = old_tss
-    return score
+    calculate_plan_score(wkt, verbose=False, target_tss=target_tss)
+    return round(wkt.score, 2)
 
 
 def _solve_olympic_week_worker(args):
@@ -798,7 +792,6 @@ def _solve_olympic_week_worker(args):
     (w, phase, block_label, target_tss, wtr, df_dict, threads, time_limit) = args
     from classes import triVariables as triv
     triv.set_distance_profile('olympic')
-    triv.target_tss = target_tss
 
     df = pd.DataFrame(df_dict)
     z_ratios = get_periodized_zone_ratios(weeks_to_race=wtr, race_distance='olympic')

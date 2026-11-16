@@ -25,11 +25,7 @@ def _resolve_data_path(filename: str) -> str:
 
 
 class triVariables:
-    run_ftp = 295.0  # Your running FTP / Critical Power (Stryd)
-    bike_ftp = 170.0  # Your bike FTP / Critical Power
-    swim_css = 35.29  # Your Critical Swim Speed in meters/minute or yards/minute
-    # If you currently have it in minutes / 100 yards (e.g. 2:50 / 100 yards)
-    # The calculation to get this is 100 * 60 / # seconds
+    # Athlete thresholds (CP / CSS) live ONLY in config/athlete_profile.yaml (TASK-013, ADR-009).
 
     # Canonical 80/20 7-Zone Power Boundaries (% of Critical Power) anchored to verified CP (ADR-009)
     run_7zone_bounds = {

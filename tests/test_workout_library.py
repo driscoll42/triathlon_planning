@@ -113,6 +113,54 @@ def test_long_run_duration_follows_athlete_easy_pace():
     assert rl1(fast)["duration_min"] < rl1(slow)["duration_min"]
 
 
+# ----------------------------------------------------------------------------- TASK-013 thresholds
+
+def test_swims_are_distance_prescribed_and_follow_css():
+    from dataclasses import replace
+    from athlete_profile import CURRENT_ATHLETE
+    from library.build import SWIM_ZONE_CSS_MULT, css_units_per_min
+
+    swims = load_library()
+    swims = swims[(swims["sport"] == "Swim") & (swims["provenance"] == "8020_library")]
+    assert len(swims) == 71 and (swims["prescription"] == "distance").all()
+    assert swims.set_index("code").loc[["STT1", "STT2"], "is_test"].all()
+
+    def row(css):
+        return load_library(profile=replace(CURRENT_ATHLETE, swim_css=css)).set_index("code").loc["STT1"]
+
+    slow, fast = row(40.0), row(50.0)
+    css = css_units_per_min(40.0, CURRENT_ATHLETE.swim_pool_length)
+    assert slow["z3_min"] == pytest.approx(slow["z3_dist"] / (css * SWIM_ZONE_CSS_MULT[2]), abs=0.01)
+    assert fast["duration_min"] < slow["duration_min"]
+
+
+def test_normalized_power_follows_current_cp(lib):
+    from athlete_profile import CURRENT_ATHLETE
+
+    rides = lib[(lib["sport"] == "Bike") & (lib["prescription"] == "time") & (lib["intensity_factor"] > 0)]
+    assert (rides["normalized_power"] - rides["intensity_factor"] * CURRENT_ATHLETE.bike_cp).abs().max() < 0.01
+
+
+def test_profile_is_immutable_and_cp_retest_returns_new_profile():
+    import dataclasses
+    from athlete_profile import CURRENT_ATHLETE
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        CURRENT_ATHLETE.run_cp = 999.0
+    assert CURRENT_ATHLETE.bike_ftp == CURRENT_ATHLETE.bike_cp  # read-only alias, single source of truth
+    before = CURRENT_ATHLETE.bike_cp
+    res = CURRENT_ATHLETE.apply_cp_retest_result("bike", p3=170.0, p12=142.0, auto_lock=True)
+    assert CURRENT_ATHLETE.bike_cp == before
+    assert res["updated_profile"].bike_cp != before and res["updated_profile"].thresholds_verified
+
+
+def test_triv_has_no_athlete_thresholds():
+    from classes import triVariables
+
+    for name in ("run_ftp", "bike_ftp", "swim_css"):
+        assert not hasattr(triVariables, name)
+
+
 # ----------------------------------------------------------------------------- schema rejects bad rows
 
 def _row(**over):

@@ -10,12 +10,13 @@ directly from this configuration file.
 
 import os
 from typing import Dict, List, Optional, Any
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 import numpy as np
 
 
-@dataclass
+@dataclass(frozen=True)
 class AthleteProfile:
+    """Immutable athlete profile (TASK-013). Derive variants with dataclasses.replace()."""
     # -------------------------------------------------------------------------
     # 1. PERSONAL THRESHOLDS & BIOMETRICS (Calibrated Nov 2026)
     # -------------------------------------------------------------------------
@@ -34,10 +35,8 @@ class AthleteProfile:
     # 2026-01. Discounted ~10% (bike) and ~7% (run) for detraining; erring low keeps Z2 below LT1.
     # Retest per ADR-011 lockouts: Bike Two-Point CP at start of week 5, Run at the week-8 deload.
     thresholds_verified: bool = False        # Flip to True once Two-Point CP tests are applied
-    bike_ftp: float = 135.0                  # Bike FTP / Critical Power (Watts; locked integer; AERO position)
-    bike_cp: float = 135.0                   # Alias for Bike Critical Power (Watts)
-    run_ftp: float = 200.0                   # Running Stryd Critical Power (Watts; locked integer)
-    run_cp: float = 200.0                    # Alias for Run Critical Power (Watts)
+    bike_cp: float = 135.0                   # Bike Critical Power (Watts; locked integer; AERO position)
+    run_cp: float = 200.0                    # Running Stryd Critical Power (Watts; locked integer)
     anaerobic_work_capacity_w_prime: float = 18000.0 # W' (Joules); high capacity from concurrent heavy squats/deadlifts
     # PROVISIONAL CSS (DECISION-001): last swim 2024-08. 2024 pool steady pace ~2:18-2:27/100m (moving time),
     # implying CSS ~2:12/100m then; +~10s/100m for >2 years out of the water => 2:30/100m = 40.0 m/min.
@@ -246,9 +245,6 @@ class AthleteProfile:
         for name in ("bike_cp", "run_cp", "swim_css", "easy_run_pace_min_per_mile", "anaerobic_work_capacity_w_prime"):
             if getattr(self, name) <= 0:
                 e.append(f"{name} must be > 0")
-        # Single source of truth (ADR-009): the FTP aliases must equal the locked CP integers (removed in TASK-013)
-        if self.bike_ftp != self.bike_cp or self.run_ftp != self.run_cp:
-            e.append("bike_ftp/run_ftp must equal bike_cp/run_cp (single locked CP, ADR-009)")
         for name in ("max_single_run_vol_ratio", "intensity_low_min", "intensity_low_target",
                      "intensity_mod_high_max", "intensity_zone_x_max", "min_barbell_set_share"):
             if not 0.0 <= getattr(self, name) <= 1.0:
@@ -277,6 +273,16 @@ class AthleteProfile:
         if self.swim_pool_length not in ("25y", "25m", "50m"):
             e.append("swim_pool_length must be one of 25y, 25m, 50m")
         return e
+
+    @property
+    def bike_ftp(self) -> float:
+        """Read-only alias of the single locked bike CP (ADR-009; no separate FTP field since TASK-013)."""
+        return self.bike_cp
+
+    @property
+    def run_ftp(self) -> float:
+        """Read-only alias of the single locked run CP (ADR-009; no separate FTP field since TASK-013)."""
+        return self.run_cp
 
     def heavy_strength_sessions(self, phase_required: int) -> int:
         """Heavy-strength sessions/week for a phase, capped during re-entry (DECISION-023)."""
@@ -418,6 +424,8 @@ class AthleteProfile:
         """Validates and applies Two-Point Critical Power test results (ADR-009 / ADR-011).
 
         Guards against spurious jumps (>10%) and updates the canonical 80/20 7-zone scale.
+        The profile is immutable (TASK-013): with ``auto_lock`` the locked result is returned as
+        ``result["updated_profile"]`` (persist it with save_athlete_profile); ``self`` is unchanged.
         """
         sport = sport.lower().strip()
         if p3 <= p12 or p12 <= 0:
@@ -427,7 +435,9 @@ class AthleteProfile:
         raw_cp = res["critical_power"]
         raw_w_prime = res["w_prime_joules"]
 
-        prev_cp = self.run_ftp if sport in ("run", "running") else self.bike_ftp
+        if sport not in ("run", "running", "bike", "cycling"):
+            raise ValueError(f"Unsupported sport: {sport}")
+        prev_cp = self.run_cp if sport in ("run", "running") else self.bike_cp
         pct_change = (raw_cp - prev_cp) / prev_cp if prev_cp > 0 else 0.0
 
         # Guard: Runaway jump protection
@@ -444,18 +454,10 @@ class AthleteProfile:
 
         locked_int_cp = int(round(effective_cp))
 
-        if auto_lock:
-            if sport in ("run", "running"):
-                self.run_ftp = float(locked_int_cp)
-                self.run_cp = float(locked_int_cp)
-            elif sport in ("bike", "cycling"):
-                self.bike_ftp = float(locked_int_cp)
-                self.bike_cp = float(locked_int_cp)
-            else:
-                raise ValueError(f"Unsupported sport: {sport}")
-            self.anaerobic_work_capacity_w_prime = round(raw_w_prime, 0)
-
-        updated_zones = self.get_8020_7zones(sport)
+        key = "run_cp" if sport in ("run", "running") else "bike_cp"
+        updated = replace(self, **{key: float(locked_int_cp)},
+                          anaerobic_work_capacity_w_prime=round(raw_w_prime, 0), thresholds_verified=True)
+        updated_zones = updated.get_8020_7zones(sport)
 
         return {
             "sport": sport,
@@ -466,6 +468,7 @@ class AthleteProfile:
             "w_prime_joules": round(raw_w_prime, 0),
             "warning": warning,
             "updated_zones": updated_zones,
+            "updated_profile": updated if auto_lock else None,
         }
 
     def get_8020_7zones(self, sport: str = "run") -> Dict[str, Dict[str, Any]]:
@@ -475,7 +478,7 @@ class AthleteProfile:
         """
         sport = sport.lower()
         if sport in ("run", "running"):
-            cp = self.run_ftp
+            cp = self.run_cp
             pcts = {
                 "Z1": (0.50, 0.76, "Active Recovery / Low Aerobic", 0.0),
                 "Z2": (0.76, 0.88, "Aerobic Endurance (Ceiling = LT1)", 0.0),
@@ -486,7 +489,7 @@ class AthleteProfile:
                 "Z5": (1.20, 2.00, "Anaerobic / Repetition (W' Depletion)", 3.5),
             }
         elif sport in ("bike", "cycling"):
-            cp = self.bike_ftp
+            cp = self.bike_cp
             pcts = {
                 "Z1": (0.50, 0.70, "Active Recovery / Low Aerobic", 0.0),
                 "Z2": (0.70, 0.83, "Aerobic Endurance (Ceiling = LT1)", 0.0),

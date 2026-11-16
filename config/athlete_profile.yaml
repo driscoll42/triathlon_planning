@@ -7,9 +7,7 @@ is_masters_athlete: false
 menstrual_tracking_enabled: false
 current_menstrual_phase: null
 thresholds_verified: false
-bike_ftp: 135.0
 bike_cp: 135.0
-run_ftp: 200.0
 run_cp: 200.0
 anaerobic_work_capacity_w_prime: 18000.0
 swim_css: 40.0
