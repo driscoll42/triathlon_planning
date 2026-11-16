@@ -123,3 +123,16 @@ def test_full_season_recovery_weeks_keep_maintenance_lift_and_no_tests(olympic_s
     for sport_prefix, lockout in (("BIKE", 4), ("RUN", 6)):                     # ADR-011 re-entry lockouts
         tested = daily[daily.Code.str.startswith(sport_prefix) & daily.Code.str.contains("CP_TEST")]
         assert (tested.Week > lockout).all()
+
+
+def test_full_season_schedules_heavy_lifts_in_race_block_builds_not_reentry(olympic_season):
+    """TASK-033: cap-compatible heavy variants return heavy lifting to race-block build weeks (DECISION-023)."""
+    from triplan.library.build import HEAVY_VARIANTS
+    daily, summary = olympic_season
+    heavy_codes = set(HEAVY_VARIANTS) | {"STR_MS1_HEAVY", "STR_MS2_HEAVY", "STR_MS1_HEAVY_DEF"}
+    heavy = daily[daily.Code.isin(heavy_codes)]
+    assert not (heavy.Week <= CURRENT_ATHLETE.reentry_weeks).any()          # re-entry stays at 0 heavy lifts
+    builds = summary[(summary.Block == "race") & summary.Step_Type.str.startswith(("Base", "Build", "Overload"))].Week
+    assert heavy.Week.isin(builds).sum() >= 1
+    assert heavy.Week.nunique() >= 6
+    assert not summary.Recalibration.astype(str).str.contains("HEAVY_STRENGTH_LIMITED").any()
