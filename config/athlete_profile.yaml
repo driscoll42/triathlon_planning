@@ -52,6 +52,10 @@ weeks_to_race: 16
 constraints_review_date: '2027-05-15'
 mesocycle_build_weeks: 3
 mesocycle_recovery_weeks: 1
+reentry_weeks: 24
+reentry_bike_test_lockout_weeks: 4
+reentry_run_test_lockout_weeks: 6
+cp_test_min_gap_weeks: 8
 base_weekly_tss: 160.0
 peak_weekly_tss: 380.0
 daily_time_caps: [45.0, 60.0, 45.0, 60.0, 45.0, 75.0, 60.0]
