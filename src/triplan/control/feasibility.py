@@ -30,6 +30,15 @@ RACE_DEMANDS: Dict[str, Dict[str, float]] = {
 _LABEL = {"sprint": "Sprint", "olympic": "Olympic", "70.3": "70.3", "ironman": "IM"}
 
 
+def peak_48h(schedule: Dict[int, Sequence[Any]]) -> Dict[str, float]:
+    """Largest rolling 48h (two adjacent days inside the week) TSS / ANS / mechanical strain of a solved schedule."""
+    out = {}
+    for key, attr in (("TSS", "aerobic_tss"), ("ANS", "ans_cost"), ("Strain", "mechanical_strain")):
+        day = [sum(float(getattr(w, attr, 0.0) or 0.0) for w in schedule.get(d, [])) for d in range(7)]
+        out[key] = max(day[d] + day[d + 1] for d in range(6))
+    return out
+
+
 def _day_budgets(daily_caps: Sequence[float], weekday_single_cap: Optional[float]) -> List[float]:
     """Largest single session each day can host (weekday sessions are also bounded by the single-session cap)."""
     out = []
@@ -114,6 +123,7 @@ def season_infeasibility_report(summary: pd.DataFrame, profile: Any, distance: s
                     f"({_week_ranges(short.Week.tolist())}); worst week {int(worst.Week)}: target "
                     f"{worst.Target_TSS:.0f}, solved {worst.Solved_TSS:.0f}. Tier-0 caps and the time budget bind "
                     f"before volume does; this is reported, not hidden.")
+    msgs.extend(_binding_48h_caps(short, profile))
     over = summary[(summary.Target_TSS > 0) & (summary.Solved_TSS > summary.Target_TSS * (1.0 + 0.25))]
     if len(over):
         msgs.append(f"Solved TSS exceeds target by >25% in {len(over)} week(s) ({_week_ranges(over.Week.tolist())}): "
@@ -123,6 +133,27 @@ def season_infeasibility_report(summary: pd.DataFrame, profile: Any, distance: s
         first = str(diag.iloc[0].Diagnostics).split("; ")[0]
         msgs.append(f"Solver diagnostics in {len(diag)} week(s) ({_week_ranges(diag.Week.tolist())}), e.g. {first}")
     return msgs
+
+
+def _binding_48h_caps(short: pd.DataFrame, profile: Any, tol: float = 0.03) -> List[str]:
+    """TASK-040: name the rolling 48h cap(s) that sit at their ceiling in the weeks that missed their TSS target.
+
+    The caps are the GEMINI.md section 2 global Tier-0 ceilings (a profile may only tighten them), so a target that
+    needs more than they allow is reported as unreachable under the caps, not as a library gap."""
+    if profile is None or short is None or short.empty:
+        return []
+    out = []
+    for col, attr, label in (("Max_48h_TSS", "max_48h_aerobic_tss", "TSS"), ("Max_48h_ANS", "max_48h_ans_cost", "ANS cost"),
+                             ("Max_48h_Strain", "max_48h_mech_strain", "mechanical strain")):
+        cap = getattr(profile, attr, None)
+        if col not in short or not cap:
+            continue
+        hit = short[short[col] >= cap * (1.0 - tol)]
+        if len(hit):
+            out.append(f"Rolling 48h {label} cap {cap:.0f} binds in {len(hit)} of the {len(short)} short week(s) "
+                       f"({_week_ranges(hit.Week.tolist())}; peak {hit[col].max():.0f}): the target is not reachable under "
+                       f"the profile's 48h caps (global Tier-0 ceilings, never relaxed), not because of the library.")
+    return out
 
 
 def _week_ranges(weeks: Sequence[int]) -> str:
