@@ -119,7 +119,7 @@
 ### Outcomes
 - **TASK-035:** `AthleteProfile.to_mesocycle_config()` now sets `intensity_low_min`, `intensity_low_target`, `intensity_mod_high_max`, `key_sessions_per_week`, `am_pm_min_gap_h` on the `MesoCycleTargetsAndConstraints`; `to_hybrid_config()` adds `intensity_low_target`, `key_sessions_per_week`, `am_pm_min_gap_h` (`p_low_min`/`p_high_max` already mapped). New profile field `am_pm_min_gap_h` (default 6.0, YAML 6.0, validated in (0, 24]); new validation for `key_sessions_per_week` (0 <= lo <= hi <= 7) and `intensity_low_target >= intensity_low_min`. Left engine-defaulted on purpose: `session_quality`, `w_8020_low`, `w_zone_x` (engine tuning, not athlete data); `intensity_zone_x_max` stays profile-only because the engine soft-penalizes Zone X toward 0 and has no ceiling row. Tier-1 order not touched: new categories sit in `_PREPEND` (ranks 0-2: `extend_rest_days`, `unstack_heavy_strength`, `reduce_key_sessions`), `relax_acwr_floor` has explicit weight 1.0 (ties with rank 0); all cheaper than the athlete's list. Tests: 2 new in `tests/test_current_athlete.py` (profile change alters engine `8020_*` row coefficients, `key_sessions_max` ub, `am_pm_min_gap_h`; validation). Suite: 252 pass.
 
-## Phase 2 — TASK-034 — completed 2026-11-16 (PR #PRNUM)
+## Phase 2 — TASK-034 — completed 2026-11-16 (PR #10)
 
 - [x] **`TASK-034` (`optimizer`):** **Weekly TSS Floor in Deload/Taper Weeks** — recovery/taper/race weeks for `CURRENT_ATHLETE` solved at ~126-146 TSS vs 72-112 targets.
 
