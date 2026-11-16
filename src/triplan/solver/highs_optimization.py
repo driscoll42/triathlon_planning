@@ -1,16 +1,43 @@
+"""Legacy DataFrame-based HiGHS workout selection and day scheduling.
+
+TASK-015 / ADR-017: ``optimize_weekly_schedule`` is now a thin adapter over the unified week engine
+(``triplan.solver.engine``): DataFrame in, same DataFrame-shaped schedule out.
+
+TASK-020 retires ``optimize_weekly_workouts``, ``optimize_weekly_workouts_multiseed``,
+``_solve_seed_worker``, ``_solve_olympic_week_worker`` and ``generate_16_week_olympic_schedule``
+(selection-only / multi-seed race / 16-week olympic generator). They stay functional here and are
+deliberately NOT ported to the unified engine.
+"""
 import os
 import logging
 import multiprocessing as mp
+from dataclasses import dataclass
+from types import SimpleNamespace
+from typing import Tuple
+
 import highspy
 import numpy as np
 import pandas as pd
 from functools import partial
 
+from triplan.solver.engine.config import LegacySpec, legacy_options
+from triplan.solver.engine.engine import UnifiedWeekEngine
 from triplan.solver.highs_runtime import apply_threads, run_and_check
 
 logger = logging.getLogger(__name__)
 
 DAYS_OF_WEEK =['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+
+@dataclass(frozen=True)
+class DayWorkout:
+    """Minimal workout record the unified engine reads for the DataFrame day scheduler."""
+    code: str
+    sport: str
+    duration: float
+    aerobic_tss: float
+    zone_durations: Tuple[float, float, float, float, float]  # (Z1+Z2 collapsed into slot 1, 0, Z3, Z4, Z5)
+
 
 def prepare_workout_df(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -393,160 +420,49 @@ def optimize_weekly_schedule(
     is_hard_bike_run = ((is_hard > 0.5) & ((is_bike > 0.5) | (is_run > 0.5) | (is_brick > 0.5))).astype(float)
     is_long_run = ((is_run > 0.5) & (dur >= long_run_threshold_dur)).astype(float)
 
-    est_total_dur = target_tss * (df["duration"].sum() / df["tss"].sum())
-
-    h = highspy.Highs()
-    h.setOptionValue("log_to_console", False)
-    if time_limit is not None:
-        h.setOptionValue("time_limit", float(time_limit))
-    apply_threads(h, threads)
-    if random_seed is not None:
-        h.setOptionValue("random_seed", int(random_seed))
-    h.setOptionValue("mip_heuristic_effort", 0.20)
-    h.setOptionValue("mip_abs_gap", 0.01)
-
-    # 1. Binary Decision Variables x[i, d]
-    x = {}
-    for i in range(n):
-        for d in range(num_days):
-            x[i, d] = h.addBinary(name=f"x_{i}_{d}")
-
-    # Each workout used at most once in the week
-    for i in range(n):
-        h.addConstr(h.qsum(x[i, d] for d in range(num_days)) <= 1)
-
-    # At most 1 workout per day (or 0 if max duration is 0)
-    for d in range(num_days):
-        h.addConstr(h.qsum(x[i, d] for i in range(n)) <= (1 if max_dur[d] > 0 else 0))
-
-    # Exact number of workouts in the week
-    h.addConstr(h.qsum(x[i, d] for i in range(n) for d in range(num_days)) == num_workouts)
-
-    # Day-Specific Duration Caps
-    for d in range(num_days):
-        if max_dur[d] > 0:
-            h.addConstr(h.qsum(dur[i] * x[i, d] for i in range(n)) <= max_dur[d])
-
-    # Hard/Easy Rule: No consecutive hard days on Bike, Run, Brick
-    if forbid_consecutive_hard:
-        for d in range(num_days - 1):
-            h.addConstr(
-                h.qsum(is_hard_bike_run[i] * x[i, d] for i in range(n)) +
-                h.qsum(is_hard_bike_run[i] * x[i, d + 1] for i in range(n)) <= 1
-            )
-
-    # Injury Prevention: No consecutive long runs
-    if forbid_consecutive_long_runs:
-        for d in range(num_days - 1):
-            h.addConstr(
-                h.qsum(is_long_run[i] * x[i, d] for i in range(n)) +
-                h.qsum(is_long_run[i] * x[i, d + 1] for i in range(n)) <= 1
-            )
-
-    # Tightened Sport Count Bounds
-    if is_swim.sum() > 0 and swim_dur_ratio > 0.05:
-        exp_swims = int(round(num_workouts * swim_dur_ratio))
-        min_swims = max(1, exp_swims - 1)
-        max_swims = min(num_workouts - 2, exp_swims + 1)
-        h.addConstr(h.qsum(is_swim[i] * x[i, d] for i in range(n) for d in range(num_days)) >= min_swims)
-        h.addConstr(h.qsum(is_swim[i] * x[i, d] for i in range(n) for d in range(num_days)) <= max_swims)
-
-        exp_bikes = int(round(num_workouts * bike_dur_ratio))
-        min_bikes = max(1, exp_bikes - 1)
-        max_bikes = min(num_workouts - 2, exp_bikes + 1)
-        h.addConstr(h.qsum((is_bike[i] + is_brick[i]) * x[i, d] for i in range(n) for d in range(num_days)) >= min_bikes)
-        h.addConstr(h.qsum((is_bike[i] + is_brick[i]) * x[i, d] for i in range(n) for d in range(num_days)) <= max_bikes)
-
-        exp_runs = int(round(num_workouts * run_dur_ratio))
-        min_runs = max(1, exp_runs - 1)
-        max_runs = min(num_workouts - 2, exp_runs + 1)
-        h.addConstr(h.qsum(is_run[i] * x[i, d] for i in range(n) for d in range(num_days)) >= min_runs)
-        h.addConstr(h.qsum(is_run[i] * x[i, d] for i in range(n) for d in range(num_days)) <= max_runs)
-    else:
-        exp_bikes = int(round(num_workouts * bike_dur_ratio))
-        min_bikes = max(1, exp_bikes - 1)
-        max_bikes = min(num_workouts - 1, exp_bikes + 1)
-        min_runs = max(1, num_workouts - max_bikes)
-        max_runs = min(num_workouts - 1, num_workouts - min_bikes)
-        h.addConstr(h.qsum((is_bike[i] + is_brick[i]) * x[i, d] for i in range(n) for d in range(num_days)) >= min_bikes)
-        h.addConstr(h.qsum((is_bike[i] + is_brick[i]) * x[i, d] for i in range(n) for d in range(num_days)) <= max_bikes)
-        h.addConstr(h.qsum(is_run[i] * x[i, d] for i in range(n) for d in range(num_days)) >= min_runs)
-        h.addConstr(h.qsum(is_run[i] * x[i, d] for i in range(n) for d in range(num_days)) <= max_runs)
-
-    # Weekly TSS Guardrails
-    total_tss_expr = h.qsum(tss[i] * x[i, d] for i in range(n) for d in range(num_days))
-    total_dur_expr = h.qsum(dur[i] * x[i, d] for i in range(n) for d in range(num_days))
-    total_high_expr = h.qsum(high_dur[i] * x[i, d] for i in range(n) for d in range(num_days))
-
-    h.addConstr(total_tss_expr >= target_tss * (1.0 - tss_tolerance))
-    h.addConstr(total_tss_expr <= target_tss * (1.0 + tss_tolerance))
-    h.addConstr(total_high_expr - max_high_ratio * total_dur_expr <= 0)
-
-    # Soft Goals
-    obj_terms = []
-    def add_soft_goal(expr, scale: float, weight: float, name: str):
-        e_pos = h.addVariable(lb=0.0, name=f"{name}_pos")
-        e_neg = h.addVariable(lb=0.0, name=f"{name}_neg")
-        h.addConstr(expr == e_pos - e_neg)
-        obj_terms.append((weight / scale) * (e_pos + e_neg))
-
-    add_soft_goal(total_tss_expr - target_tss, scale=target_tss, weight=1.0, name="tss")
-    bike_dur_diff = h.qsum((is_bike[i] + is_brick[i] - bike_dur_ratio) * dur[i] * x[i, d] for i in range(n) for d in range(num_days))
-    add_soft_goal(bike_dur_diff, scale=est_total_dur, weight=1.0, name="bike_dur_split")
-
-    run_dur_diff = h.qsum((is_run[i] - run_dur_ratio) * dur[i] * x[i, d] for i in range(n) for d in range(num_days))
-    add_soft_goal(run_dur_diff, scale=est_total_dur, weight=1.0, name="run_dur_split")
-
-    if is_swim.sum() > 0 and swim_dur_ratio > 0.05:
-        swim_dur_diff = h.qsum((is_swim[i] - swim_dur_ratio) * dur[i] * x[i, d] for i in range(n) for d in range(num_days))
-        add_soft_goal(swim_dur_diff, scale=est_total_dur, weight=1.0, name="swim_dur_split")
-
-    overall_high_diff = h.qsum((high_dur[i] - high_ratio_per_sport * dur[i]) * x[i, d] for i in range(n) for d in range(num_days))
-    add_soft_goal(overall_high_diff, scale=est_total_dur, weight=1.0, name="overall_high")
-
-    bike_scale = est_total_dur * bike_dur_ratio
-    run_scale = est_total_dur * run_dur_ratio
-    bike_high_diff = h.qsum(is_bike[i] * (high_dur[i] - high_ratio_per_sport * dur[i]) * x[i, d] for i in range(n) for d in range(num_days))
-    run_high_diff = h.qsum(is_run[i] * (high_dur[i] - high_ratio_per_sport * dur[i]) * x[i, d] for i in range(n) for d in range(num_days))
-    add_soft_goal(bike_high_diff, scale=bike_scale, weight=1.0, name="bike_high")
-    add_soft_goal(run_high_diff, scale=run_scale, weight=1.0, name="run_high")
-
-    z3_tgt_dur = z3_high_ratio * high_ratio_per_sport
-    z4_tgt_dur = z4_high_ratio * high_ratio_per_sport
-    z5_tgt_dur = z5_high_ratio * high_ratio_per_sport
-
-    add_soft_goal(h.qsum(is_bike[i] * (z3[i] - z3_tgt_dur * dur[i]) * x[i, d] for i in range(n) for d in range(num_days)), bike_scale, 1.0, name="bike_z3")
-    add_soft_goal(h.qsum(is_bike[i] * (z4[i] - z4_tgt_dur * dur[i]) * x[i, d] for i in range(n) for d in range(num_days)), bike_scale, 1.0, name="bike_z4")
-    add_soft_goal(h.qsum(is_bike[i] * (z5[i] - z5_tgt_dur * dur[i]) * x[i, d] for i in range(n) for d in range(num_days)), bike_scale, 1.0, name="bike_z5")
-
-    add_soft_goal(h.qsum(is_run[i] * (z3[i] - z3_tgt_dur * dur[i]) * x[i, d] for i in range(n) for d in range(num_days)), run_scale, 1.0, name="run_z3")
-    add_soft_goal(h.qsum(is_run[i] * (z4[i] - z4_tgt_dur * dur[i]) * x[i, d] for i in range(n) for d in range(num_days)), run_scale, 1.0, name="run_z4")
-    add_soft_goal(h.qsum(is_run[i] * (z5[i] - z5_tgt_dur * dur[i]) * x[i, d] for i in range(n) for d in range(num_days)), run_scale, 1.0, name="run_z5")
-
-    h.minimize(h.qsum(obj_terms))
-    res = run_and_check(h)
+    # Unified engine (TASK-015, ADR-017): ``single_per_day`` session model, exact workout count, hard/easy
+    # and long-run adjacency, sport-count bounds, TSS guardrails, dimensionless soft goals, one solve.
+    workouts = [
+        DayWorkout(code=str(df.loc[i, 'code']), sport=str(df.loc[i, 'sport']), duration=float(dur[i]),
+                   aerobic_tss=float(tss[i]),
+                   zone_durations=(float(df.loc[i, 'z1_z2_dur']), 0.0, float(z3[i]), float(z4[i]), float(z5[i])))
+        for i in range(n)
+    ]
+    spec = LegacySpec(
+        num_workouts=num_workouts, target_tss=target_tss, tss_tolerance=tss_tolerance,
+        max_high_ratio=max_high_ratio, bike_dur_ratio=bike_dur_ratio, run_dur_ratio=run_dur_ratio,
+        swim_dur_ratio=swim_dur_ratio, high_ratio_per_sport=high_ratio_per_sport,
+        z3_high_ratio=z3_high_ratio, z4_high_ratio=z4_high_ratio, z5_high_ratio=z5_high_ratio,
+        day_max=list(max_dur), hard_bike_run=is_hard_bike_run > 0.5, long_run=is_long_run > 0.5,
+        forbid_consecutive_hard=forbid_consecutive_hard, forbid_consecutive_long_runs=forbid_consecutive_long_runs,
+        threads=threads, random_seed=random_seed,
+    )
+    engine = UnifiedWeekEngine(workouts, {"daily_time_caps": list(max_dur)}, legacy_options(spec))
+    solved = engine.solve(k=1, time_limit=time_limit)
+    plan = solved[0] if solved else None
+    res = SimpleNamespace(has_solution=plan is not None, status=engine.last_status,
+                          mip_gap=plan["mip_gap"] if plan else None)
     if not res.has_solution:
         logger.warning("optimize_weekly_schedule: no feasible schedule (status=%s, target_tss=%s)",
                        res.status, target_tss)
+    chosen = {d: i for i, d in plan["selected_pairs"]} if plan else {}  # single_per_day: <=1 workout per day
 
     schedule = []
     for d, day_name in enumerate(days):
         day_item = None
-        for i in range(n):
-            idx = x[i, d].index
-            if res.has_solution and res.col_value[idx] > 0.5:
-                day_item = {
-                    'Day': day_name,
-                    'Code': df.loc[i, 'code'],
-                    'Sport': df.loc[i, 'sport'],
-                    'Duration': round(df.loc[i, 'duration'], 1),
-                    'TSS': round(df.loc[i, 'tss'], 1),
-                    'High_Dur': round(high_dur[i], 1),
-                    'Low_Dur': round(df.loc[i, 'z1_z2_dur'], 1),
-                    'Intensity': 'HARD' if is_hard[i] else 'EASY',
-                    'Description': df.loc[i, 'description'] if 'description' in df.columns else '',
-                }
-                break
+        if d in chosen:
+            i = chosen[d]
+            day_item = {
+                'Day': day_name,
+                'Code': df.loc[i, 'code'],
+                'Sport': df.loc[i, 'sport'],
+                'Duration': round(df.loc[i, 'duration'], 1),
+                'TSS': round(df.loc[i, 'tss'], 1),
+                'High_Dur': round(high_dur[i], 1),
+                'Low_Dur': round(df.loc[i, 'z1_z2_dur'], 1),
+                'Intensity': 'HARD' if is_hard[i] else 'EASY',
+                'Description': df.loc[i, 'description'] if 'description' in df.columns else '',
+            }
         if day_item:
             schedule.append(day_item)
         else:
