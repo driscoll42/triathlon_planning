@@ -143,3 +143,9 @@
 - **Result (`EXP-007`):** 8 seasons, 0 fallback weeks, 0 Tier-0 violations. Findings queued: `TASK-037` (build-week TSS floor), `TASK-038` (recovery/taper overshoot), `TASK-039` (< 4 runs/week for `CURRENT_ATHLETE`), `TASK-040` (long-course library gaps, profile 48h caps). Known owned: ODI 4-6 (`TASK-022`), raw ACWR 1.76-1.95 (`TASK-023`).
 - **Verification:** `tests/test_season_validation.py` (17 fast tests: each cap caught by a synthetic violation, diagnosis, one short season per profile; 8 `slow` full seasons). Full suite 278 pass.
 
+## Phase 2 — TASK-036 — completed 2026-11-16 (PR #11)
+
+- [x] **`TASK-036` (`general`):** **Charter & Lineage Sync after Phase 2** — `GEMINI.md`, `INVARIANTS.md`, `lode.json` and `HEUR-001` still described the retired multi-seed race and exact `(i,d)` no-good cuts.
+
+### Outcomes
+- **TASK-036:** `GEMINI.md` §1 ADR range → `ADR-001..020`; §3 "Top-K Plan Diversity" now states selection-based cuts (`ADR-018`) and "Parallel Multi-Seed Race" is replaced by "Single Deterministic Solve" (`ADR-017`/`ADR-018`); §5 `optimizer`/`mpc` routing lists `solver/engine/`, `control/periodization.py`, `control/carry.py`. `INVARIANTS.md` Top-K rule updated likewise. `lode.json` optimizer scope no longer says "multiseed races". `HEUR-001` retargeted from the deleted `optimize_weekly_workouts_multiseed()` to the process-parallel stress runner (`TASK-032`) with a working verification command. `ADR-006` front matter set to `SUPERSEDED` (already superseded by edge from `ADR-018`). No code changes.
