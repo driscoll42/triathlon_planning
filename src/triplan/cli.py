@@ -1,16 +1,11 @@
 import time
-import multiprocessing as mp
-from functools import partial
 import pandas as pd
 
 from triplan.model.classes import triVariables as triv
-from triplan.library.util import calculate_plan_score, load_workouts, generate_random_workout_plan
+from triplan.library.util import load_workouts
 from triplan.solver.highs_optimization import (
-    optimize_weekly_workouts,
-    optimize_weekly_workouts_multiseed,
     optimize_weekly_schedule,
     optimize_multi_week_step_cycle,
-    generate_16_week_olympic_schedule,
     get_periodized_zone_ratios,
     evaluate_plan_with_original_score,
     prepare_workout_df,
@@ -53,35 +48,46 @@ pd.set_option('display.max_colwidth', None)
 # – Try to keep the workouts all within the same week, as this maintains the precise 80/20 ratios that have been built into your plan.
 
 
-def run_highs_multiseed(df, num_workers=15, threads_per_worker=2, top_k=5, time_limit_per_worker=4.0):
-    """Runs the optimized 15 seeds × 2 threads HiGHS MILP multi-seed race with pre-filtering."""
-    total_cores = num_workers * threads_per_worker
-    print(f"\n=======================================================")
-    print(f"  RUNNING HiGHS MILP MULTI-SEED RACE ({num_workers} seeds × {threads_per_worker} threads = {total_cores} cores, {time_limit_per_worker}s limit/worker)")
-    print(f"=======================================================")
+DEFAULT_DAY_CAPS = {'Mon': 0.0, 'Tue': 75.0, 'Wed': 75.0, 'Thu': 75.0, 'Fri': 75.0, 'Sat': 150.0, 'Sun': 120.0}
+
+
+def run_highs_single_solve(df, time_limit=4.0, threads=2):
+    """One deterministic HiGHS solve through the unified engine (TASK-020, ADR-018).
+
+    Replaces the 15-seed x 2-thread race: the model is solved once to a stated MIP gap, with
+    dominance pruning of the candidate library and week-structure symmetry breaking inside the engine.
+    Returns a report dict with the schedule, solve status, ``mip_gap`` and wall time.
+    """
+    print("\n=======================================================")
+    print(f"  RUNNING HiGHS SINGLE DETERMINISTIC SOLVE ({threads} threads, {time_limit}s limit)")
+    print("=======================================================")
     t0 = time.time()
-    highs_df = optimize_weekly_workouts_multiseed(
+    schedule_df = optimize_weekly_schedule(
         df=df,
         target_tss=triv.target_tss,
         num_workouts=6,
-        num_workers=num_workers,
-        threads_per_worker=threads_per_worker,
-        time_limit_per_worker=time_limit_per_worker,
-        top_k_plans=top_k,
+        day_max_durations=DEFAULT_DAY_CAPS,
+        time_limit=time_limit,
+        threads=threads,
+        random_seed=0,
         prune_candidates=True,
     )
     dur = time.time() - t0
-
-    if not highs_df.empty:
-        highs_df['Orig Score'] = highs_df['Workouts'].apply(
-            lambda w: evaluate_plan_with_original_score(w, df)
-        )
-        highs_df = highs_df.sort_values(by='Orig Score', ascending=False).reset_index(drop=True)
-
-    print(f"HiGHS Multi-Seed Execution Time: {round(dur, 2)}s")
-    cols = ['Workouts', 'Orig Score', 'Score', 'Total TSS', 'Total Duration', '% Bike Dur', '% Run Dur', '% High Dur']
-    print(highs_df[cols])
-    return highs_df, dur
+    assigned = [c for c in schedule_df['Code'] if c != 'REST'] if not schedule_df.empty else []
+    score = evaluate_plan_with_original_score(assigned, df) if assigned else 0.0
+    report = {
+        'schedule': schedule_df,
+        'time': dur,
+        'status': schedule_df.attrs.get('status'),
+        'mip_gap': schedule_df.attrs.get('mip_gap'),
+        'orig_score': score,
+        'total_tss': float(schedule_df['TSS'].sum()) if not schedule_df.empty else 0.0,
+        'total_duration': float(schedule_df['Duration'].sum()) if not schedule_df.empty else 0.0,
+    }
+    gap = report['mip_gap']
+    gap_str = 'n/a' if gap is None else f'{100 * gap:.2f}%'
+    print(f"Single solve: status={report['status']} | MIP gap={gap_str} | wall time={dur:.2f}s | Orig Score={score}")
+    return report
 
 
 def run_day_by_day_schedule(df):
@@ -111,7 +117,9 @@ def run_day_by_day_schedule(df):
     dur = time.time() - t0
 
     cols = ['Day', 'Code', 'Sport', 'Duration', 'TSS', 'High_Dur', 'Low_Dur', 'Intensity']
-    print(f"Schedule solved in {round(dur, 2)}s:")
+    gap = schedule_df.attrs.get('mip_gap')
+    gap_str = 'n/a' if gap is None else f'{100 * gap:.2f}%'
+    print(f"Schedule solved in {round(dur, 2)}s (status={schedule_df.attrs.get('status')}, MIP gap={gap_str}):")
     print(schedule_df[cols].to_string(index=False))
 
     assigned_codes = [c for c in schedule_df['Code'] if c != 'REST']
@@ -144,74 +152,99 @@ def run_3_week_step_cycle(df, weeks_to_race=10, race_distance='70.3'):
     return cycle_df
 
 
-def run_random_method(wkend_wts_df, wkday_wts_df, total_to_run=10000, num_cores=30):
-    """Runs the original Monte Carlo random workout plan generator across CPU cores."""
-    print(f"\n=======================================================")
-    print(f"  RUNNING ORIGINAL RANDOM METHOD ({total_to_run:,} iterations across {num_cores} cores)")
-    print(f"=======================================================")
-    t0 = time.time()
-    num_runs = [int(total_to_run / num_cores)] * num_cores
-    with mp.Pool(num_cores) as pool:
-        func = partial(generate_random_workout_plan, wkend_wts_df, wkday_wts_df)
-        dfs = pool.map(func, num_runs)
-    random_df = pd.concat(dfs, ignore_index=True)
-    dur = time.time() - t0
+def print_comparison(report, candidate_df=None):
+    """Print the single-solve report: status, MIP gap, wall time and candidate pre-filtering.
 
-    random_df = random_df.sort_values(by='Score', ascending=False).reset_index(drop=True)
-    count_90 = (random_df['Score'] >= 90).sum() if not random_df.empty else 0
-    pct_90 = round(100 * count_90 / total_to_run, 4)
-
-    print(f"Random Method Execution Time: {round(dur, 2)}s")
-    print(f"Valid Plans: {len(random_df):,} / {total_to_run:,} ({round(100*len(random_df)/total_to_run, 2)}%)")
-    print(f"Plans with Score >= 90: {count_90:,} ({pct_90}%)")
-    cols = ['Workouts', 'Score', 'Total TSS', 'Total Duration', '% Bike Dur', '% Run Dur', '% High Dur']
-    print(random_df.head(5)[cols])
-    return random_df, dur
-
-
-def print_comparison(highs_df, highs_time, random_df, random_time, total_random_runs, num_cores, candidate_df=None):
-    """Prints a clear side-by-side comparison between HiGHS and Random.
-
-    All figures are measured from this run (TASK-009); no hardcoded benchmark claims.
+    All figures are measured from this run (TASK-009); no hardcoded benchmark claims. The random
+    baseline and the multi-seed race it was compared against were retired in TASK-020.
     """
-    print(f"\n=======================================================")
-    print(f"  SIDE-BY-SIDE COMPARISON (Hardware: {mp.cpu_count()} CPUs, using {num_cores} cores)")
-    print(f"=======================================================")
-
-    rnd_top = random_df.loc[0, 'Score'] if not random_df.empty else 0.0
-    rnd_mean = random_df['Score'].mean() if not random_df.empty else 0.0
-    rnd_ge90 = (random_df['Score'] >= 90).sum() if not random_df.empty else 0
-
-    highs_top = highs_df.loc[0, 'Orig Score'] if not highs_df.empty else 0.0
-    highs_mean = highs_df['Orig Score'].mean() if not highs_df.empty else 0.0
-    highs_ge90 = (highs_df['Orig Score'] >= 90).sum() if not highs_df.empty else 0
-    highs_total = len(highs_df)
-
-    print(f"{'Metric':<30} | {'Random Method':<22} | {'HiGHS (15 seeds × 2 thr)':<25}")
-    print("-" * 83)
-    print(f"{'Cores Used':<30} | {num_cores:<22} | {num_cores:<25}")
-    print(f"{'Total Execution Time':<30} | {f'{random_time:.2f}s':<22} | {f'{highs_time:.2f}s':<25}")
-    print(f"{'Top Original Score':<30} | {f'{rnd_top:.2f}':<22} | {f'{highs_top:.2f}':<25}")
-    print(f"{'Mean Score':<30} | {f'{rnd_mean:.2f}':<22} | {f'{highs_mean:.2f}':<25}")
-    print(f"{'Plans with Score >= 90':<30} | {f'{rnd_ge90:,} / {total_random_runs:,} ({100*rnd_ge90/total_random_runs:.2f}%)':<22} | {f'{highs_ge90} / {highs_total} ({100*highs_ge90/highs_total:.1f}%)':<25}")
-    rnd_valid_pct = 100 * len(random_df) / total_random_runs if total_random_runs else 0.0
-    if not highs_df.empty and 'Status' in highs_df.columns:
-        status_counts = highs_df['Status'].value_counts()
-        highs_status = ", ".join(f"{n} {s}" for s, n in status_counts.items())
-    else:
-        highs_status = "no plans"
-    print(f"{'Feasibility / Solve Status':<30} | {f'Trial & Error ({rnd_valid_pct:.0f}% valid)':<22} | {highs_status:<25}")
-    if not highs_df.empty and 'MIP Gap' in highs_df.columns and highs_df['MIP Gap'].notna().any():
-        worst_gap = f"{100 * highs_df['MIP Gap'].max():.1f}%"
-        print(f"{'Worst MIP Gap':<30} | {'n/a':<22} | {worst_gap:<25}")
+    print("\n=======================================================")
+    print("  SINGLE DETERMINISTIC SOLVE REPORT")
+    print("=======================================================")
+    gap = report.get('mip_gap')
+    print(f"{'Solve Status':<30} | {report.get('status')}")
+    print(f"{'MIP Gap':<30} | {'n/a' if gap is None else f'{100 * gap:.2f}%'}")
+    print(f"{'Wall Time':<30} | {report.get('time', 0.0):.2f}s")
+    print(f"{'Original Quality Score':<30} | {report.get('orig_score', 0.0):.2f}")
+    print(f"{'Total TSS / Duration':<30} | {report.get('total_tss', 0.0):.1f} / {report.get('total_duration', 0.0):.0f} min")
     if candidate_df is not None:
         prepared = prepare_workout_df(candidate_df)
         kept = filter_viable_workouts(prepared, target_tss=triv.target_tss, num_workouts=6)
-        n_all, n_pruned = len(prepared), len(prepared) - len(kept)
-        print(f"{'Candidate Pre-Filtering':<30} | {f'None (draws all {n_all})':<22} | {f'Pruned {n_pruned} unviable items':<25}")
-    print(f"{'Day-by-Day Scheduling':<30} | {'None (unordered bag)':<22} | {'Mon-Sun + Hard/Easy Rule':<25}")
-    print(f"{'Multi-Week Step Cycles':<30} | {'Manual':<22} | {'Automatic (Load/Deload)':<25}")
-    print("-" * 83)
+        print(f"{'Candidate Pre-Filtering':<30} | pruned {len(prepared) - len(kept)} of {len(prepared)} unviable items")
+    print("-" * 60)
+
+
+_OLYMPIC_16_WEEK_MATRIX = [
+    # (week, phase, block label, target TSS, weeks to race)
+    (1, 'General Foundation', 'Base Load', 260.0, 15),
+    (2, 'General Foundation', 'Build (+12%)', 290.0, 14),
+    (3, 'General Foundation', 'Recovery Deload (-17%)', 240.0, 13),
+    (4, 'Aerobic Capacity', 'Base Load', 320.0, 12),
+    (5, 'Aerobic Capacity', 'Overload (+12%)', 360.0, 11),
+    (6, 'Aerobic Capacity', 'Recovery Deload (-18%)', 295.0, 10),
+    (7, 'Specific Threshold', 'Base Load', 390.0, 9),
+    (8, 'Specific Threshold', 'Overload (+10%)', 430.0, 8),
+    (9, 'Specific Threshold', 'Recovery Deload (-20%)', 345.0, 7),
+    (10, 'Peak Threshold', 'Base Load', 450.0, 6),
+    (11, 'Peak Threshold', 'Peak Overload (+11%)', 500.0, 5),
+    (12, 'Peak Threshold', 'Recovery Deload (-24%)', 380.0, 4),
+    (13, 'Race Specific', 'Race Pace 1 (Brick Focus)', 450.0, 3),
+    (14, 'Race Specific', 'Race Pace 2 (Simulation)', 460.0, 2),
+    (15, 'Taper & Sharpen', 'Taper 1 (-25%)', 340.0, 1),
+    (16, 'Race Week', 'Race Week (-50%)', 200.0, 0),
+]
+
+
+def _solve_olympic_week(df, w, phase, block_label, target_tss, wtr, time_limit):
+    """Solve one week of the 16-week Olympic schedule with a single deterministic engine solve."""
+    z = get_periodized_zone_ratios(weeks_to_race=wtr, race_distance='olympic')
+    high = round(1.0 - z['z1_z2_dur'], 2)
+    if w == 16:
+        caps = {'Mon': 0.0, 'Tue': 40.0, 'Wed': 40.0, 'Thu': 45.0, 'Fri': 30.0, 'Sat': 45.0, 'Sun': 60.0}
+    elif 'Recovery' in block_label:
+        caps = {'Mon': 0.0, 'Tue': 50.0, 'Wed': 50.0, 'Thu': 60.0, 'Fri': 45.0, 'Sat': 90.0, 'Sun': 75.0}
+    else:
+        caps = {'Mon': 0.0, 'Tue': 60.0, 'Wed': 60.0, 'Thu': 75.0, 'Fri': 50.0, 'Sat': 120.0, 'Sun': 90.0}
+    sched = optimize_weekly_schedule(
+        df=df, target_tss=target_tss, num_workouts=6 if w < 16 else 5, day_max_durations=caps,
+        forbid_consecutive_hard=True, forbid_consecutive_long_runs=True,
+        bike_dur_ratio=0.40, run_dur_ratio=0.28, swim_dur_ratio=0.32, high_ratio_per_sport=high,
+        z3_high_ratio=round(z['z3_dur'] / high, 2), z4_high_ratio=round(z['z4_dur'] / high, 2),
+        z5_high_ratio=round(z['z5_dur'] / high, 2), max_high_ratio=0.20,
+        time_limit=time_limit, threads=2, random_seed=w * 23, prune_candidates=True)
+    status, gap = sched.attrs.get('status'), sched.attrs.get('mip_gap')
+    sched.insert(0, 'Week', w)
+    sched.insert(1, 'Phase', phase)
+    sched.insert(2, 'Block_Label', block_label)
+    score = evaluate_plan_with_original_score([c for c in sched['Code'] if c != 'REST'], df, target_tss=target_tss)
+    return sched, score, status, gap
+
+
+def generate_16_week_olympic_schedule(df, time_limit_per_week=3.5):
+    """Sequential, deterministic 16-week Olympic schedule: one engine solve per week (TASK-020)."""
+    df = prepare_workout_df(df)
+    all_daily, summary_rows = [], []
+    for (w, phase, block, target, wtr) in _OLYMPIC_16_WEEK_MATRIX:
+        sched, score, status, gap = _solve_olympic_week(df, w, phase, block, target, wtr, time_limit_per_week)
+        all_daily.append(sched)
+        tot_dur, tot_tss = sched['Duration'].sum(), sched['TSS'].sum()
+        tot_high, tot_low = sched['High_Dur'].sum(), sched['Low_Dur'].sum()
+        b_dur = sched[sched['Sport'].isin(['Bike', 'Brick'])]['Duration'].sum()
+        r_dur = sched[sched['Sport'] == 'Run']['Duration'].sum()
+        s_dur = sched[sched['Sport'] == 'Swim']['Duration'].sum()
+
+        def pct(v, digits=1):
+            return f"{v / tot_dur * 100:.{digits}f}%" if tot_dur else "0%"
+
+        summary_rows.append({
+            'Week': w, 'Phase': phase, 'Step_Type': block, 'Target_TSS': target,
+            'Actual_TSS': round(tot_tss, 1), 'Hours': f"{tot_dur / 60.0:.1f}h",
+            '% Low': pct(tot_low), '% High': pct(tot_high),
+            'Bike%': pct(b_dur, 0), 'Run%': pct(r_dur, 0), 'Swim%': pct(s_dur, 0),
+            'Quality_Score': score, 'Status': status,
+            'MIP_Gap': None if gap is None else round(gap, 4),
+        })
+    return pd.concat(all_daily, ignore_index=True), pd.DataFrame(summary_rows)
 
 
 def run_16_week_olympic_schedule(df):
@@ -226,10 +259,10 @@ def run_16_week_olympic_schedule(df):
     print(f"=======================================================")
     t0 = time.time()
     triv.set_distance_profile('olympic')
-    daily_df, summary_df = generate_16_week_olympic_schedule(df, num_workers=16, time_limit_per_week=3.5)
+    daily_df, summary_df = generate_16_week_olympic_schedule(df, time_limit_per_week=3.5)
     dur = time.time() - t0
 
-    print(f"Entire 16-Week Olympic Schedule generated in {round(dur, 2)}s across CPU cores!")
+    print(f"Entire 16-Week Olympic Schedule generated in {round(dur, 2)}s (16 sequential deterministic solves)!")
     print("\nWEEKLY PERIODIZATION SUMMARY:")
     print(summary_df.to_string(index=False))
 
@@ -465,22 +498,16 @@ def run_hybrid_athlete_demo():
 
 
 def main():
-    """Run the full demo pipeline (random baseline, HiGHS multi-seed race, closed-loop MPC, hybrid athlete)."""
+    """Run the full demo pipeline (16-week schedule, single deterministic solve, closed-loop MPC, hybrid athlete)."""
     # Initialize 3-sport Olympic profile with 85/15 default
     triv.set_distance_profile('olympic')
-    wkend_wts_df, wkday_wts_df = load_workouts()
+    wkend_wts_df, _wkday_wts_df = load_workouts()
 
     # 1. 16-Week Olympic Schedule (Level 0 Equivalent) with 85/15 default & periodization
     olympic_daily_df, olympic_summary_df = run_16_week_olympic_schedule(df=wkend_wts_df)
 
-    # 2. HiGHS Multi-Seed Race (15 seeds × 2 threads default)
-    highs_df, highs_time = run_highs_multiseed(
-        df=wkend_wts_df,
-        num_workers=15,
-        threads_per_worker=2,
-        top_k=5,
-        time_limit_per_worker=4.0
-    )
+    # 2. Single deterministic HiGHS solve (reports status, MIP gap, wall time)
+    report = run_highs_single_solve(df=wkend_wts_df)
 
     # 3. Day-by-Day Calendar Scheduling with Hard/Easy Rule & Daily Caps
     schedule_df = run_day_by_day_schedule(df=wkend_wts_df)
@@ -488,25 +515,8 @@ def main():
     # 4. 3-Week Step Cycle (Base Load -> Overload -> Recovery)
     cycle_df = run_3_week_step_cycle(df=wkend_wts_df, weeks_to_race=10, race_distance='olympic')
 
-    # 4. Original Random Method (for benchmark comparison)
-    total_random_runs = 10000
-    random_df, random_time = run_random_method(
-        wkend_wts_df=wkend_wts_df,
-        wkday_wts_df=wkday_wts_df,
-        total_to_run=total_random_runs,
-        num_cores=30
-    )
-
-    # 5. Side-by-Side Comparison
-    print_comparison(
-        highs_df=highs_df,
-        highs_time=highs_time,
-        random_df=random_df,
-        random_time=random_time,
-        total_random_runs=total_random_runs,
-        num_cores=30,
-        candidate_df=wkend_wts_df,
-    )
+    # 5. Solve report (status / MIP gap / pruning)
+    print_comparison(report, candidate_df=wkend_wts_df)
 
     # 6. Production Closed-Loop Triathlon Training Optimizer (Dual-Load & 3-Tier MPC)
     closed_loop_schedule = run_closed_loop_optimizer_demo(df=wkend_wts_df)
@@ -516,7 +526,3 @@ def main():
 
     # 8. Dual-Objective Hybrid Athlete Optimizer (Balancing Swim, Bike, Run, & Lifting)
     hybrid_plans = run_hybrid_athlete_demo()
-
-
-if __name__ == '__main__':
-    main()
