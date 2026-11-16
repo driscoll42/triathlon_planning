@@ -9,6 +9,7 @@ from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstr
 from triplan.control.mpc import ClosedLoopMPCController
 from triplan.library.candidates import build_default_candidate_library
 from triplan.physiology.state import AthletePhysiologicalState
+from triplan.control.periodization import build_season_matrix, filter_test_workouts, normalize_distance
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,12 @@ def format_plan_to_dataframe(plan: Dict[str, Any], week_num: int = 1, phase_name
     return pd.DataFrame(rows)
 
 
+def _schedulable_heavy_lifts(lib: List[CandidateWorkout], cfg: MesoCycleTargetsAndConstraints) -> int:
+    """Heavy-strength candidates that individually fit the Tier-0 daily axial / neuromuscular caps."""
+    return sum(1 for w in lib if w.is_heavy_strength
+               and w.axial_load <= cfg.max_daily_axial_load and w.neuromuscular_load <= cfg.max_daily_neuro_load)
+
+
 def generate_closed_loop_season_schedule(
     profile: Optional[Any] = None,
     distance: str = "olympic",
@@ -62,6 +69,8 @@ def generate_closed_loop_season_schedule(
     library: Optional[List[CandidateWorkout]] = None,
     time_limit_per_week: float = 3.5,
     perturbations: Optional[Dict[int, Dict[str, Any]]] = None,
+    weeks_to_race: Optional[int] = None,
+    reentry_weeks: Optional[int] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates a full periodized multi-month triathlon season plan (Olympic or 70.3)
@@ -85,86 +94,23 @@ def generate_closed_loop_season_schedule(
 
     lib = library or build_default_candidate_library()
 
-    # Define periodization matrices
-    if "sprint" in dist:
-        season_matrix = [
-            (1,  "General Foundation",  "Base Load",              1.00, 10.0, 2),
-            (2,  "General Foundation",  "Build (+10%)",           1.10, 15.0, 2),
-            (3,  "General Foundation",  "Recovery Deload (-20%)", 0.80,  0.0, 0),
-            (4,  "Aerobic Capacity",    "Base Load",              1.12, 15.0, 2),
-            (5,  "Aerobic Capacity",    "Overload (+12%)",        1.25, 20.0, 1),
-            (6,  "Aerobic Capacity",    "Recovery Deload (-20%)", 0.88,  0.0, 0),
-            (7,  "Specific Speed",      "Base Load",              1.20, 25.0, 1),
-            (8,  "Specific Speed",      "Overload (+10%)",        1.32, 25.0, 1),
-            (9,  "Specific Speed",      "Recovery Deload (-20%)", 0.90,  0.0, 0),
-            (10, "Race Simulation",     "Race Pace Simulation",   1.25, 30.0, 0),
-            (11, "Taper & Sharpen",     "Taper (-25%)",           0.80, 10.0, 0),
-            (12, "Race Week",           "Race Week (-50%)",       0.50,  5.0, 0),
-        ]
-    elif "70.3" in dist or "half" in dist:
-        season_matrix = [
-            (1,  "Base 1 (Aerobic)",    "Base Load",              1.00, 15.0, 2),
-            (2,  "Base 1 (Aerobic)",    "Build (+10%)",           1.10, 15.0, 2),
-            (3,  "Base 1 (Aerobic)",    "Recovery Deload (-20%)", 0.80,  0.0, 0),
-            (4,  "Base 2 (Foundation)", "Base Load",              1.12, 20.0, 2),
-            (5,  "Base 2 (Foundation)", "Overload (+12%)",        1.24, 25.0, 1),
-            (6,  "Base 2 (Foundation)", "Recovery Deload (-20%)", 0.88,  0.0, 0),
-            (7,  "Muscular Endurance",  "Base Load",              1.25, 25.0, 1),
-            (8,  "Muscular Endurance",  "Overload (+10%)",        1.38, 30.0, 1),
-            (9,  "Muscular Endurance",  "Recovery Deload (-20%)", 0.95,  0.0, 0),
-            (10, "Specific Threshold",  "Base Load",              1.35, 30.0, 1),
-            (11, "Specific Threshold",  "Overload (+10%)",        1.48, 35.0, 1),
-            (12, "Specific Threshold",  "Recovery Deload (-22%)", 1.02,  0.0, 0),
-            (13, "Durability / Bricks", "Base Load",              1.45, 40.0, 1),
-            (14, "Durability / Bricks", "Peak Overload (+10%)",   1.58, 45.0, 1),
-            (15, "Durability / Bricks", "Recovery Deload (-25%)", 1.05,  0.0, 0),
-            (16, "Race Simulation",     "Race Simulation",        1.45, 45.0, 0),
-            (17, "Taper Phase",         "Taper 1 (-30%)",         0.85, 15.0, 0),
-            (18, "Race Week",           "Race Week (-55%)",       0.50,  5.0, 0),
-        ]
-    elif "ironman" in dist or "140.6" in dist:
-        season_matrix = [
-            (1,  "Base 1 (Foundation)", "Base Load",              1.00, 15.0, 2),
-            (2,  "Base 1 (Foundation)", "Build (+10%)",           1.10, 15.0, 2),
-            (3,  "Base 1 (Foundation)", "Recovery Deload (-20%)", 0.80,  0.0, 0),
-            (4,  "Base 2 (Aerobic)",    "Base Load",              1.12, 20.0, 2),
-            (5,  "Base 2 (Aerobic)",    "Overload (+12%)",        1.25, 25.0, 1),
-            (6,  "Base 2 (Aerobic)",    "Recovery Deload (-20%)", 0.88,  0.0, 0),
-            (7,  "Muscular Endurance",  "Base Load",              1.25, 25.0, 1),
-            (8,  "Muscular Endurance",  "Overload (+10%)",        1.38, 30.0, 1),
-            (9,  "Muscular Endurance",  "Recovery Deload (-20%)", 0.95,  0.0, 0),
-            (10, "Tempo & Threshold",   "Base Load",              1.35, 30.0, 1),
-            (11, "Tempo & Threshold",   "Overload (+10%)",        1.48, 35.0, 1),
-            (12, "Tempo & Threshold",   "Recovery Deload (-22%)", 1.02,  0.0, 0),
-            (13, "Durability Block",    "Base Load",              1.45, 45.0, 1),
-            (14, "Durability Block",    "Overload (+10%)",        1.55, 50.0, 1),
-            (15, "Durability Block",    "Recovery Deload (-25%)", 1.05,  0.0, 0),
-            (16, "Peak Ironman Volume", "Peak Volume 1",          1.55, 50.0, 1),
-            (17, "Peak Ironman Volume", "Peak Overload 2",        1.62, 55.0, 1),
-            (18, "Peak Ironman Volume", "Recovery Deload (-25%)", 1.08,  0.0, 0),
-            (19, "Race Simulation",     "Big Day Rehearsal",      1.45, 45.0, 0),
-            (20, "Taper Phase",         "Taper 1 (-35%)",         0.80, 15.0, 0),
-            (21, "Race Week",           "Race Week (-60%)",       0.45,  5.0, 0),
-        ]
-    else: # Default 16-Week Olympic
-        season_matrix = [
-            (1,  "General Foundation",  "Base Load",              1.00, 10.0, 2),
-            (2,  "General Foundation",  "Build (+10%)",           1.10, 15.0, 2),
-            (3,  "General Foundation",  "Recovery Deload (-20%)", 0.80,  0.0, 0),
-            (4,  "Aerobic Capacity",    "Base Load",              1.12, 15.0, 2),
-            (5,  "Aerobic Capacity",    "Overload (+12%)",        1.25, 20.0, 1),
-            (6,  "Aerobic Capacity",    "Recovery Deload (-20%)", 0.88,  0.0, 0),
-            (7,  "Specific Threshold",  "Base Load",              1.25, 25.0, 1),
-            (8,  "Specific Threshold",  "Overload (+10%)",        1.38, 30.0, 1),
-            (9,  "Specific Threshold",  "Recovery Deload (-20%)", 0.95,  0.0, 0),
-            (10, "Peak Threshold",      "Base Load",              1.38, 30.0, 1),
-            (11, "Peak Threshold",      "Peak Overload (+10%)",   1.50, 35.0, 1),
-            (12, "Peak Threshold",      "Recovery Deload (-25%)", 0.98,  0.0, 0),
-            (13, "Race Specific",       "Race Pace Simulation 1", 1.35, 40.0, 0),
-            (14, "Race Specific",       "Race Pace Simulation 2", 1.30, 35.0, 0),
-            (15, "Taper & Sharpen",     "Taper (-25%)",           0.85, 10.0, 0),
-            (16, "Race Week",           "Race Week (-50%)",       0.55,  5.0, 0),
-        ]
+    # 3:1 periodization matrix (TASK-026): generated from the profile's mesocycle shape, the race
+    # distance, weeks_to_race and the optional re-entry block (ADR-012 DECISION-010 / DECISION-023).
+    build_w = getattr(profile, "mesocycle_build_weeks", 3)
+    recovery_w = getattr(profile, "mesocycle_recovery_weeks", 1)
+    if reentry_weeks is None:
+        reentry_weeks = getattr(profile, "reentry_weeks", 0)
+    if weeks_to_race is None and profile is not None and normalize_distance(profile.target_race_distance) == normalize_distance(dist):
+        weeks_to_race = profile.weeks_to_race
+    season_matrix = build_season_matrix(dist, weeks_to_race, build_w, recovery_w, reentry_weeks)
+    maint_sessions = getattr(profile, "recovery_week_strength_sessions", 1)   # DECISION-009
+    test_rules = dict(
+        reentry_weeks=reentry_weeks,
+        bike_lockout_weeks=getattr(profile, "reentry_bike_test_lockout_weeks", 4),
+        run_lockout_weeks=getattr(profile, "reentry_run_test_lockout_weeks", 6),
+        min_gap_weeks=getattr(profile, "cp_test_min_gap_weeks", 8),
+    )
+    last_test_week: Dict[str, int] = {}   # per-sport hand-off state between weeks (TASK-018 extends this)
 
     # Initialize Controller and Physiological State
     athlete_state = profile.to_athlete_state() if profile else AthletePhysiologicalState()
@@ -178,26 +124,43 @@ def generate_closed_loop_season_schedule(
     print(f"  Starting CTL: {athlete_state.total_ctl:.1f} | ATL: {athlete_state.total_atl:.1f} | Initial ODI: {athlete_state.orthopedic_decoupling_index:.2f}")
     print(f"================================================================================")
 
-    for week_num, phase_name, step_type, tss_factor, durability_w, req_strength in season_matrix:
+    for wk in season_matrix:
+        week_num, phase_name, step_type, tss_factor, durability_w, req_strength = wk.as_tuple()
+        in_reentry = wk.block == "reentry"
         target_tss = round(base_tss * tss_factor, 0)
 
         # 1. Tier 3 Mesocycle Configuration
         if profile:
-            cfg = profile.to_mesocycle_config(phase_name=phase_name, tss_target=target_tss)
+            cfg = profile.to_mesocycle_config(phase_name=wk.config_phase, tss_target=target_tss)
         else:
             cfg = ClosedLoopMPCController.configure_mesocycle_phase(
-                phase_name=phase_name,
+                phase_name=wk.config_phase,
                 base_tss=target_tss,
                 race_distance=dist,
             )
+        cfg.target_weekly_tss = target_tss   # the matrix is authoritative (phase defaults re-scale TSS)
         cfg.w_durability = durability_w
-        if profile is not None:
-            # Profile governs strength: re-entry cap (DECISION-023) and maintenance sessions (DECISION-009)
+        # Strength: heavy lifts follow the phase, capped by the profile's re-entry rule (DECISION-023) while
+        # in the re-entry block (or when no re-entry block is planned, the legacy always-capped behavior).
+        if profile is not None and (in_reentry or reentry_weeks == 0):
             cfg.required_heavy_strength_sessions = profile.heavy_strength_sessions(req_strength)
         else:
             cfg.required_heavy_strength_sessions = req_strength
-            if req_strength == 0:
-                cfg.sport_freq_bounds["Strength"] = (0, 0)
+        # Tier-0 axial/neuromuscular caps are never relaxed: if the library has fewer heavy lifts under the
+        # profile's daily caps than the phase asks for, request only what can be scheduled and say so.
+        n_heavy_ok = _schedulable_heavy_lifts(lib, cfg)
+        heavy_note = None
+        if cfg.required_heavy_strength_sessions > n_heavy_ok:
+            heavy_note = (f"HEAVY_STRENGTH_LIMITED ({cfg.required_heavy_strength_sessions}->{n_heavy_ok}: "
+                          f"library heavy lifts exceed daily axial/neuro caps)")
+            cfg.required_heavy_strength_sessions = n_heavy_ok
+        if req_strength == 0:
+            # Recovery / taper / race weeks keep maintenance (non-heavy) lifting, never 0 (DECISION-009).
+            cfg.sport_freq_bounds["Strength"] = (maint_sessions, maint_sessions)
+        if in_reentry:
+            # General prep: strength + bike + run only. No swim, even if the pool were open.
+            cfg.sport_freq_bounds["Swim"] = (0, 0)
+            cfg.facility_access["Swim"] = [False] * 7
 
         # 2. Tier 2 Receding-Horizon Feedback & Recalibration
         pre_odi = athlete_state.orthopedic_decoupling_index
@@ -221,6 +184,8 @@ def generate_closed_loop_season_schedule(
         # Check safety bounds: ODI > 1.35 (1.20 in masters mode) or ACWR > 1.30 (1.15 in masters mode)
         odi_limit = 1.20 if athlete_state.masters_mode else 1.35
         acwr_limit = 1.15 if athlete_state.masters_mode else 1.30
+        if profile is not None and (in_reentry or athlete_state.run_ctl < profile.reentry_run_ctl_exit):
+            acwr_limit = min(acwr_limit, profile.max_running_acwr_reentry)   # ADR-012 DECISION-014
 
         if pre_odi > odi_limit or pre_acwr > acwr_limit:
             recal_action = "SAFETY_RECALIBRATION_APPLIED"
@@ -247,7 +212,9 @@ def generate_closed_loop_season_schedule(
                 cfg.daily_time_caps = [60.0] * 7
 
         # 4. Solve Week MILP
-        scheduler = TriathlonMILPScheduler(lib, cfg)
+        # ADR-011 lockouts: forbidden CP/CSS tests are removed from the candidates BEFORE the solve.
+        week_lib = filter_test_workouts(lib, wk, last_test_week, **test_rules)
+        scheduler = TriathlonMILPScheduler(week_lib, cfg)
         plans = scheduler.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
 
         plan = plans[0] if plans else None
@@ -263,6 +230,10 @@ def generate_closed_loop_season_schedule(
                 "total_mech_strain": 0.0, "total_ans_cost": 0.0, "max_single_run_ratio": 0.0,
             }
         if plan:
+            for day_wkts in plan["schedule"].values():
+                for w in day_wkts:
+                    if w.flags.get("test"):
+                        last_test_week[w.sport] = week_num
             # Advance physiological states day by day
             for d in range(7):
                 wkts = plan["schedule"][d]
@@ -283,6 +254,7 @@ def generate_closed_loop_season_schedule(
             season_summary_rows.append({
                 "Week": week_num,
                 "Phase": phase_name,
+                "Block": wk.block,
                 "Step_Type": step_type,
                 "Target_TSS": target_tss,
                 "Solved_TSS": round(plan["total_tss"], 1),
@@ -295,7 +267,7 @@ def generate_closed_loop_season_schedule(
                 "TSB": round(athlete_state.total_tsb, 1),
                 "Ending_ODI": round(athlete_state.orthopedic_decoupling_index, 3),
                 "Ending_ACWR": round(athlete_state.running_mechanical_acwr, 3),
-                "Recalibration": recal_action if not pert_info else f"{recal_action} + {pert_info}",
+                "Recalibration": " + ".join(x for x in (recal_action, pert_info, heavy_note) if x),
                 "Solve_Status": plan.get("status"),
                 "MIP_Gap": plan.get("mip_gap"),
                 "Relaxations": "; ".join(r["message"] for r in plan.get("relaxations", [])),

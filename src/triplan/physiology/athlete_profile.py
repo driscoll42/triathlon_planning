@@ -120,6 +120,13 @@ class AthleteProfile:
     # DECISION-010: 3 build weeks + 1 recovery week
     mesocycle_build_weeks: int = 3
     mesocycle_recovery_weeks: int = 1
+    # TASK-026: general-prep / re-entry block ahead of the race block (strength + bike + run, no swim).
+    # 0 disables it (default for generic profiles); CURRENT_ATHLETE sets 24 in athlete_profile.yaml.
+    reentry_weeks: int = 0
+    # ADR-011 / ADR-012 DECISION-005: no all-out CP tests during initial re-entry; >= N weeks between tests.
+    reentry_bike_test_lockout_weeks: int = 4
+    reentry_run_test_lockout_weeks: int = 6
+    cp_test_min_gap_weeks: int = 8
     base_weekly_tss: float = 160.0           # Conservative Re-Entry target weekly TSS (scalable via 3:1 step cycle)
     peak_weekly_tss: float = 380.0           # Peak target weekly TSS during Build 2 / Peak
 
@@ -270,6 +277,11 @@ class AthleteProfile:
             e.append(f"tier1_relaxation_order has unknown entries {unknown}")
         if self.recovery_week_strength_sessions < 0 or self.reentry_heavy_strength_sessions < 0:
             e.append("strength session counts must be >= 0")
+        if self.mesocycle_build_weeks < 1 or self.mesocycle_recovery_weeks < 0:
+            e.append("mesocycle_build_weeks must be >= 1 and mesocycle_recovery_weeks >= 0")
+        if min(self.reentry_weeks, self.reentry_bike_test_lockout_weeks, self.reentry_run_test_lockout_weeks,
+               self.cp_test_min_gap_weeks) < 0:
+            e.append("reentry_weeks / test lockout weeks / cp_test_min_gap_weeks must be >= 0")
         if self.swim_pool_length not in ("25y", "25m", "50m"):
             e.append("swim_pool_length must be one of 25y, 25m, 50m")
         return e
