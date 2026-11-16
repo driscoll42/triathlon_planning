@@ -7,7 +7,7 @@ Merged every workout source into data/workout_library.csv:
   build_default_candidate_library() / build_hybrid_candidate_library() lists in closed_loop_optimizer.py.
 
 It runs only against commit a3bfabc, where the hand-coded lists still exist. Afterwards the CSV
-is the hand-editable source of truth; refresh 80/20 rows with library.build.refresh_from_8020_scrape.
+is the hand-editable source of truth (later versioned steps: m2026_11_16_cap_compatible_heavy_lifts.py); refresh 80/20 rows with library.build.refresh_from_8020_scrape.
 """
 import os
 

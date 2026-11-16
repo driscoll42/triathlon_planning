@@ -5,7 +5,6 @@
 > Line references predate the `ADR-015` package split unless noted (`closed_loop_optimizer.py` → `src/triplan/{solver,control,physiology}/`).
 
 ## Phase 2: Consolidate into ONE Unified MILP Engine (`WeekModel` engine, `ADR-017`)
-- [ ] **`TASK-033` (`workouts`):** **Heavy Lifts Compatible with Tier-0 Axial/Neuro Caps** — `STR_MS1_HEAVY_DEF` has axial 85 / neuro 85, above CURRENT_ATHLETE's daily caps 65 / 75, so no heavy lift is schedulable. `generate_closed_loop_season_schedule` now requests only the schedulable count and logs `HEAVY_STRENGTH_LIMITED` (race-block weeks run 0 heavy lifts). Provide heavy-labelled lifts that fit the caps (or lower-axial variants), related to `TASK-028`.
 - [ ] **`TASK-027` (`perf`):** **Multi-Distance Optimizer Validation** — Run sprint, olympic, 70.3 and IM seasons on (a) `CURRENT_ATHLETE` and (b) an unconstrained reference profile (no 75 min/day cap, pool access). Assert 0 fallback weeks, Tier-0 caps held, and an explicit infeasibility diagnosis when long-course volume cannot fit the time budget.
 
 ## Phase 3: Physiology Calibration & Periodization

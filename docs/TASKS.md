@@ -7,10 +7,9 @@
 None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
 ## P1 — Engineering Queue
-Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (254 pass).
+Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (261 pass).
 
 ### Phase 2 — Unified MILP Engine
-- [ ] `TASK-033` (`workouts`): library has no heavy lift within the Tier-0 axial 65 / neuro 75 caps (`STR_MS1_HEAVY_DEF` is 85/85); race-block weeks run 0 heavy lifts. Add/rescale compliant heavy lifts (with `TASK-028`).
 - [ ] `TASK-027` (`perf`): multi-distance season validation on real + unconstrained profiles.
 
 ### Phase 3 — Physiology Calibration

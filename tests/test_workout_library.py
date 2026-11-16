@@ -23,8 +23,8 @@ def test_canonical_library_validates_and_has_expected_shape(lib):
     assert list(lib.columns) == WORKOUT_COLUMNS
     assert lib["code"].is_unique
     counts = lib.groupby("provenance").size().to_dict()
-    assert counts == {"8020_library": 479, "agent_authored": 35, "hand_coded_default": 24, "hand_coded_hybrid": 18}
-    assert lib["lib_default"].sum() == 26 and lib["lib_hybrid"].sum() == 18
+    assert counts == {"8020_library": 479, "agent_authored": 39, "hand_coded_default": 24, "hand_coded_hybrid": 18}  # +4 TASK-033 heavy variants
+    assert lib["lib_default"].sum() == 30 and lib["lib_hybrid"].sum() == 22
 
 
 def test_stale_duplicate_sources_are_gone():
@@ -202,8 +202,8 @@ def test_row_model_rejects_cross_sport_flags():
 # ----------------------------------------------------------------------------- loader
 
 def test_loader_sets_and_legacy_frame(lib):
-    assert len(load_candidates(library="default")) == 26
-    assert len(load_candidates(library="hybrid")) == 18
+    assert len(load_candidates(library="default")) == 30
+    assert len(load_candidates(library="hybrid")) == 22
     no_tests = select(lib, library="default", include_tests=False)
     assert not no_tests["is_test"].any()
     legacy = legacy_frame(select(lib, provenance=["8020_library"]))
