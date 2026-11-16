@@ -150,7 +150,7 @@
 ### Outcomes
 - **TASK-036:** `GEMINI.md` §1 ADR range → `ADR-001..020`; §3 "Top-K Plan Diversity" now states selection-based cuts (`ADR-018`) and "Parallel Multi-Seed Race" is replaced by "Single Deterministic Solve" (`ADR-017`/`ADR-018`); §5 `optimizer`/`mpc` routing lists `solver/engine/`, `control/periodization.py`, `control/carry.py`. `INVARIANTS.md` Top-K rule updated likewise. `lode.json` optimizer scope no longer says "multiseed races". `HEUR-001` retargeted from the deleted `optimize_weekly_workouts_multiseed()` to the process-parallel stress runner (`TASK-032`) with a working verification command. `ADR-006` front matter set to `SUPERSEDED` (already superseded by edge from `ADR-018`). No code changes.
 
-## Phase 2 — TASK-039 — completed 2026-11-16 (PR #TBD)
+## Phase 2 — TASK-039 — completed 2026-11-16 (PR #13)
 
 - [x] **`TASK-039` (`safety`):** **Absolute Long-Run Cap For Weeks With < 4 Runs** — `EXP-007`: every `CURRENT_ATHLETE` week had < 4 runs and 13-25 had one, where the 32% ratio (`ADR-003`) is vacuous and the pigeonhole fallback allows 100%. Owner decision: enforce an absolute cap in minutes instead.
 
