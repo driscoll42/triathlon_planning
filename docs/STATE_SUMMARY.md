@@ -13,7 +13,7 @@ Domain → module routing lives in `CLAUDE.md` §5 and `docs/LODE_MAP.md`; per-d
 
 | Subsystem | Package (`src/triplan/`) | Responsibility |
 | :--- | :--- | :--- |
-| `optimizer` | `solver/`, `model/` | One unified HiGHS week engine (`solver/engine/`: `WeekModel` + modular builders, `ADR-017`; scheduler/hybrid/day-scheduler are thin facades), pruning, No-Good cuts, equipment partitioning. |
+| `optimizer` | `solver/`, `model/` | One unified HiGHS week engine (`solver/engine/`: `WeekModel` + modular builders, `ADR-017`; scheduler/hybrid/day-scheduler are thin facades), pruning, selection cuts, symmetry breaking, equipment partitioning. |
 | `safety` | `solver/safety_constraints.py` | Shared Tier-0 orthopedic layer (`ADR-013`): run ceiling, DL lockout, axial/NM/strain caps, ACWR, ODI. |
 | `mpc` | `control/` | 3-tier closed loop (`ADR-005`), season generation. |
 | `physiology` | `physiology/` | Athlete profile (YAML), PMC + tissue-remodeling state, ANS cost. |
@@ -28,7 +28,7 @@ flowchart TD
     B --> C["Candidate Library (CandidateWorkout)"]
     D["Athlete Profile (config/athlete_profile.yaml)"] --> E["MPC Controller & Targets (src/triplan/control/mpc.py)"]
     C & E --> F["HiGHS MILP Formulation (highspy)"]
-    F --> G["Status-Checked Solve (highs_runtime) / No-Good Cuts"]
+    F --> G["Status-Checked Solve (highs_runtime) / Selection Cuts"]
     G --> H["Feasible Weekly Schedule (Top-K Plans)"]
     H --> I["Biomechanics & Remodeling Validation (ACWR, ODI)"]
     I --> J["TrainingPeaks REST API Sync (src/triplan/io/trainingpeaks.py)"]

@@ -26,7 +26,7 @@
 - **`ADR-003`** (`safety`): Enforce Single-Run Volume Ceiling at 32 Percent of Weekly Running Duration
 - **`ADR-004`** (`physiology`): Decouple Aerobic TSS and Mechanical Strain with Asynchronous Tissue Remodeling
 - **`ADR-005`** (`mpc`): Implement Three-Tier Closed-Loop Model Predictive Control with Daily Readiness Scaling
-- **`ADR-006`** (`perf`): Adopt 15-Seed Parallel HiGHS Race with Per-Worker Timeout Limits
+- **`ADR-006`** (`perf`): Adopt 15-Seed Parallel HiGHS Race with Per-Worker Timeout Limits [SUPERSEDED BY ADR-018 [SUPERSEDES: ADR-018 supersedes ADR-006]]
 - **`ADR-007`** (`general`): Modularize Repository Layout, Data Assets, and Reference Artifacts
 - **`ADR-008`** (`optimizer`): Adopt Dual-Objective Hybrid Athlete Optimization with Equipment Partitioning and Biomechanical Conflict Matrix
 - **`ADR-009`** (`physiology`): Adopt Canonical 80/20 7-Zone Power System and Two-Point Critical Power Protocol
@@ -38,6 +38,7 @@
 - **`ADR-015`** (`general`): Adopt src-layout triplan package with domain subpackages
 - **`ADR-016`** (`general`): Scope the Startup Token Budget to the Charter's Read List
 - **`ADR-017`** (`optimizer`): Unified WeekModel engine with modular constraint builders
+- **`ADR-018`** (`optimizer`): Single deterministic solve with selection cuts, dominance pruning and symmetry breaking replaces the multi-seed race
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`

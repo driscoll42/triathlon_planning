@@ -171,8 +171,8 @@ def test_hybrid_facade_plan_keys_and_state():
 
 def test_engine_presets_are_distinct_and_documented():
     m, h = meso_options(), hybrid_options()
-    assert (m.session_model, m.cut_mode, m.rest_bounds_default) == ("partition_brick", "active_x", (1, 7))
-    assert (h.session_model, h.cut_mode, h.rest_bounds_default) == ("per_sport_cap", "pair_pm1_split_flip", (1, 2))
+    assert (m.session_model, m.cut_mode, m.rest_bounds_default) == ("partition_brick", "selection", (1, 7))
+    assert (h.session_model, h.cut_mode, h.rest_bounds_default) == ("per_sport_cap", "selection", (1, 2))
 
 
 def test_engine_model_is_built_in_bulk_and_matches_highs():

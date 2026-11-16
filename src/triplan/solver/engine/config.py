@@ -33,9 +33,22 @@ goal_profile           Tier-2 soft goals: ``meso`` (TSS, 5 zones, sport splits, 
                        ``hybrid`` (per-sport TSS with asymmetric weights, movement-pattern sets,
                        TiZ band slacks), ``legacy`` (day scheduler goals).
 rest_bounds_default    default ``(min, max)`` rest days when the config states none.
-cut_mode               Top-K cut: ``active_x`` (sum of selected x <= |S|-1), ``pair_pm1_split_flip``
-                       (full (i,d) +/-1 cut plus a ``z_split`` flip equality; known defect owned by
-                       TASK-020, preserved), ``none`` (single solve).
+cut_mode               Top-K cut (TASK-020, ADR-018). ``selection`` (default for both facades):
+                       with ``s_i = sum_d x[i,d]`` and ``S`` the chosen workouts, add
+                       ``sum_{i in S} s_i <= |S| - m`` so successive plans differ in WHICH workouts are
+                       chosen, not just their day layout. ``layout``: exact (i,d) no-good
+                       ``sum_{(i,d) in plan} x[i,d] <= |plan| - 1`` (day permutations count as distinct).
+                       ``none``: single solve (legacy adapter). Defaults: ``meso_options()`` and
+                       ``hybrid_options()`` both use ``selection`` (a coach wants alternatives with
+                       different sessions; the old hybrid ``z_split`` flip equality that capped Top-K at
+                       2 plans is removed, the split architecture is still reported from ``z_split``).
+cut_min_diff           ``m`` of the selection cut: a later plan must drop at least ``m`` of every earlier
+                       plan's workouts (default 1).
+symmetry_breaking      add one week-reversal ordering row when the whole week is provably invariant
+                       under ``d -> 6-d`` (palindromic caps/facility/pool/outdoor/readiness, no weekend
+                       brick or weekday-only cap, no legacy day rules). Optimum-preserving; off for
+                       ``layout`` cuts (which treat mirrored layouts as distinct).
+prune_dominated        drop provably dominated duplicate workouts before building (``solver.pruning``).
 split_coherence        UL/HLM strength split architecture with ``z_split``.
 barbell_share          >= ``min_barbell_set_share`` of strength sets on the barbell.
 tiz_band               Z1+Z2 >= p_low_min and Z4+Z5 <= p_high_max with soft slacks.
@@ -187,7 +200,10 @@ class EngineOptions:
     allowed_rule: str = "meso"
     cost_profile: str = "meso"
     goal_profile: str = "meso"
-    cut_mode: str = "active_x"
+    cut_mode: str = "selection"
+    cut_min_diff: int = 1
+    symmetry_breaking: bool = True
+    prune_dominated: bool = True
     rest_bounds_default: Tuple[int, int] = (1, 7)
     empty_row_policy: str = "raise"
     safety: bool = True
@@ -216,7 +232,7 @@ def hybrid_options() -> EngineOptions:
     """``HybridAthleteMILPOptimizer`` semantics (rest window 1..2, <=2/day, <=1 per sport/day)."""
     return EngineOptions(
         session_model="per_sport_cap", allowed_rule="hybrid", cost_profile="hybrid", goal_profile="hybrid",
-        cut_mode="pair_pm1_split_flip", rest_bounds_default=(1, 2), empty_row_policy="keep",
+        rest_bounds_default=(1, 2), empty_row_policy="keep",
         meso_adjacency_rows=False, weekly_run_strain_cap=False, split_coherence=True, barbell_share=True,
         tiz_band=True, plan_format="hybrid", infeasible_hint=False, mip_heuristic_effort=None,
     )
@@ -226,7 +242,7 @@ def legacy_options(spec: LegacySpec) -> EngineOptions:
     """``optimize_weekly_schedule`` semantics: one workout/day, exact count, no Tier-0/1 layers."""
     return EngineOptions(
         session_model="single_per_day", allowed_rule="none", cost_profile="none", goal_profile="legacy",
-        cut_mode="none", safety=False, tier1=False, meso_adjacency_rows=False, weekly_run_strain_cap=False,
+        cut_mode="none", symmetry_breaking=False, prune_dominated=False, safety=False, tier1=False, meso_adjacency_rows=False, weekly_run_strain_cap=False,
         plan_format="raw", infeasible_hint=False, quiet_option="log_to_console", mip_rel_gap=None,
         mip_abs_gap=0.01, mip_heuristic_effort=0.20, legacy=spec,
     )

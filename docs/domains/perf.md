@@ -4,22 +4,19 @@
 Multiprocessing parallelism, CPU core scaling, timeout bounds, solver benchmark budgets, and candidate workout combinatorial complexity controls.
 
 ## 2. Key Modules & Entrypoints
-- [`src/triplan/solver/highs_optimization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_optimization.py): [`optimize_weekly_workouts_multiseed()`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_optimization.py), candidate pruning (`filter_viable_workouts`), worker pool orchestration.
+- [`src/triplan/solver/highs_optimization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_optimization.py): `optimize_weekly_schedule()` (single deterministic solve; the worker pool and multi-seed race were deleted in `TASK-020`/`TASK-004`), candidate pruning (`filter_viable_workouts`); clone dominance pruning lives in [`pruning.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/pruning.py).
 - [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): [`TriathlonMILPScheduler`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py).
 - [`src/triplan/perf/stress.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/perf/stress.py): Stress test scenarios and benchmark harnesses across 5 baseline operational scenarios.
 - [`scripts/benchmark_scaling.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/scripts/benchmark_scaling.py): Combinatorial scaling analysis harness.
-- [`ReadMe.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/ReadMe.md): Parallel CPU core scaling execution profiles (1 to 32 cores).
+- [`ReadMe.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/ReadMe.md): CPU core scaling notes (historical: the multi-core race is retired).
 
 ## 3. Core Architectural Rules & Performance Invariants
 
 ### A. Global Guardrail Domain Invariant
 Rules in this domain are automatically injected into agent briefings across all subsystems via [`scripts/lodectx.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/scripts/lodectx.py).
 
-### B. Multi-Seed Parallel HiGHS Race (`ADR-006`)
-Branch-and-bound tree exploration in Mixed-Integer Linear Programming is highly sensitive to the initial pseudo-random seed. The platform exploits this via a parallel race:
-- **Allocation:** 15 independent seeds distributed across worker processes with 2 threads per worker (30 cores total).
-- **Early Termination:** The race terminates immediately when the first worker discovers the proven optimal solution or reaches the optimality gap tolerance.
-- **Worker Timeouts:** Every worker process is strictly governed by a hard timeout: `time_limit_per_worker = 4.0s`.
+### B. Single Deterministic Solve (`ADR-018`, supersedes `ADR-006`)
+The 15-seed x 2-thread race is retired. One week is one engine solve to a stated MIP gap (Tier-2 `mip_rel_gap` 1%), reported as `mip_gap` on every plan and in the CLI; the 16-week schedule is 16 sequential solves. Speed comes from the model (dominance pruning, week-reversal symmetry row, selection cuts), not from a seed portfolio. Reference timings (12 stress solves): 11 `OPTIMAL` at <= 0.97% gap in 0.3-4.1 s on the default 2 threads; the 200-workout scale scenario is `TIME_LIMIT_FEASIBLE` at 5.7%. `EXP-003` is the formal single-solve vs race benchmark.
 
 ### C. Candidate Workout Pruning Invariant ($W \le 120$)
 - Candidate pruning (`filter_viable_workouts`) must execute before solver matrix assembly.
