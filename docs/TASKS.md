@@ -1,59 +1,38 @@
 # Active Engineering Queue (`docs/TASKS.md`)
 
-> **Queue Hygiene:** Only active (`[ ]`, `[~]`, `[!]`) items remain here. Completed tasks are logged in `docs/.context/lode.db` and archived to `docs/archive/`.
-> **Architectural Directive:** Consolidate all three MILP solvers (`HybridAthleteMILPOptimizer`, `TriathlonMILPScheduler`, `highs_optimization`) into **ONE unified engine** that is a strict mathematical superset of all three.
+> One line per open item. **Full specs live in `docs/BACKLOG.md`**; read a task's entry there before starting it. Completed work: `docs/archive/TASKS_COMPLETED.md` + `docs/.context/lode.db`.
+> **Directive:** merge the three MILP solvers (`hybrid`, `scheduler`, `highs_optimization`) into ONE superset engine.
 
----
+## P0 — User Decisions (`[!]`)
+None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
-## Priority 0 — User Decisions & Inputs Required (`[!]`)
+## P1 — Engineering Queue
+Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (157 pass).
 
-> `DECISION-001..022` resolved 2026-11-15. See **`ADR-012`**, encoded in `src/athlete_profile.py`. Review again on **2027-05-15** (time budget, pool access). No open user decisions.
+### Phase 2 — Unified MILP Engine
+- [ ] `TASK-015` (`optimizer`): unified `WeekModel` engine, sparse `addRow` build, modular constraint builders.
+- [ ] `TASK-018` (`mpc`): cross-week carry-in state; in-model linearized ACWR and CTL-ramp caps.
+- [ ] `TASK-019` (`physiology`): key-session/stride structure, hard-days-hard, AM/PM gating, lift+easy combo, full 80/20 TiZ rule.
+- [ ] `TASK-020` (`optimizer`): selection-based Top-K cuts, dominance pruning, symmetry breaking; fix `z_split` flip.
+- [ ] `TASK-026` (`mpc`): 3:1 season matrices, profile-driven week configs, ≥24-wk re-entry block, `ADR-011` test lockouts.
+- [ ] `TASK-027` (`perf`): multi-distance season validation on real + unconstrained profiles.
+- [ ] `TASK-004` (`perf`): *superseded by `TASK-020`/`EXP-003`*. Retire the multi-seed race.
 
----
+### Phase 3 — Physiology Calibration
+- [ ] `TASK-021` (`physiology`): unify ANS cost, strain, strength TSS; exact Banister decay.
+- [ ] `TASK-022` (`safety`): fix or replace ODI (dimensional mismatch, wrong-sign controller).
+- [ ] `TASK-023` (`mpc`): interval-parsed TTE durability, variety goal, `Phase` enum, walk-jog re-entry.
 
-## Priority 1 — Active Engineering Queue (`[ ]` / `[~]`)
+### Phase 4 — Telemetry & Closed Loop
+- [ ] `TASK-024` (`integrations`): multi-device `.fit` activity parser + 300s ride dedup (`SPEC.md`, `ADR-010`).
+- [ ] `TASK-025` (`mpc`): actuals store, unified readiness α_d (absorbs `TASK-003`), intra-week re-solve.
+- [ ] `TASK-003` (`mpc`): *merged into `TASK-025`*.
+- [ ] `TASK-002` (`workouts`): swim structured-workout ingestion + TP export; 1–3s jitter in all sync scripts.
 
-### Phase 0: Stabilize & Make Repository Trustworthy — ✅ complete 2026-11-15
-> `TASK-005..009` archived to `docs/archive/TASKS_COMPLETED.md` (branch `phase0-stabilize`). Test suite: `python -m pytest` (69 pass, 6 xfail tracked below).
-
-### Phase 1: Data Layer & Single Source of Truth
-> **`TASK-010` + `TASK-011` ✅ 2026-11-15 (`ADR-014`)**: `data/workout_library.csv` + `src/library/` + `config/athlete_profile.yaml`; archived. **`TASK-012` ✅**: 28 mile long runs recovered as distance-prescribed rows, re-materialized at load from `easy_run_pace_min_per_mile`. **`TASK-013` ✅**: thresholds only in the YAML profile (frozen); swims distance-prescribed from `swim_css`; configs never mutated. **`TASK-028` ✅**: conventional DL, no bands. **`TASK-014` ✅ (`ADR-015`)**: installable `src/triplan/` package, `pyproject.toml` sole dependency source. **Phase 1 complete.**
-
-### Phase 1 Follow-ups (found during TASK-014 verification, 2026-11-16)
-- [ ] **`TASK-029` (`workouts`):** **Repair `scripts/simulate_level0_comparison.py`** — Crashes with `KeyError: 'Mechanical_Strain'` (`:191`, `run_rows['Mechanical_Strain']`); fails identically at `8d5fd78`, so it predates the package refactor and most likely broke when TASK-011 replaced the xlsx-derived frame with the canonical library (`mechanical_strain` column). Read the canonical column names via `triplan.library.loader` (or `legacy_frame` if it still maps them), and add a smoke test that runs the script's comparison on a short horizon so it cannot silently rot again.
-- [ ] **`TASK-030` (`general`):** **Restore the Progressive-Disclosure Token Budget** — `python scripts/lodectx.py stats` reports **10,758** tokens against the **< 7,500** core budget (CLAUDE.md §1). Largest contributors: `docs/TASKS.md` (3,245), `.agents/GEMINI.md` (3,074), `docs/STATE_SUMMARY.md` (1,525). Trim `TASKS.md` (shorter task bodies, move detail into PRDs/domain docs), decide whether `.agents/GEMINI.md` belongs in the core set, and make `stats` pass.
-- [ ] **`TASK-031` (`general`):** **Repo-Root-Anchored Output Paths in the CLI** — `src/triplan/cli.py` writes to cwd-relative `training_plans/...` (`:230-231`, `:316`), so `triplan` / `python -m triplan` fails when run outside the repository root. Resolve output paths from a single repo-root helper (as `PROFILE_PATH` / `LIBRARY_PATH` already do), create the directory if missing, and audit other writers (`scripts/compare_all_plans.py`, `triplan.control.season`) for the same issue.
-
-### Phase 2: Consolidate into ONE Unified MILP Engine (`WeekModel` / Superset `HybridAthleteMILPOptimizer`)
-- [x] **`TASK-001` (`optimizer`):** Initial prototype of `HybridAthleteMILPOptimizer` (`PRD-002`, `ADR-008`) — *Superseded by full single-engine unification below (`TASK-015`..`TASK-021`).*
-- [ ] **`TASK-015` (`optimizer`):** **Unified `WeekModel` Engine Architecture** — Consolidate `HybridAthleteMILPOptimizer`, `TriathlonMILPScheduler`, and `highs_optimization.optimize_weekly_schedule` into **ONE engine** using sparse numpy `addRow`/`addCols` construction, dimensionless `add_soft_goal` deviations, and modular constraint builders (`calendar`, `orthopedic`, `intensity_structure`, `strength`, `goals`).
-- [ ] **`TASK-018` (`mpc`):** **Cross-Week Carry-In State & In-Model Linearized ACWR / Ramp Caps** — Pass days $-1$ and $-2$ from prior week (hard flag, heavy-run flag, heavy-lower-strength flag, TSS, strain, ANS) as constants into day-0 adjacency and 48h rows; embed daily EWMA running ACWR ($A_d - \rho_{\max} C_d \le \varepsilon_{\text{floor}}$) and weekly CTL ramp limit directly as linear constraints inside the MILP.
-- [ ] **`TASK-019` (`physiology`):** **Session-Structure Constraints, Hard-Days-Hard & AM/PM Slot Gating** — Pre-filter grey-zone "medium" workouts ($0 < q_i < q^{\min}_{\text{sport}}$); enforce $2 \le \sum \text{key}_i x_{i,d} \le 3$ and $\ge 2$ stride sessions; classify `is_hard` by sport-specific $q_i$ instead of raw IF (fixing swim IF marking easy swims hard); enforce Hard-Days-Hard stacking ($\sum_{i \in \text{HeavyLower}} x_{i,d} \le k_d$); gate double days via `w_double[d] <= two_windows[d]` with deterministic AM/PM ordering ($\ge 6\text{h}$ AMPK/mTOR gap). Model the `DECISION-021` **lift + easy cardio combo** as compound candidates: strength followed by ≤20 min Z1/Z2 Bike/Run in one window, Bike only after heavy lower-body lifting, counted toward the day's cap and the sport's frequency. Enforce the canonical 80/20 rule from `ADR-012` / `DECISION-013`: time-in-zone over endurance minutes, Z1+Z2 ≥ 78% hard, and **Z3+ZY+Z4+Z5 ≤ 20%**. The current `p_high_max` only counts Z4/Z5.
-- [ ] **`TASK-020` (`optimizer`):** **Selection-Based Top-K Cuts, Dominance Pruning & Symmetry Breaking** — Replace exact `(i,d)` day-permutation cuts (`:1121`) and the broken `z_split` flip equality (`:1567`, which caps solutions at 2) with workout-selection cuts ($\sum_{i \in S_k} s_i \le |S_k| - m$, plus optional layout-permutation mode); implement dominance/cluster candidate pruning and identical-day symmetry breaking; retire `util.calculate_plan_score` (keep as reporting metric only), `generate_random_workout_plan`, and `_solve_olympic_week_worker` multi-seed races (`TASK-004` superseded).
-- [ ] **`TASK-026` (`mpc`):** **3:1 Season Matrices & Profile-Driven Week Configs (`ADR-012`)** — All four `season_matrix` tables in `generate_closed_loop_season_schedule` (`closed_loop_optimizer.py:~2240`) use 2:1 cycles; rebuild them as 3:1. Note: the planner *does* use `profile.to_mesocycle_config()`. Earlier runs looked profile-blind only because every week hit the (now deleted, ADR-013) fallback. Its phase defaults (anchors, 2 heavy strength sessions in base) still need profile-aware candidates. Replace the `req_strength == 0 → Strength (0,0)` override (`:2346`) with `profile.recovery_week_strength_sessions` maintenance sessions. Add a ≥24-week general-prep/re-entry block (strength + bike + run, no swim) ahead of the 16-week Olympic block. Respect `ADR-011` test lockouts: `BK_CP_TEST` is currently picked in week 1.
-- [ ] **`TASK-027` (`perf`):** **Multi-Distance Optimizer Validation** — Run sprint, olympic, 70.3 and IM seasons on (a) `CURRENT_ATHLETE` and (b) an unconstrained reference profile (no 75 min/day cap, pool access). Assert 0 fallback weeks, Tier-0 caps held, and an explicit infeasibility diagnosis when long-course volume cannot fit the time budget.
-- [ ] **`TASK-004` (`perf`):** *[Superseded by `TASK-020` & `EXP-003`]* Retire multi-seed worker pool race once single deterministic solve with dominance pruning and `mip_rel_gap` reporting is verified.
-
-> **`TASK-016` + `TASK-017` ✅ complete 2026-11-15 (`ADR-013`)** — archived to `docs/archive/TASKS_COMPLETED.md`. Shared Tier-0 layer `src/safety_constraints.py`, Tier-1 named slacks, lexicographic solve, pre-solve explainer, fallback deleted.
-
-### Phase 3: Physiology Calibration & Periodization
-- [ ] **`TASK-021` (`physiology`):** **Unify ANS Cost, Mechanical Strain, Strength TSS & Banister PMC Math** — Unify the 3 conflicting ANS formulas into the 7-zone `SPEC.md` weight vector $w=(0,0,0.7,1.0,1.4,1.8,3.5)$ with alactic stride exemption and long-duration surcharge; replace stacked-constant mechanical strain with zone-power exponent model $S^{\text{run}}_i = \sum_z t_{i,z} p_z^\beta$ and set-intensity strength strain; assign strength a realistic aerobic TSS (10–20/hr instead of 56 TSS); fix `AthletePhysiologicalState.step_day` (`:1628-1629`) from $\alpha = 2/(N+1)$ to exact Banister decay $\alpha = 1 - e^{-1/\tau}$ ($\tau=42, 7$) and reconcile strength TSS in `total_ctl` vs `metabolic_fitness_state`; recalibrate 48h caps to match.
-- [ ] **`TASK-022` (`safety`):** **Fix or Replace Orthopedic Dissociation Index (ODI)** — Fix dimensional mismatch ($M(t)$ all-sport TSS vs $C(t)$ run-only strain) and wrong-sign feedback controller (`:2370-2375` cutting run strain lowers $C(t)$ and drives ODI higher, causing runaway 1.13 $\to$ 2.44 drift) by defining $\text{ODI}^{\text{run}} = \text{EWMA}_{35}(S^{\text{run}}) / \text{EWMA}_{120}(S^{\text{run}})$ or replacing with in-model ACWR + CTL ramp bounds.
-- [ ] **`TASK-023` (`mpc`):** **Interval-Parsed Durability (TTE Progression), Variety Goal & Re-Entry Block** — Parse ordered interval descriptions into continuous threshold block $T^{\text{cont}}_i$, total $T^{\text{thr}}_i$, and late-zone minutes $\text{late}_i$ (replacing dual-scale `0..10` vs `0..85` hand-typed durability scores); add linear week-over-week TTE progression goal and multi-week workout variety penalty; replace substring phase matching (`"base" in phase_name`, which misses `"General Foundation"`) with a `Phase` enum; add walk-jog re-entry progression block for detrained (`CTL < 15`) profiles.
-
-### Phase 4: Telemetry, Readiness & Closed-Loop Integrations
-- [ ] **`TASK-024` (`integrations`):** **Multi-Device `.fit` Activity Parser & Deduplication (`src/fit_ingest.py`)** — Input: `data/garmin/activities/fit_files/` (2,020 recorded activities). Devices: Edge 530 for bike; Enduro 3 for run, swim and strength (`ADR-012`). Implement the missing FIT parser per `SPEC.md` & `ADR-010`: extract Stryd CIQ developer field `Power` (`is_dev=True`, never native `record.power`), `Form Power`, `Leg Spring Stiffness`, `Air Power` (flagging treadmill `sub_sport`); compute pool swim duration/sTSS strictly from `length_type == 'active'` and exclude drills from SWOLF; deduplicate overlapping rides within 300s (preferring Edge 530); ignore Tacx Neo `left_right_balance` and include zero-power records.
-- [ ] **`TASK-025` (`mpc`):** **Actuals Store, Unified Morning Readiness ($\alpha_d$) & Receding-Horizon Re-Solve** — Store completed activities with 7-zone TiZ, TSS, and strain to advance `AthletePhysiologicalState` from actuals instead of planned workouts; fix `calculate_garmin_morning_readiness` bug (`:1761` dividing RHR deviation by `rmssd_baseline_std * 0.5` instead of RHR SD); unify the two readiness scalars into a single $\alpha_d \in [0.60, 1.00]$ wired to `data/garmin/wellness/hrv_summaries.json` (absorbs `TASK-003`); add intra-week receding-horizon re-solve fixing completed days $d < \text{today}$ and re-optimizing remaining days.
-- [ ] **`TASK-003` (`mpc`):** *[Merged into `TASK-025`]* Integrate morning HRV RMSSD, RHR baseline SD, and sleep telemetry into unified $\alpha_d$ readiness scaling and intra-week re-solve.
-- [ ] **`TASK-002` (`workouts`):** **Swim Structured Workout Ingestion & TrainingPeaks Export** — Ingest and calibrate 80/20 swimming structured workouts into TrainingPeaks JSON format; enforce 1.0–3.0s random jitter rate limiting in both `src/sync_8020_to_tp.py:617` (currently fixed 0.5s) and `scripts/sync_garmin_data.py` (currently 0.05–0.12s); wire `evaluate_cp_retest_triggers` to real parsed decoupling/EF telemetry.
-
----
-
-## Priority 2 — Queued Empirical Experiments (`docs/experiments/`)
-
-- [ ] **`EXP-003` (`perf`):** **Solver Correctness, Sparse Build & Dominance Pruning Scaling (Run First — Retests `EXP-001`)** — Benchmark `addRow` numpy construction + dominance/cluster candidate pruning across 40, 80, 160, 324, and synthetic 500 workouts; compare 15-seed $\times$ 2-thread race vs single deterministic solve at equal CPU budget; verify monotone Top-5 objectives and p95 $\le 2\text{s}$ at $\le 1\%$ gap.
-- [ ] **`EXP-001` (`perf`):** **[`NEEDS_RETEST` via `EXP-003`]** Benchmark 15-seed $\times$ 2-thread HiGHS race vs single-seeded branching search on full candidate space (audit observed 8.1s timeouts and non-monotone Top-5 scores).
-- [ ] **`EXP-004` (`optimizer`):** **Goal-Weight Sensitivity & Session-Structure Constraints** — Sweep 81 combinations ($\times 0.25, \times 1, \times 4$) of dimensionless soft-goal weights across 300/500/700 TSS with and without key-session ($2 \le \text{key} \le 3$) and grey-zone pre-filtering constraints; establish Pareto frontier and default weights.
-- [ ] **`EXP-005` (`integrations`):** **FIT Ingestion Parser & Multi-Device Validation** — Validate `src/fit_ingest.py` against synthetic and real `.fit` fixtures covering Stryd developer `Power`, active swim lengths, 300s ride deduplication, Neo 2T `left_right_balance` exclusion, and treadmill `Air Power = 0`.
-- [ ] **`EXP-006` (`physiology`):** **Load-Model Calibration Against Athlete's Historical Garmin & Lifting Telemetry** — Calibrate planned vs actual zone midpoints, Banister PMC $\alpha = 1 - e^{-1/\tau}$ vs $2/(N+1)$ divergence, running mechanical strain exponent $\beta \in \{1, 1.5, 2, 3\}$, and 28-day rolling HRV/RHR readiness z-score mapping across the 2,020 local Garmin activities and 270 HRV nights on disk.
-- [ ] **`EXP-002` (`safety`):** **Closed-Loop 16-Week Season Simulation Under Real Profile & Perturbations** — Verify the consolidated 3-tier MILP + carry-in state + in-model ACWR on `CURRENT_ATHLETE` under nominal, week-5 illness, week-8 pool closure, week-11 travel, and stochastic execution noise (target: 0 fallback weeks, TSS within $\pm 10\%$ in $\ge 14/16$ weeks, ACWR $\le 1.25$ post-re-entry, single-run $\le 32\%$ when $\ge 4$ runs, $\ge 20$ distinct workouts).
+## P2 — Queued Experiments (`docs/experiments/`)
+- [ ] `EXP-003` (`perf`): solver correctness, sparse build and pruning scaling. **Run first**; retests `EXP-001`.
+- [ ] `EXP-001` (`perf`): `NEEDS_RETEST` via `EXP-003`. 15-seed race vs single solve.
+- [ ] `EXP-004` (`optimizer`): goal-weight sensitivity + session-structure constraints (81-point sweep).
+- [ ] `EXP-005` (`integrations`): FIT parser validation on synthetic + real fixtures.
+- [ ] `EXP-006` (`physiology`): load-model calibration against historical Garmin/lifting telemetry.
+- [ ] `EXP-002` (`safety`): closed-loop 16-week season simulation under perturbations.

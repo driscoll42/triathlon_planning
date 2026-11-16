@@ -23,7 +23,7 @@ As autonomous coding agents interact with long-running engineering projects, mon
 
 ## 3. Decision & Production Invariant
 - **Target Component / Path:** `docs/`, `scripts/lodectx.py`, `docs/.context/lode.db`.
-- **Locked Parameters / Contract:** Startup Core (`GEMINI.md`, `STATE_SUMMARY.md`, `LODE_MAP.md`, `INVARIANTS.md`, `TASKS.md`) must strictly stay under 7,500 estimated tokens (`chars / 4`).
+- **Locked Parameters / Contract:** Startup Core (`GEMINI.md`, `STATE_SUMMARY.md`, `LODE_MAP.md`, `INVARIANTS.md`, `TASKS.md`) must strictly stay under 7,500 estimated tokens (`chars / 4`). *(File set re-scoped 2026-11-16 by `ADR-016`: charter excluded, `SPEC.md` included.)*
 - **Enforcement Mechanism:** Automated token budget check via `python scripts/lodectx.py stats`.
 
 ## 4. Empirical Evidence & Validation Lineage

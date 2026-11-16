@@ -2,11 +2,11 @@
   "project_name": "Triathlon Workout & Season Planner",
   "startup_token_budget": 7500,
   "startup_files": [
-    ".agents/GEMINI.md",
     "docs/STATE_SUMMARY.md",
     "docs/LODE_MAP.md",
     "docs/INVARIANTS.md",
-    "docs/TASKS.md"
+    "docs/TASKS.md",
+    "SPEC.md"
   ],
   "global_guardrail_domains": [
     "safety",

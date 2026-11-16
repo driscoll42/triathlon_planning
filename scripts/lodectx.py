@@ -43,11 +43,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "project_name": REPO_ROOT.name,
     "startup_token_budget": 7500,
     "startup_files": [
-        ".agents/GEMINI.md",
         "docs/STATE_SUMMARY.md",
         "docs/LODE_MAP.md",
         "docs/INVARIANTS.md",
         "docs/TASKS.md",
+        "SPEC.md",
     ],
     "global_guardrail_domains": ["security", "infra", "perf"],
     "domains": {
@@ -777,6 +777,8 @@ def sync_all_docs(conn: sqlite3.Connection) -> None:
     cfg = load_config()
     proj_name = cfg.get("project_name", REPO_ROOT.name)
     domains_map: Dict[str, str] = cfg.get("domains", {})
+    startup_budget = int(cfg.get("startup_token_budget", 7500))
+    startup_files: List[str] = cfg.get("startup_files", DEFAULT_CONFIG["startup_files"])
 
     # 1. Render docs/experiments/INDEX.md
     exp_dir = DOCS_DIR / "experiments"
@@ -807,7 +809,7 @@ def sync_all_docs(conn: sqlite3.Connection) -> None:
     lode_lines = [
         f"# {proj_name} — Lode Map & Progressive Disclosure Index (`docs/LODE_MAP.md`)",
         "",
-        "> **Startup Core (< 7,500 tokens):** `.agents/GEMINI.md` + `docs/STATE_SUMMARY.md` + `docs/LODE_MAP.md` + `docs/INVARIANTS.md` + `docs/TASKS.md`.",
+        f"> **Startup Core (< {startup_budget:,} tokens, `ADR-016`):** " + " + ".join(f"`{f}`" for f in startup_files) + ". Agent charter (`CLAUDE.md`/`GEMINI.md`) is harness-loaded and budgeted separately; open-task specs: `docs/BACKLOG.md` (on demand).",
         "> **On-Demand Domain Briefing:** Run `python3 scripts/lodectx.py brief <domain>` before modifying any subsystem.",
         "> **Canonical Templates & Scaffolding:** `python3 scripts/lodectx.py init <prd|adr|exp|heur>` & `python3 scripts/lodectx.py ingest <path>`.",
         "",

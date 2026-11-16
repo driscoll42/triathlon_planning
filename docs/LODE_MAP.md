@@ -1,6 +1,6 @@
 # Triathlon Workout & Season Planner — Lode Map & Progressive Disclosure Index (`docs/LODE_MAP.md`)
 
-> **Startup Core (< 7,500 tokens):** `.agents/GEMINI.md` + `docs/STATE_SUMMARY.md` + `docs/LODE_MAP.md` + `docs/INVARIANTS.md` + `docs/TASKS.md`.
+> **Startup Core (< 7,500 tokens, `ADR-016`):** `docs/STATE_SUMMARY.md` + `docs/LODE_MAP.md` + `docs/INVARIANTS.md` + `docs/TASKS.md` + `SPEC.md`. Agent charter (`CLAUDE.md`/`GEMINI.md`) is harness-loaded and budgeted separately; open-task specs: `docs/BACKLOG.md` (on demand).
 > **On-Demand Domain Briefing:** Run `python3 scripts/lodectx.py brief <domain>` before modifying any subsystem.
 > **Canonical Templates & Scaffolding:** `python3 scripts/lodectx.py init <prd|adr|exp|heur>` & `python3 scripts/lodectx.py ingest <path>`.
 
@@ -36,6 +36,7 @@
 - **`ADR-013`** (`optimizer`): Enforce Three-Tier Lexicographic Constraint Hierarchy with Shared Tier-0 Safety Layer
 - **`ADR-014`** (`workouts`): Adopt Single Validated Canonical Workout Library and YAML Athlete Profile
 - **`ADR-015`** (`general`): Adopt src-layout triplan package with domain subpackages
+- **`ADR-016`** (`general`): Scope the Startup Token Budget to the Charter's Read List
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`

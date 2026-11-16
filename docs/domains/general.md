@@ -20,7 +20,7 @@ Cross-cutting system architecture, engineering standards, Python runtime convent
 - Repository Layout & Clean Architecture (`ADR-007`): Source code in `src/`, environment secrets in `config/`, data assets in `data/`, reference texts in `references/`, operational tools in `scripts/`, output plans in `training_plans/`, and documentation in `docs/`. Never pollute the project root.
 
 ### B. Progressive Disclosure Context Engine
-- Keep the startup core ([`.agents/GEMINI.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/.agents/GEMINI.md), [`docs/STATE_SUMMARY.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/docs/STATE_SUMMARY.md), [`docs/LODE_MAP.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/docs/LODE_MAP.md), [`docs/INVARIANTS.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/docs/INVARIANTS.md), [`docs/TASKS.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/docs/TASKS.md)) strictly under **7,500 estimated tokens**.
+- Keep the startup core (`docs/STATE_SUMMARY.md`, `docs/LODE_MAP.md`, `docs/INVARIANTS.md`, `docs/TASKS.md`, `SPEC.md`; `ADR-016`) strictly under **7,500 estimated tokens** (`python scripts/lodectx.py stats`). The harness-loaded charter is budgeted separately. `TASKS.md` stays one line per item; full specs go in `docs/BACKLOG.md`.
 - Detailed domain lodes in `docs/domains/` are read on-demand during briefings (`python scripts/lodectx.py brief <domain>`).
 
 ### C. Foundational Literature Grounding
