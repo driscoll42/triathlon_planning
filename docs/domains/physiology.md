@@ -4,9 +4,9 @@
 Dual-load physiological modeling (metabolic/aerobic TSS vs peripheral orthopedic mechanical strain), exponential Autonomic Nervous System (ANS) recovery costing, asynchronous multi-tissue remodeling dynamics, physiological durability (fatigue resistance), and concurrent endurance–resistance signaling interference (AMPK–mTORC1).
 
 ## 2. Key Modules & Entrypoints
-- [`src/athlete_profile.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/athlete_profile.py): [`AthleteProfile`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/athlete_profile.py#L22-L75), baseline thresholds (Bike FTP, Run FTP/CP, Swim CSS), chronic/acute starting states, and `Masters Mode` (`age >= 45`).
-- [`src/classes.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/classes.py): [`triVariables`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/classes.py#L8-L45), intensity zone boundaries, power/speed multipliers, and sport target splits.
-- [`src/closed_loop_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py): [`AthletePhysiologicalState`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py#L95-L160), convolutional tissue remodeling states ($M(t), C(t), ODI$), Banister PMC accumulators, EWMA mechanical ACWR, and exponential ANS costing.
+- [`src/triplan/physiology/athlete_profile.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/athlete_profile.py): [`AthleteProfile`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/athlete_profile.py), baseline thresholds (Bike FTP, Run FTP/CP, Swim CSS), chronic/acute starting states, and `Masters Mode` (`age >= 45`).
+- [`src/triplan/model/classes.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/model/classes.py): [`triVariables`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/model/classes.py), intensity zone boundaries, power/speed multipliers, and sport target splits.
+- [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): [`AthletePhysiologicalState`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/state.py), convolutional tissue remodeling states ($M(t), C(t), ODI$), Banister PMC accumulators, EWMA mechanical ACWR, and exponential ANS costing.
 
 ## 3. Core Architectural Rules & Physiological Laws
 

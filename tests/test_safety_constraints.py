@@ -4,13 +4,10 @@ Small synthetic libraries isolate one rule at a time.
 """
 import pytest
 
-from closed_loop_optimizer import (
-    CandidateWorkout,
-    HybridAthleteMILPOptimizer,
-    MesoCycleTargetsAndConstraints,
-    TriathlonMILPScheduler,
-)
-from safety_constraints import classify_workouts
+from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
+from triplan.solver.hybrid import HybridAthleteMILPOptimizer
+from triplan.solver.scheduler import TriathlonMILPScheduler
+from triplan.solver.safety_constraints import classify_workouts
 
 ALL = [True] * 7
 

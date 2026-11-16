@@ -10,18 +10,16 @@ It runs only against commit a3bfabc, where the hand-coded lists still exist. Aft
 is the hand-editable source of truth; refresh 80/20 rows with library.build.refresh_from_8020_scrape.
 """
 import os
-import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "src"))
 
 import pandas as pd  # noqa: E402
 
-from library.build import (  # noqa: E402
+from triplan.library.build import (  # noqa: E402
     BIKE_ZONE_IF, RUN_ZONE_IF, ZONE_CORRECTIONS, _blank_row, derive_8020_rows, endurance_flags, endurance_loads, if_from_tss,
     mechanical_strain, ans_cost, read_8020_scrape, zone_tss,
 )
-from library.schema import WORKOUT_COLUMNS, validate_table  # noqa: E402
+from triplan.library.schema import WORKOUT_COLUMNS, validate_table  # noqa: E402
 
 COLLISIONS = {"BIKE_DUR_OUT", "BIKE_TE1_PYR", "RUN_SS1_STR", "RUN_TB1_BRICK", "STR_MS1_HEAVY"}
 
@@ -126,7 +124,7 @@ def main():
         seen.add(code)
 
     # 4) hand-coded libraries (exact authored values; colliding default codes get a _DEF suffix)
-    from closed_loop_optimizer import build_default_candidate_library, build_hybrid_candidate_library
+    from triplan.library.candidates import build_default_candidate_library, build_hybrid_candidate_library
     for lib_name, lib in (("default", build_default_candidate_library()), ("hybrid", build_hybrid_candidate_library())):
         for w in lib:
             code = w.code + "_DEF" if (lib_name == "default" and w.code in COLLISIONS) else w.code

@@ -1,4 +1,4 @@
-"""Assertions over the 11 stress scenarios in src/stress_test_optimizer.py (TASK-008).
+"""Assertions over the 11 stress scenarios in src/triplan/perf/stress.py (TASK-008).
 
 Known engine defects are marked ``xfail`` with the task that owns the fix. A strict xfail
 fails as soon as the defect disappears, so the marker must be removed when the fix lands.

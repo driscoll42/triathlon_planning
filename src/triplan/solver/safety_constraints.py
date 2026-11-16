@@ -26,7 +26,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import highspy
 
-from highs_runtime import SolveResult, run_and_check
+from triplan.solver.highs_runtime import SolveResult, run_and_check
 
 logger = logging.getLogger(__name__)
 

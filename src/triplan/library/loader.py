@@ -15,9 +15,9 @@ from typing import Iterable, List, Optional
 
 import pandas as pd
 
-from library.schema import WORKOUT_COLUMNS, validate_table
+from triplan.library.schema import WORKOUT_COLUMNS, validate_table
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 LIBRARY_PATH = os.path.join(ROOT, "data", "workout_library.csv")
 
 
@@ -40,13 +40,13 @@ def load_library(path: Optional[str] = None, profile=_CURRENT) -> pd.DataFrame:
     (default: CURRENT_ATHLETE) at load time, so durations and TSS follow the athlete's
     current easy pace / thresholds. Pass ``profile=None`` for the stored values.
     """
-    from library.build import materialize
-    from library.schema import Workout
+    from triplan.library.build import materialize
+    from triplan.library.schema import Workout
 
     p = os.path.abspath(path or LIBRARY_PATH)
     df = _load_cached(p, os.path.getmtime(p)).copy()
     if profile is _CURRENT:
-        from athlete_profile import CURRENT_ATHLETE as profile
+        from triplan.physiology.athlete_profile import CURRENT_ATHLETE as profile
     if profile is not None:
         df = materialize(df, profile)
         for rec in df[df["prescription"] == "distance"].to_dict(orient="records"):
@@ -88,7 +88,7 @@ def _flags(r: dict) -> dict:
 
 def to_candidates(df: pd.DataFrame, base_id: int = 0) -> list:
     """Canonical rows -> CandidateWorkout objects (5-zone engine view: ZX->Z3, ZY->Z4)."""
-    from closed_loop_optimizer import CandidateWorkout  # local import avoids a module cycle
+    from triplan.model.candidates import CandidateWorkout  # local import avoids a module cycle
 
     out: List = []
     for k, r in enumerate(df.to_dict(orient="records")):

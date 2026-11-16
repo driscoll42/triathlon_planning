@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 import numpy as np
 import pandas as pd
-from classes import triVariables as triv
+from triplan.model.classes import triVariables as triv
 
 # Raw-scrape normalization constants (TASK-013). NOT athlete thresholds: the xlsx scrape cache stores
 # minutes/TSS computed with fixed reference values, and the canonical library (library.build)
@@ -94,7 +94,7 @@ class LibraryHTMLParser(HTMLParser):
 
 
 def fetch_workout_library(url='https://www.8020endurance.com/8020-workout-library/', cache_file='data/workout_library.html'):
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     candidates = [
         cache_file,
         os.path.join(root_dir, cache_file),
@@ -120,7 +120,7 @@ def fetch_workout_library(url='https://www.8020endurance.com/8020-workout-librar
 
 
 def download_fit_files(fit_urls, base_url='https://www.8020endurance.com', base_dir='data/fit_files'):
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     candidates = [
         base_dir,
         os.path.join(root_dir, base_dir),
@@ -376,8 +376,8 @@ def rebuild_all_files():
     # The xlsx files are the raw scrape cache. Push the fresh scrape into the canonical library,
     # re-deriving 80/20 rows (including mile-prescribed long runs, TASK-012) and keeping every
     # authored row untouched (ADR-014).
-    from library.build import refresh_from_8020_scrape
-    from library.loader import LIBRARY_PATH, load_library
+    from triplan.library.build import refresh_from_8020_scrape
+    from triplan.library.loader import LIBRARY_PATH, load_library
     canonical = refresh_from_8020_scrape(load_library(profile=None), triv.run_file, triv.bike_file, triv.swim_file)
     canonical.to_csv(LIBRARY_PATH, index=False)
     print(f"Refreshed {LIBRARY_PATH} ({len(canonical)} workouts).")

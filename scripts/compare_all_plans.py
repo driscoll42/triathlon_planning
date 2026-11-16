@@ -3,26 +3,18 @@ Comprehensive Comparison Script:
 Closed-Loop Optimizer vs. All 17 Official 80/20 Triathlon Plans in training_plans/
 """
 
-import sys
-import os
-_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _root_dir)
-sys.path.insert(0, os.path.join(_root_dir, "src"))
 
 import pandas as pd
 import numpy as np
 
-from classes import triVariables as triv
-from closed_loop_optimizer import (
-    CandidateWorkout,
-    MesoCycleTargetsAndConstraints,
-    TriathlonMILPScheduler,
-    ClosedLoopMPCController,
-    AthletePhysiologicalState,
-    build_default_candidate_library,
-    generate_closed_loop_season_schedule,
-)
-from athlete_profile import CURRENT_ATHLETE
+from triplan.model.classes import triVariables as triv
+from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
+from triplan.solver.scheduler import TriathlonMILPScheduler
+from triplan.control.mpc import ClosedLoopMPCController
+from triplan.physiology.state import AthletePhysiologicalState
+from triplan.library.candidates import build_default_candidate_library
+from triplan.control.season import generate_closed_loop_season_schedule
+from triplan.physiology.athlete_profile import CURRENT_ATHLETE
 
 
 def compute_workout_mech_strain(row):

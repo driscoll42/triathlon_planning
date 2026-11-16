@@ -1,7 +1,7 @@
 """CURRENT_ATHLETE (ADR-012) profile contract and non-fallback solve checks (TASK-008)."""
 import pytest
 
-from athlete_profile import AthleteProfile, CURRENT_ATHLETE
+from triplan.physiology.athlete_profile import AthleteProfile, CURRENT_ATHLETE
 
 
 def test_two_point_cp_formula():
@@ -34,7 +34,7 @@ def test_profile_reflects_decisions():
 
 
 def _solve_profile_week(default_library, phase):
-    from closed_loop_optimizer import TriathlonMILPScheduler
+    from triplan.solver.scheduler import TriathlonMILPScheduler
 
     sched = TriathlonMILPScheduler(default_library, CURRENT_ATHLETE.to_mesocycle_config(phase))
     return sched, sched.solve_top_k_plans(k_plans=1, time_limit=5.0)

@@ -6,8 +6,8 @@ import pytest
 from pandera.errors import SchemaErrors
 from pydantic import ValidationError
 
-from library.loader import LIBRARY_PATH, legacy_frame, load_candidates, load_library, select
-from library.schema import WORKOUT_COLUMNS, Workout, validate_table
+from triplan.library.loader import LIBRARY_PATH, legacy_frame, load_candidates, load_library, select
+from triplan.library.schema import WORKOUT_COLUMNS, Workout, validate_table
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -34,9 +34,11 @@ def test_stale_duplicate_sources_are_gone():
 
 
 def test_solve_time_inference_is_deleted():
-    import closed_loop_optimizer as clo
+    from triplan.solver import scheduler, hybrid
+    from triplan.control import mpc
 
-    assert not hasattr(clo, "enrich_workouts_from_df")
+    for mod in (scheduler, hybrid, mpc):
+        assert not hasattr(mod, "enrich_workouts_from_df")
 
 
 def test_seven_zone_minutes_sum_to_duration(lib):
@@ -93,15 +95,15 @@ def test_all_28_mile_long_runs_recovered_as_distance_prescribed(lib):
     ("1.5 miles Zone 1, 16 miles at race pace, 1 mile Zone 2, 1.5 miles Zone 1", [3.0, 1.0, 16.0, 0, 0]),
 ])
 def test_parse_mile_prescription(desc, expected):
-    from library.build import parse_mile_prescription
+    from triplan.library.build import parse_mile_prescription
 
     assert parse_mile_prescription(desc) == pytest.approx(expected)
 
 
 def test_long_run_duration_follows_athlete_easy_pace():
     from dataclasses import replace
-    from athlete_profile import CURRENT_ATHLETE
-    from library.build import run_zone_paces
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE
+    from triplan.library.build import run_zone_paces
 
     def rl1(profile):
         return load_library(profile=profile).set_index("code").loc["RL1"]
@@ -117,8 +119,8 @@ def test_long_run_duration_follows_athlete_easy_pace():
 
 def test_swims_are_distance_prescribed_and_follow_css():
     from dataclasses import replace
-    from athlete_profile import CURRENT_ATHLETE
-    from library.build import SWIM_ZONE_CSS_MULT, css_units_per_min
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE
+    from triplan.library.build import SWIM_ZONE_CSS_MULT, css_units_per_min
 
     swims = load_library()
     swims = swims[(swims["sport"] == "Swim") & (swims["provenance"] == "8020_library")]
@@ -135,7 +137,7 @@ def test_swims_are_distance_prescribed_and_follow_css():
 
 
 def test_normalized_power_follows_current_cp(lib):
-    from athlete_profile import CURRENT_ATHLETE
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE
 
     rides = lib[(lib["sport"] == "Bike") & (lib["prescription"] == "time") & (lib["intensity_factor"] > 0)]
     assert (rides["normalized_power"] - rides["intensity_factor"] * CURRENT_ATHLETE.bike_cp).abs().max() < 0.01
@@ -143,7 +145,7 @@ def test_normalized_power_follows_current_cp(lib):
 
 def test_profile_is_immutable_and_cp_retest_returns_new_profile():
     import dataclasses
-    from athlete_profile import CURRENT_ATHLETE
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE
 
     with pytest.raises(dataclasses.FrozenInstanceError):
         CURRENT_ATHLETE.run_cp = 999.0
@@ -155,7 +157,7 @@ def test_profile_is_immutable_and_cp_retest_returns_new_profile():
 
 
 def test_triv_has_no_athlete_thresholds():
-    from classes import triVariables
+    from triplan.model.classes import triVariables
 
     for name in ("run_ftp", "bike_ftp", "swim_css"):
         assert not hasattr(triVariables, name)
@@ -209,7 +211,7 @@ def test_loader_sets_and_legacy_frame(lib):
 
 
 def test_refresh_from_scrape_is_idempotent_and_keeps_authored_rows(lib):
-    from library.build import refresh_from_8020_scrape
+    from triplan.library.build import refresh_from_8020_scrape
 
     xl = [os.path.join(ROOT, "data", f) for f in ("Run.xlsx", "Bike.xlsx", "Swim.xlsx")]
     out = refresh_from_8020_scrape(lib, *xl)
@@ -222,7 +224,7 @@ def test_refresh_from_scrape_is_idempotent_and_keeps_authored_rows(lib):
 # ----------------------------------------------------------------------------- athlete profile YAML
 
 def test_profile_yaml_is_the_validated_source():
-    from athlete_profile import CURRENT_ATHLETE, PROFILE_PATH, load_athlete_profile
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE, PROFILE_PATH, load_athlete_profile
 
     assert os.path.exists(PROFILE_PATH)
     assert load_athlete_profile() == CURRENT_ATHLETE
@@ -230,7 +232,7 @@ def test_profile_yaml_is_the_validated_source():
 
 def test_profile_yaml_requires_every_field(tmp_path):
     import yaml
-    from athlete_profile import PROFILE_PATH, load_athlete_profile
+    from triplan.physiology.athlete_profile import PROFILE_PATH, load_athlete_profile
 
     data = yaml.safe_load(open(PROFILE_PATH, encoding="utf-8"))
     del data["bike_cp"]
@@ -242,7 +244,7 @@ def test_profile_yaml_requires_every_field(tmp_path):
 
 
 def test_profile_semantic_validation():
-    from athlete_profile import AthleteProfile
+    from triplan.physiology.athlete_profile import AthleteProfile
 
     with pytest.raises(ValueError, match="7 entries"):
         AthleteProfile(daily_time_caps=[60.0] * 6)

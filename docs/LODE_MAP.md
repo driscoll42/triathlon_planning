@@ -35,6 +35,7 @@
 - **`ADR-012`** (`mpc`): Lock Athlete Decision Record for Nov 2026 Re-Entry and Olympic Season
 - **`ADR-013`** (`optimizer`): Enforce Three-Tier Lexicographic Constraint Hierarchy with Shared Tier-0 Safety Layer
 - **`ADR-014`** (`workouts`): Adopt Single Validated Canonical Workout Library and YAML Athlete Profile
+- **`ADR-015`** (`general`): Adopt src-layout triplan package with domain subpackages
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`

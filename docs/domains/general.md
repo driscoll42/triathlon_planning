@@ -5,12 +5,12 @@ Cross-cutting system architecture, engineering standards, Python runtime convent
 
 ## 2. Key Modules & Entrypoints
 - [`.agents/rules/operating_charter.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/.agents/rules/operating_charter.md), [`.agents/AGENTS.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/.agents/AGENTS.md), [`.agents/GEMINI.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/.agents/GEMINI.md): Agent operating charters and progressive disclosure protocol.
-- [`src/`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/): Core platform package and root [`pyproject.toml`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/pyproject.toml).
+- [`src/triplan/`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/): Core platform package (`model/`, `library/`, `solver/`, `physiology/`, `control/`, `io/`, `perf/`; ADR-015) and root [`pyproject.toml`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/pyproject.toml).
 - [`config/`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/config/): Environment configuration (`config/.env.example`, `config/trainingpeak.env`).
 - [`scripts/lodectx.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/scripts/lodectx.py): Zero-dependency SQLite WAL lineage engine and context CLI.
 - [`docs/lode.json`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/docs/lode.json): Project domain topology and token budget configuration.
 - [`references/Closed-Loop Triathlon Training Optimizer.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/references/Closed-Loop%20Triathlon%20Training%20Optimizer.md): Physiological & mathematical specification.
-- [`requirements.txt`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/requirements.txt): Dependencies (`highspy`, `pandas`, `numpy`, `openpyxl`, `beautifulsoup4`, `requests`).
+- [`requirements.txt`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/requirements.txt): Thin pointer to `-e .[test,garmin]`; dependencies are defined only in `pyproject.toml` (ADR-015).
 
 ## 3. Core Architectural Rules & Standards
 

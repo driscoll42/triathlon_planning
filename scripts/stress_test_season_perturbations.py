@@ -2,25 +2,17 @@
 Advanced Stress Testing: Closed-Loop Season Planning under Acute Perturbations & Extreme Constraints
 """
 
-import sys
-import os
-_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _root_dir)
-sys.path.insert(0, os.path.join(_root_dir, "src"))
 
 import pandas as pd
 import numpy as np
 
-from closed_loop_optimizer import (
-    CandidateWorkout,
-    MesoCycleTargetsAndConstraints,
-    TriathlonMILPScheduler,
-    ClosedLoopMPCController,
-    AthletePhysiologicalState,
-    build_default_candidate_library,
-    generate_closed_loop_season_schedule,
-)
-from athlete_profile import AthleteProfile
+from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
+from triplan.solver.scheduler import TriathlonMILPScheduler
+from triplan.control.mpc import ClosedLoopMPCController
+from triplan.physiology.state import AthletePhysiologicalState
+from triplan.library.candidates import build_default_candidate_library
+from triplan.control.season import generate_closed_loop_season_schedule
+from triplan.physiology.athlete_profile import AthleteProfile
 
 
 def run_stress_tests():

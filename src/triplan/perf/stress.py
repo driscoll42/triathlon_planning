@@ -3,34 +3,21 @@ Stress Testing & Scenario Analysis Suite for Closed-Loop Triathlon Training Opti
 Evaluates model robustness, edge cases, combinatorial scalability, and failure boundaries.
 """
 
-import os
-import sys
-
-_src_dir = os.path.dirname(os.path.abspath(__file__))
-_root_dir = os.path.dirname(_src_dir)
-for _p in [_src_dir, _root_dir]:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
 import copy
 import time
 from dataclasses import replace
 import pandas as pd
 import numpy as np
 
-from closed_loop_optimizer import (
-    CandidateWorkout,
-    MesoCycleTargetsAndConstraints,
-    TriathlonMILPScheduler,
-    ClosedLoopMPCController,
-    AthletePhysiologicalState,
-    build_default_candidate_library,
-    build_hybrid_candidate_library,
-    HybridAthleteMILPOptimizer,
-    format_plan_to_dataframe,
-)
-from library.loader import load_candidates
-from classes import triVariables as triv
+from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
+from triplan.solver.scheduler import TriathlonMILPScheduler
+from triplan.control.mpc import ClosedLoopMPCController
+from triplan.physiology.state import AthletePhysiologicalState
+from triplan.library.candidates import build_default_candidate_library, build_hybrid_candidate_library
+from triplan.solver.hybrid import HybridAthleteMILPOptimizer
+from triplan.control.season import format_plan_to_dataframe
+from triplan.library.loader import load_candidates
+from triplan.model.classes import triVariables as triv
 
 
 def print_header(title: str):
@@ -236,7 +223,7 @@ def stress_test_suite():
         ]
         print(f"Successfully loaded {len(enriched_large_lib)} real-world workouts from the canonical library.")
 
-        from closed_loop_optimizer import prune_candidate_library
+        from triplan.solver.pruning import prune_candidate_library
         no_anchor_lib = [replace(w, is_anchor=False, is_indoor_bike=True) for w in enriched_large_lib]
         scaled_lib = prune_candidate_library(no_anchor_lib, target_tss=520.0, max_per_sport=25)
         print(f"Pruned large library to {len(scaled_lib)} high-quality representative workouts.")

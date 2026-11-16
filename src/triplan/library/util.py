@@ -2,7 +2,7 @@ import pandas as pd
 import time
 import multiprocessing as mp
 import random
-from classes import triVariables as triv, workout
+from triplan.model.classes import triVariables as triv, workout
 
 
 def load_workouts(include_strength=True, library_path=None):
@@ -13,7 +13,7 @@ def load_workouts(include_strength=True, library_path=None):
     duplicate sources. Hand-coded engine test libraries (provenance hand_coded_*) are excluded,
     as before. Sports with a 0% target split in triVariables are skipped.
     """
-    from library.loader import legacy_frame, load_library, select
+    from triplan.library.loader import legacy_frame, load_library, select
 
     sports = [s for s, pct in (("Run", triv.run_tgt_percent), ("Bike", triv.bike_tgt_percent),
                                ("Swim", triv.swim_tgt_percent)) if pct > 0] + ["Brick"]

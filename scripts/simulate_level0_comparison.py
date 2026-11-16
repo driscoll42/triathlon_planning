@@ -4,25 +4,17 @@ All Level 0 Plans (Sprint, Olympic, Half Ironman, Ironman) vs. Closed-Loop Optim
 Starting from 0 (CTL=0, ATL=0, M(0)=0, C(0)=0).
 """
 
-import sys
-import os
-_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _root_dir)
-sys.path.insert(0, os.path.join(_root_dir, "src"))
 
 import pandas as pd
 import numpy as np
 
-from athlete_profile import AthleteProfile
-from closed_loop_optimizer import (
-    CandidateWorkout,
-    MesoCycleTargetsAndConstraints,
-    TriathlonMILPScheduler,
-    ClosedLoopMPCController,
-    AthletePhysiologicalState,
-    build_default_candidate_library,
-    generate_closed_loop_season_schedule,
-)
+from triplan.physiology.athlete_profile import AthleteProfile
+from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
+from triplan.solver.scheduler import TriathlonMILPScheduler
+from triplan.control.mpc import ClosedLoopMPCController
+from triplan.physiology.state import AthletePhysiologicalState
+from triplan.library.candidates import build_default_candidate_library
+from triplan.control.season import generate_closed_loop_season_schedule
 
 
 def compute_book_mech(row):

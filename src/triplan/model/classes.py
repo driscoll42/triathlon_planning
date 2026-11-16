@@ -8,7 +8,7 @@ import numpy as np
 def _resolve_data_path(filename: str) -> str:
     """Resolves data paths checking data/ directory first, then root/relative paths."""
     src_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(src_dir)
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(src_dir)))  # src/triplan/model -> repo root
     candidates = [
         os.path.join('data', filename),
         os.path.join(root_dir, 'data', filename),

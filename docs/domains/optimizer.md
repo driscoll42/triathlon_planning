@@ -1,12 +1,12 @@
 # Domain Lode: `optimizer`
 
 ## 1. Scope & Responsibility
-Mixed-Integer Linear Programming (MILP) scheduling models, the HiGHS C++ solver interface ([`highspy`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py#L28)), exact algebraic linearization of non-linear physiological ratios, auxiliary variable linking, dimensionless multi-objective optimization, candidate workout pruning, and canonical No-Good Integer Cuts.
+Mixed-Integer Linear Programming (MILP) scheduling models, the HiGHS C++ solver interface ([`highspy`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py)), exact algebraic linearization of non-linear physiological ratios, auxiliary variable linking, dimensionless multi-objective optimization, candidate workout pruning, and canonical No-Good Integer Cuts.
 
 ## 2. Key Modules & Entrypoints
-- [`src/closed_loop_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py): [`TriathlonMILPScheduler`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py#L320-L650), matrix assembly, exact linearization constraints, and multi-seed/integer-cut extraction.
-- [`src/highs_optimization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/highs_optimization.py): [`optimize_weekly_workouts_multiseed()`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/highs_optimization.py#L450-L550), candidate pruning (`filter_viable_workouts`), and worker pool management.
-- [`src/stress_test_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/stress_test_optimizer.py): Scenario benchmark testbed verifying solver convergence across 5 baseline operational scenarios.
+- [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): [`TriathlonMILPScheduler`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py), matrix assembly, exact linearization constraints, and multi-seed/integer-cut extraction.
+- [`src/triplan/solver/highs_optimization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_optimization.py): [`optimize_weekly_workouts_multiseed()`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_optimization.py), candidate pruning (`filter_viable_workouts`), and worker pool management.
+- [`src/triplan/perf/stress.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/perf/stress.py): Scenario benchmark testbed verifying solver convergence across 5 baseline operational scenarios.
 
 ## 3. Core Architectural Rules & Mathematical Formulations
 

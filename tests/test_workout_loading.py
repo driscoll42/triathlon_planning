@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from classes import triVariables as triv
+from triplan.model.classes import triVariables as triv
 
 
 @pytest.mark.parametrize("attr", ["high_duration_head", "low_duration_head", "intensity_factor", "normalized_power"])
@@ -11,7 +11,7 @@ def test_trivariables_has_column_aliases(attr):
 
 
 def test_load_workouts_filters_tss_by_tss_caps_not_time_caps():
-    from util import load_workouts
+    from triplan.library.util import load_workouts
 
     wkend, wkday = load_workouts()
     assert wkend["TSS"].max() <= triv.max_tss_weekend
@@ -22,7 +22,7 @@ def test_load_workouts_filters_tss_by_tss_caps_not_time_caps():
 
 
 def test_preserve_custom_rows_reappends_missing_custom_codes(tmp_path):
-    from clean_file import preserve_custom_rows
+    from triplan.library.clean_file import preserve_custom_rows
 
     path = tmp_path / "Run.xlsx"
     existing = pd.DataFrame({
@@ -41,7 +41,7 @@ def test_preserve_custom_rows_reappends_missing_custom_codes(tmp_path):
 
 
 def test_preserve_custom_rows_no_existing_file(tmp_path):
-    from clean_file import preserve_custom_rows
+    from triplan.library.clean_file import preserve_custom_rows
 
     scraped = pd.DataFrame({"Code": ["RAe1"], "Duration": [30], "TSS": [20.0]})
     assert preserve_custom_rows(scraped, str(tmp_path / "missing.xlsx")).equals(scraped)

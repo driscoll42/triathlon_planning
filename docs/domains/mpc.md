@@ -4,8 +4,8 @@
 3-Tier Closed-Loop Model Predictive Control (MPC), receding-horizon schedule updates, daily morning biometrics readiness scaling, calendar slot stability invariant, real-time compliance monitoring ("moderate-intensity rut" detection), mesocycle step-cycles, and fast-decay tapering.
 
 ## 2. Key Modules & Entrypoints
-- [`src/closed_loop_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py): [`ClosedLoopMPCController`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py#L655-L850), [`MesoCycleTargetsAndConstraints`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py#L60-L90), [`AthletePhysiologicalState`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py#L95-L160), and [`AthleteBiometrics`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py#L165-L185).
-- [`src/main.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/main.py): Driver script executing 16-week closed-loop season simulation under stochastic readiness perturbations.
+- [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): [`ClosedLoopMPCController`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/mpc.py), [`MesoCycleTargetsAndConstraints`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/model/candidates.py), [`AthletePhysiologicalState`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/state.py), and [`AthleteBiometrics`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py).
+- [`src/triplan/cli.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/cli.py): Driver script executing 16-week closed-loop season simulation under stochastic readiness perturbations.
 
 ## 3. Core Architectural Rules & Control Theory Mechanics
 

@@ -35,10 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger("sync_8020_to_tp")
 
 _src_dir = os.path.dirname(os.path.abspath(__file__))
-_root_dir = os.path.dirname(_src_dir)
-for _p in [_src_dir, _root_dir]:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(_src_dir)))  # src/triplan/io -> repo root
 
 # Load environment variables (checking config/ then root)
 for env_path in [

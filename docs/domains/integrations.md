@@ -4,8 +4,8 @@
 TrainingPeaks private REST API authentication, structured workout step serialization, FIT file processing, multi-sport telemetry ingestion algorithms (cycling power, running biomechanics, swimming cubic drag scaling), and execution compliance quantification.
 
 ## 2. Key Modules & Entrypoints
-- [`src/sync_8020_to_tp.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/sync_8020_to_tp.py): [`TrainingPeaksClient`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/sync_8020_to_tp.py#L30-L150), credential management, step serialization, and folder hierarchy syncing.
-- [`src/clean_file.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/clean_file.py): HTML table scraping, FIT download extraction, and TSS/sTSS algorithms.
+- [`src/triplan/io/trainingpeaks.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/io/trainingpeaks.py): [`TrainingPeaksClient`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/io/trainingpeaks.py), credential management, step serialization, and folder hierarchy syncing.
+- [`src/triplan/library/clean_file.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/library/clean_file.py): HTML table scraping, FIT download extraction, and TSS/sTSS algorithms.
 - [`data/fit_files/`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/data/fit_files/), [`data/workout_library.html`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/data/workout_library.html): Local workout cache and downloaded binary streams.
 - [`config/trainingpeak.env`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/config/trainingpeak.env): Secure environment credentials.
 

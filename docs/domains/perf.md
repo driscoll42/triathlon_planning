@@ -4,9 +4,9 @@
 Multiprocessing parallelism, CPU core scaling, timeout bounds, solver benchmark budgets, and candidate workout combinatorial complexity controls.
 
 ## 2. Key Modules & Entrypoints
-- [`src/highs_optimization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/highs_optimization.py): [`optimize_weekly_workouts_multiseed()`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/highs_optimization.py#L450-L550), candidate pruning (`filter_viable_workouts`), worker pool orchestration.
-- [`src/closed_loop_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py): [`TriathlonMILPScheduler`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py#L320-L650).
-- [`src/stress_test_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/stress_test_optimizer.py): Stress test scenarios and benchmark harnesses across 5 baseline operational scenarios.
+- [`src/triplan/solver/highs_optimization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_optimization.py): [`optimize_weekly_workouts_multiseed()`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_optimization.py), candidate pruning (`filter_viable_workouts`), worker pool orchestration.
+- [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): [`TriathlonMILPScheduler`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py).
+- [`src/triplan/perf/stress.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/perf/stress.py): Stress test scenarios and benchmark harnesses across 5 baseline operational scenarios.
 - [`scripts/benchmark_scaling.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/scripts/benchmark_scaling.py): Combinatorial scaling analysis harness.
 - [`ReadMe.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/ReadMe.md): Parallel CPU core scaling execution profiles (1 to 32 cores).
 

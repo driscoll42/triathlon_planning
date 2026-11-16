@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from functools import partial
 
-from highs_runtime import apply_threads, run_and_check
+from triplan.solver.highs_runtime import apply_threads, run_and_check
 
 logger = logging.getLogger(__name__)
 
@@ -736,8 +736,8 @@ def evaluate_plan_with_original_score(wkt_codes: list, raw_df: pd.DataFrame, tar
     Evaluates a plan (list of workout codes) using the original calculate_plan_score
     function and triVariables from classes.py.
     """
-    from classes import triVariables as triv, workout
-    from util import calculate_plan_score
+    from triplan.model.classes import triVariables as triv, workout
+    from triplan.library.util import calculate_plan_score
 
     chosen = raw_df[raw_df["Code"].isin(wkt_codes)]
     wkt = workout()
@@ -790,7 +790,7 @@ def _solve_olympic_week_worker(args):
     Multiprocessing worker function to solve a single week of the 16-Week Olympic Schedule.
     """
     (w, phase, block_label, target_tss, wtr, df_dict, threads, time_limit) = args
-    from classes import triVariables as triv
+    from triplan.model.classes import triVariables as triv
     triv.set_distance_profile('olympic')
 
     df = pd.DataFrame(df_dict)

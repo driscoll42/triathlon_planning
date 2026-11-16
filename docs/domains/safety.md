@@ -4,8 +4,8 @@
 Global orthopedic safety guardrails, exponentially weighted mechanical ACWR limits, acute-to-chronic load ceilings, single-run volume bounds, rolling 48-hour multi-stress caps, hard adjacency safety rules, Masters athlete age adaptations, and injury mitigation modes.
 
 ## 2. Key Modules & Entrypoints
-- [`src/closed_loop_optimizer.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py): [`TriathlonMILPScheduler`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/closed_loop_optimizer.py#L320-L650), rolling 48-hour strain bounds, and adjacency constraint enforcement.
-- [`src/athlete_profile.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/athlete_profile.py): [`AthleteProfile`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/athlete_profile.py#L22-L75), `orthopedic_status` flags (`HEALTHY`, `ACHILLES_REHAB`, `PATELLAR_GUARD`, `RESTRICTED_RUN`), and Masters Mode (`age >= 45`).
+- [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): [`TriathlonMILPScheduler`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py), rolling 48-hour strain bounds, and adjacency constraint enforcement.
+- [`src/triplan/physiology/athlete_profile.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/athlete_profile.py): [`AthleteProfile`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/athlete_profile.py), `orthopedic_status` flags (`HEALTHY`, `ACHILLES_REHAB`, `PATELLAR_GUARD`, `RESTRICTED_RUN`), and Masters Mode (`age >= 45`).
 
 ## 3. Core Architectural Rules & Orthopedic Safety Invariants
 

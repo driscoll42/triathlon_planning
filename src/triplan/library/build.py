@@ -32,7 +32,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from library.schema import WORKOUT_COLUMNS, ZONE_DISTANCE_COLUMNS, validate_table
+from triplan.library.schema import WORKOUT_COLUMNS, ZONE_DISTANCE_COLUMNS, validate_table
 
 # Explicit, reviewed corrections to scraped rows whose zone minutes did not sum to their duration.
 ZONE_CORRECTIONS: Dict[str, Dict[str, float]] = {
@@ -268,7 +268,7 @@ def derive_8020_rows(frames: Dict[str, pd.DataFrame], source_files: Dict[str, st
     (scraped with TSS 0) become distance-prescribed rows materialized from the athlete's easy
     pace (TASK-012)."""
     if profile is None:
-        from athlete_profile import CURRENT_ATHLETE as profile
+        from triplan.physiology.athlete_profile import CURRENT_ATHLETE as profile
     rows = []
     for sport, df in frames.items():
         for r in df.to_dict(orient="records"):
@@ -333,7 +333,7 @@ def read_8020_scrape(run_xlsx: str, bike_xlsx: str, swim_xlsx: str):
     frames, files = {}, {}
     for sport, path in (("Run", run_xlsx), ("Bike", bike_xlsx), ("Swim", swim_xlsx)):
         frames[sport] = pd.read_excel(path, engine="openpyxl")
-        files[sport] = os.path.relpath(path, start=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))).replace("\\", "/")
+        files[sport] = os.path.relpath(path, start=os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))).replace("\\", "/")
     return frames, files
 
 

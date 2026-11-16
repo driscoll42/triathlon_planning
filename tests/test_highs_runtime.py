@@ -1,4 +1,4 @@
-"""Tests for src/highs_runtime.py (TASK-007).
+"""Tests for src/triplan/solver/highs_runtime.py (TASK-007).
 
 The HiGHS global scheduler is per-process, so the mixed-thread regression runs in a fresh
 subprocess to avoid depending on (or polluting) the pytest process's thread lock.
@@ -11,9 +11,7 @@ import textwrap
 import highspy
 import numpy as np
 
-from highs_runtime import run_and_check, apply_threads
-
-SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+from triplan.solver.highs_runtime import run_and_check, apply_threads
 
 
 def _tiny_mip(infeasible=False):
@@ -48,9 +46,8 @@ def test_infeasible_result_exposes_no_solution():
 
 def test_mixed_thread_requests_in_one_process_no_longer_fail():
     script = textwrap.dedent(f"""
-        import sys; sys.path.insert(0, {SRC!r})
         import highspy, numpy as np
-        from highs_runtime import apply_threads, run_and_check
+        from triplan.solver.highs_runtime import apply_threads, run_and_check
         def solve(t):
             h = highspy.Highs(); h.setOptionValue("output_flag", False); apply_threads(h, t)
             idx = np.array([0], dtype=np.int32)

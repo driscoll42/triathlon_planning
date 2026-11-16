@@ -229,7 +229,7 @@ class AthleteProfile:
             raise ValueError("Invalid AthleteProfile:" + sep + sep.join(errors))
 
     def validation_errors(self) -> List[str]:
-        from safety_constraints import DEFAULT_RELAXATION_ORDER, _APPEND, _PREPEND
+        from triplan.solver.safety_constraints import DEFAULT_RELAXATION_ORDER, _APPEND, _PREPEND
 
         e: List[str] = []
         days7 = {"daily_time_caps": self.daily_time_caps, "two_session_windows": self.two_session_windows,
@@ -292,7 +292,7 @@ class AthleteProfile:
 
     def to_athlete_state(self):
         """Builds an AthletePhysiologicalState initialized with this profile."""
-        from closed_loop_optimizer import AthletePhysiologicalState
+        from triplan.physiology.state import AthletePhysiologicalState
         is_masters = self.is_masters_athlete or (self.age >= 45)
         return AthletePhysiologicalState(
             day_index=0,
@@ -307,7 +307,8 @@ class AthleteProfile:
 
     def to_mesocycle_config(self, phase_name: str = "base", tss_target: Optional[float] = None):
         """Constructs a MesoCycleTargetsAndConstraints tailored to this profile."""
-        from closed_loop_optimizer import MesoCycleTargetsAndConstraints, ClosedLoopMPCController
+        from triplan.model.candidates import MesoCycleTargetsAndConstraints
+        from triplan.control.mpc import ClosedLoopMPCController
         target_tss = tss_target or self.base_weekly_tss
         base_cfg = ClosedLoopMPCController.configure_mesocycle_phase(
             phase_name=phase_name,
@@ -518,7 +519,7 @@ class AthleteProfile:
 # -----------------------------------------------------------------------------
 # YAML PERSISTENCE (TASK-010): config/athlete_profile.yaml is the athlete's source of truth
 # -----------------------------------------------------------------------------
-PROFILE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "athlete_profile.yaml")
+PROFILE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "config", "athlete_profile.yaml")
 
 
 def load_athlete_profile(path: str = PROFILE_PATH) -> AthleteProfile:

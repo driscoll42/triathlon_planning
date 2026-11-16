@@ -1,19 +1,11 @@
-import sys
-import os
 import time
 
-_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _root_dir)
-sys.path.insert(0, os.path.join(_root_dir, "src"))
 
 import numpy as np
 import highspy
-from closed_loop_optimizer import (
-    build_default_candidate_library,
-    MesoCycleTargetsAndConstraints,
-    TriathlonMILPScheduler,
-    CandidateWorkout,
-)
+from triplan.library.candidates import build_default_candidate_library
+from triplan.model.candidates import MesoCycleTargetsAndConstraints, CandidateWorkout
+from triplan.solver.scheduler import TriathlonMILPScheduler
 
 base_lib = build_default_candidate_library()
 

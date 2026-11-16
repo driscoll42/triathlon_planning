@@ -31,14 +31,14 @@ Originally conceived as a Monte Carlo random workout selector, the system has ev
 
 ```mermaid
 flowchart TD
-    A["Raw Workouts (data/*.xlsx, scraped)"] --> B["Workout Ingestion & Pruning (src/util.py)"]
+    A["Raw Workouts (data/*.xlsx, scraped)"] --> B["Workout Ingestion & Pruning (src/triplan/library/util.py)"]
     B --> C["Candidate Library (CandidateWorkout)"]
-    D["Athlete Profile (src/athlete_profile.py)"] --> E["MPC Controller & Targets (src/closed_loop_optimizer.py)"]
+    D["Athlete Profile (src/triplan/physiology/athlete_profile.py)"] --> E["MPC Controller & Targets (src/triplan/solver/scheduler.py)"]
     C & E --> F["HiGHS MILP Formulation (highspy)"]
     F --> G["Parallel Multi-Seed Race / No-Good Cuts"]
     G --> H["Feasible Weekly Schedule (Top-K Plans)"]
     H --> I["Biomechanics & Remodeling Validation (ACWR, ODI)"]
-    I --> J["TrainingPeaks REST API Sync (src/sync_8020_to_tp.py)"]
+    I --> J["TrainingPeaks REST API Sync (src/triplan/io/trainingpeaks.py)"]
 ```
 
 ### A. Sub-Second Deterministic MILP Solving
@@ -131,19 +131,18 @@ triathlon_planning/
 │   ├── generate_level0_hybrid_20w.py  # 20-week production hybrid plan synthesizer
 │   ├── lodectx.py              # SQLite WAL + FTS5 Lineage Engine CLI
 │   └── sync_garmin_data.py     # Garmin telemetry synchronization
-├── src/                        # Core Python platform
-│   ├── athlete_profile.py      # Athlete physiological constants and load metrics
-│   ├── classes.py              # Data classes (CandidateWorkout, StrengthSession, etc.)
-│   ├── clean_file.py           # Workout scraping and normalization utilities
-│   ├── closed_loop_optimizer.py # HybridAthleteMILPOptimizer and ClosedLoopMPCController
-│   ├── highs_optimization.py   # HiGHS MILP core formulations and multi-seed races
-│   ├── main.py                 # Primary orchestration pipeline and benchmark runner
-│   ├── stress_test_optimizer.py # 11-scenario adversarial stress suite
-│   ├── sync_8020_to_tp.py      # TrainingPeaks Private REST API sync harness
-│   └── util.py                 # Scoring functions, library loaders, and parsers
+├── src/triplan/                # Core Python package (src-layout, ADR-015)
+│   ├── model/                  # candidates.py (CandidateWorkout, MesoCycleTargetsAndConstraints), classes.py
+│   ├── library/                # schema.py, build.py, loader.py, candidates.py, clean_file.py, util.py
+│   ├── solver/                 # scheduler.py, hybrid.py, pruning.py, highs_optimization.py, safety_constraints.py, highs_runtime.py
+│   ├── physiology/             # athlete_profile.py, state.py (AthletePhysiologicalState)
+│   ├── control/                # mpc.py (ClosedLoopMPCController), season.py (season generator)
+│   ├── io/                     # trainingpeaks.py (TrainingPeaks REST sync)
+│   ├── perf/                   # stress.py (11-scenario adversarial stress suite)
+│   └── cli.py                  # Primary orchestration pipeline (`triplan` / `python -m triplan`)
 ├── training_plans/             # Generated periodized season schedules (CSV & Markdown)
-├── pyproject.toml              # Build configuration and dependencies
-├── requirements.txt            # Python dependencies
+├── pyproject.toml              # Build configuration and single dependency source
+├── requirements.txt            # Thin pointer to `-e .[test,garmin]` (deps live in pyproject.toml)
 └── ReadMe.md                   # Primary system documentation (this file)
 ```
 
@@ -174,7 +173,7 @@ triathlon_planning/
 
 3. **Install dependencies:**
    ```bash
-   pip install -r requirements.txt
+   pip install -e ".[test,garmin]"   # pyproject.toml is the single dependency source (ADR-015)
    ```
 
 4. **Configure Environment Secrets (Optional for TrainingPeaks / Garmin sync):**
@@ -190,7 +189,7 @@ triathlon_planning/
 ### A. Run the Full Optimization & Demonstration Suite
 Execute the primary orchestration runner to generate sample single-week, 3-week step cycles, 16-week Olympic schedules, and hybrid athlete plans:
 ```bash
-python src/main.py
+python -m triplan   # or: triplan
 ```
 
 ### B. Generate a 20-Week Hybrid Athlete Season Plan
@@ -202,7 +201,7 @@ python scripts/generate_level0_hybrid_20w.py
 ### C. Run the Scenario Stress Test Suite
 Evaluates solver resilience and orthopedic constraint compliance against 11 challenging physiological scenarios:
 ```bash
-python src/stress_test_optimizer.py
+python -m triplan.perf.stress
 ```
 
 ### D. Benchmark Multi-Core Scaling

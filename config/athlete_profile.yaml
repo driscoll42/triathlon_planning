@@ -1,5 +1,5 @@
 # Athlete profile: source of truth for CURRENT_ATHLETE (TASK-010).
-# Field meanings and units: src/athlete_profile.py. Decisions: docs/lode/ADR-012.
+# Field meanings and units: src/triplan/physiology/athlete_profile.py. Decisions: docs/lode/ADR-012.
 # Validated on load (all fields required; Pydantic types + AthleteProfile.validation_errors()).
 name: driscoll42
 age: 37

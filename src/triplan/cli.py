@@ -1,20 +1,11 @@
-import os
-import sys
-
-_src_dir = os.path.dirname(os.path.abspath(__file__))
-_root_dir = os.path.dirname(_src_dir)
-for _p in [_src_dir, _root_dir]:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
 import time
 import multiprocessing as mp
 from functools import partial
 import pandas as pd
 
-from classes import triVariables as triv
-from util import calculate_plan_score, load_workouts, generate_random_workout_plan
-from highs_optimization import (
+from triplan.model.classes import triVariables as triv
+from triplan.library.util import calculate_plan_score, load_workouts, generate_random_workout_plan
+from triplan.solver.highs_optimization import (
     optimize_weekly_workouts,
     optimize_weekly_workouts_multiseed,
     optimize_weekly_schedule,
@@ -25,18 +16,14 @@ from highs_optimization import (
     prepare_workout_df,
     filter_viable_workouts,
 )
-from closed_loop_optimizer import (
-    TriathlonMILPScheduler,
-    MesoCycleTargetsAndConstraints,
-    ClosedLoopMPCController,
-    AthletePhysiologicalState,
-    build_default_candidate_library,
-    build_hybrid_candidate_library,
-    HybridAthleteMILPOptimizer,
-    format_plan_to_dataframe,
-    generate_closed_loop_season_schedule,
-)
-from athlete_profile import CURRENT_ATHLETE, AthleteProfile
+from triplan.solver.scheduler import TriathlonMILPScheduler
+from triplan.model.candidates import MesoCycleTargetsAndConstraints
+from triplan.control.mpc import ClosedLoopMPCController
+from triplan.physiology.state import AthletePhysiologicalState
+from triplan.library.candidates import build_default_candidate_library, build_hybrid_candidate_library
+from triplan.solver.hybrid import HybridAthleteMILPOptimizer
+from triplan.control.season import format_plan_to_dataframe, generate_closed_loop_season_schedule
+from triplan.physiology.athlete_profile import CURRENT_ATHLETE, AthleteProfile
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
@@ -470,7 +457,8 @@ def run_hybrid_athlete_demo():
     return plans
 
 
-if __name__ == '__main__':
+def main():
+    """Run the full demo pipeline (random baseline, HiGHS multi-seed race, closed-loop MPC, hybrid athlete)."""
     # Initialize 3-sport Olympic profile with 85/15 default
     triv.set_distance_profile('olympic')
     wkend_wts_df, wkday_wts_df = load_workouts()
@@ -521,3 +509,7 @@ if __name__ == '__main__':
 
     # 8. Dual-Objective Hybrid Athlete Optimizer (Balancing Swim, Bike, Run, & Lifting)
     hybrid_plans = run_hybrid_athlete_demo()
+
+
+if __name__ == '__main__':
+    main()

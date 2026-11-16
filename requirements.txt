@@ -1,14 +1,3 @@
-requests>=2.31.0
-beautifulsoup4>=4.12.0
-python-dotenv>=1.0.0
-tqdm>=4.66.0
-numpy
-pandas
-openpyxl
-highspy
-polars
-python-calamine
-pytest>=8
-pydantic>=2
-pandera>=0.20
-PyYAML>=6
+# Dependencies are defined in pyproject.toml (single source of truth, TASK-014 / ADR-015).
+# Install everything for development with:
+-e .[test,garmin]

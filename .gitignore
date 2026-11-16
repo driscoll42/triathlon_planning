@@ -38,3 +38,4 @@ references/*.azw3
 
 # Test caches
 .pytest_cache/
+*.egg-info/

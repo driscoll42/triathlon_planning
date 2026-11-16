@@ -13,20 +13,26 @@ dependencies = [
     "pandas",
     "numpy",
     "openpyxl",
-    "requests",
-    "beautifulsoup4",
-    "python-dotenv",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "python-dotenv>=1.0",
     "pydantic>=2",
     "pandera>=0.20",
     "PyYAML>=6",
+    "tqdm>=4.66",  # progress bar for TrainingPeaks sync (triplan.io.trainingpeaks)
 ]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
+# Garmin Connect Personal API client (scripts/sync_garmin_data.py); import name: garmin_personal_api
+garmin = ["garmin-connect-personal-api-python>=1.0"]
+
+[project.scripts]
+triplan = "triplan.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+where = ["src"]
+include = ["triplan*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

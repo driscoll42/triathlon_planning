@@ -1,25 +1,17 @@
 """Shared pytest fixtures (TASK-008).
 
-The modules in src/ use flat imports (``from classes import ...``), so src/ goes on sys.path.
+The ``triplan`` package is importable via ``pip install -e ".[test]"`` (or pytest ``pythonpath=["src"]``).
 """
 import contextlib
 import io
-import os
-import sys
 
 import pytest
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "src")
-for p in (SRC, ROOT):
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
 
 @pytest.fixture(scope="session")
 def stress_results():
     """Run the 11-scenario stress suite once per session (~60s) with stdout suppressed."""
-    import stress_test_optimizer as st
+    from triplan.perf import stress as st
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -29,6 +21,6 @@ def stress_results():
 
 @pytest.fixture(scope="session")
 def default_library():
-    from closed_loop_optimizer import build_default_candidate_library
+    from triplan.library.candidates import build_default_candidate_library
 
     return build_default_candidate_library()

@@ -38,7 +38,7 @@ Before executing changes or diagnosing bugs, ground yourself in the **Progressiv
   - **Tacx Neo 2T Trainer:** Zero spin-down calibration. CP tests executed strictly in Slope/Incline mode (+1.5% to +2.0%); ignore `left_right_balance` stream; keep plugged into AC wall power.
 - **Security & Data Hygiene:**
   - **Credential Hygiene:** Credentials reside exclusively in `config/.env`, `config/trainingpeak.env`, or `config/garmin.env`. Never commit secrets to git.
-  - **Clean Architecture Layout:** Code in `src/`, configs in `config/`, data in `data/`, docs in `docs/`, tools in `scripts/`, plans in `training_plans/` (`ADR-007`). Never write transient files to repository root.
+  - **Clean Architecture Layout:** Code in `src/triplan/` (src-layout package; `model/`, `library/`, `solver/`, `physiology/`, `control/`, `io/`, `perf/`; `ADR-015`), configs in `config/`, data in `data/`, docs in `docs/`, tools in `scripts/`, plans in `training_plans/` (`ADR-007`). Never write transient files to repository root.
   - **API Rate Limiting:** REST sync calls require 1.0–3.0s random jitter and backoff on HTTP 429.
 
 ## 3. Mathematical Optimization & Solver Invariants
@@ -57,7 +57,7 @@ Always follow the SQLite Lineage Engine protocol (`scripts/lodectx.py`):
 2. **Design & Pre-Register:**
    - Features/refactors: Scaffold a PRD via `python scripts/lodectx.py init prd --id PRD-XXX --domain <domain> --title "<Title>"`.
    - Hypotheses: Scaffold a ceteris-paribus experiment via `python scripts/lodectx.py init exp --id EXP-XXX --domain <domain> --title "<Title>"`.
-3. **Execute & Verify:** Implement changes and verify via automated tests, simulation scenarios (`scripts/stress_test_optimizer.py`), and CLI checks.
+3. **Execute & Verify:** Implement changes and verify via automated tests, simulation scenarios (`src/triplan/perf/stress.py`), and CLI checks.
 4. **Record Lineage & Sync Docs:**
    - Decisions: `python scripts/lodectx.py init adr --id ADR-XXX --domain <domain> --title "<Title>" [--supersedes OLD-ID]`
    - Heuristics: `python scripts/lodectx.py init heur --id HEUR-XXX --domain <domain> --title "<Title>"`
@@ -66,16 +66,16 @@ Always follow the SQLite Lineage Engine protocol (`scripts/lodectx.py`):
 
 ## 5. Domain Trigger Routing & Architecture Protocol
 Before modifying subsystems, ground yourself via `docs/LODE_MAP.md` and run `python scripts/lodectx.py brief <domain>`:
-- **`optimizer` (`docs/domains/optimizer.md`):** `src/highs_optimization.py`, `src/closed_loop_optimizer.py`, `src/classes.py`. HiGHS MILP, candidate pruning, multi-seed race, equipment partitioning, No-Good cuts, biomechanical matrix.
-- **`mpc` (`docs/domains/mpc.md`):** `src/closed_loop_optimizer.py`. 3-Tier MPC: Tier 1 Garmin readiness $\alpha_d$, Tier 2 e1RM Kalman filtering, Tier 3 3:1 mesocycle wave.
-- **`physiology` (`docs/domains/physiology.md`):** `src/athlete_profile.py`, `SPEC.md`. Dual-load (Aerobic TSS vs Strain), ANS cost ($e^{0.65(z-1)}$), tissue remodeling ($\tau=35d$ vs $120d$), 80/20 7-zone scale, Two-Point CP.
-- **`workouts` (`docs/domains/workouts.md`):** `src/util.py`, `recommended_workout_legos.csv`, `data/*.xlsx`, `data/*.csv`. 80/20 workout library, duration/TSS standardization, brick synthesis, 15 strength blueprints.
-- **`integrations` (`docs/domains/integrations.md`):** `src/sync_8020_to_tp.py`, `src/clean_file.py`, `scripts/sync_garmin_data.py`. TrainingPeaks REST API sync, FIT parser (Stryd CIQ developer power, Swim active lengths, 300s ride deduplication, Neo 2T slope mode).
-- **`safety` (`docs/domains/safety.md`):** `src/closed_loop_optimizer.py`. Single-run volume ceiling ($\le 32\%$), 24h deadlift-run buffer, axial load caps ($X_{\text{day}} \le 120, X_{\text{wk}} \le 320$), neuromuscular caps, strain caps, ACWR $\le 1.30$, ODI $\le 1.35$.
-- **`perf` (`docs/domains/perf.md`):** `src/stress_test_optimizer.py`, `scripts/benchmark_scaling.py`. Parallel CPU scaling (1–32 cores), solver timeout enforcement, 11 stress scenarios.
+- **`optimizer` (`docs/domains/optimizer.md`):** `src/triplan/solver/` (`highs_optimization.py`, `scheduler.py`, `hybrid.py`, `pruning.py`), `src/triplan/model/` (`candidates.py`, `classes.py`). HiGHS MILP, candidate pruning, multi-seed race, equipment partitioning, No-Good cuts, biomechanical matrix.
+- **`mpc` (`docs/domains/mpc.md`):** `src/triplan/control/mpc.py`, `src/triplan/control/season.py`. 3-Tier MPC: Tier 1 Garmin readiness $\alpha_d$, Tier 2 e1RM Kalman filtering, Tier 3 3:1 mesocycle wave.
+- **`physiology` (`docs/domains/physiology.md`):** `src/triplan/physiology/athlete_profile.py`, `src/triplan/physiology/state.py`, `SPEC.md`. Dual-load (Aerobic TSS vs Strain), ANS cost ($e^{0.65(z-1)}$), tissue remodeling ($\tau=35d$ vs $120d$), 80/20 7-zone scale, Two-Point CP.
+- **`workouts` (`docs/domains/workouts.md`):** `src/triplan/library/` (`util.py`, `loader.py`, `build.py`), `data/workout_library.csv`, `data/*.xlsx`, `data/*.csv`. 80/20 workout library, duration/TSS standardization, brick synthesis, 15 strength blueprints.
+- **`integrations` (`docs/domains/integrations.md`):** `src/triplan/io/trainingpeaks.py`, `src/triplan/library/clean_file.py`, `scripts/sync_garmin_data.py`. TrainingPeaks REST API sync, FIT parser (Stryd CIQ developer power, Swim active lengths, 300s ride deduplication, Neo 2T slope mode).
+- **`safety` (`docs/domains/safety.md`):** `src/triplan/solver/safety_constraints.py`, `src/triplan/solver/scheduler.py`. Single-run volume ceiling ($\le 32\%$), 24h deadlift-run buffer, axial load caps ($X_{\text{day}} \le 120, X_{\text{wk}} \le 320$), neuromuscular caps, strain caps, ACWR $\le 1.30$, ODI $\le 1.35$.
+- **`perf` (`docs/domains/perf.md`):** `src/triplan/perf/stress.py`, `scripts/benchmark_scaling.py`. Parallel CPU scaling (1–32 cores), solver timeout enforcement, 11 stress scenarios.
 - **`general` (`docs/domains/general.md`):** `pyproject.toml`, `requirements.txt`, `config/`, `scripts/lodectx.py`. Clean architecture (`ADR-007`), cross-platform path handling, token budget governance.
 
 ## 6. Empirical Experiments & Simulation Governance Protocol
 - **Authoritative Ledger:** All empirical benchmarks and algorithmic investigations reside in `docs/experiments/EXP-XXX.md` (indexed in `docs/experiments/INDEX.md`) and follow the 6-section ceteris-paribus DoE protocol.
-- **Simulation Scenarios:** Verify solver robustness against 11 edge-case stress scenarios (`src/stress_test_optimizer.py`) and season perturbation benchmarks (`scripts/stress_test_season_perturbations.py`) before landing optimizer modifications.
+- **Simulation Scenarios:** Verify solver robustness against 11 edge-case stress scenarios (`src/triplan/perf/stress.py`) and season perturbation benchmarks (`scripts/stress_test_season_perturbations.py`) before landing optimizer modifications.
 - **Queue Hygiene:** Active items live in `docs/TASKS.md`. Completed items are archived to `docs/archive/` and indexed in `docs/.context/lode.db`.
