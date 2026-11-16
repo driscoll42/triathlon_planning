@@ -5,7 +5,6 @@
 > Line references predate the `ADR-015` package split unless noted (`closed_loop_optimizer.py` → `src/triplan/{solver,control,physiology}/`).
 
 ## Phase 2: Consolidate into ONE Unified MILP Engine (`WeekModel` engine, `ADR-017`)
-- [ ] **`TASK-034` (`optimizer`):** **Weekly TSS Floor in Deload/Taper Weeks** — In the TASK-026 Olympic season for `CURRENT_ATHLETE`, recovery weeks target 72-112 TSS but solve at ~126 (taper 145, race week 133 vs 91). Something other than the TSS goal sets a floor (candidate: duration-split targets, minimum sport frequencies, `nominal_weekly_duration`, anchor minutes). Identify it and make deloads actually drop volume without loosening Tier-0 caps.
 - [ ] **`TASK-033` (`workouts`):** **Heavy Lifts Compatible with Tier-0 Axial/Neuro Caps** — `STR_MS1_HEAVY_DEF` has axial 85 / neuro 85, above CURRENT_ATHLETE's daily caps 65 / 75, so no heavy lift is schedulable. `generate_closed_loop_season_schedule` now requests only the schedulable count and logs `HEAVY_STRENGTH_LIMITED` (race-block weeks run 0 heavy lifts). Provide heavy-labelled lifts that fit the caps (or lower-axial variants), related to `TASK-028`.
 - [ ] **`TASK-027` (`perf`):** **Multi-Distance Optimizer Validation** — Run sprint, olympic, 70.3 and IM seasons on (a) `CURRENT_ATHLETE` and (b) an unconstrained reference profile (no 75 min/day cap, pool access). Assert 0 fallback weeks, Tier-0 caps held, and an explicit infeasibility diagnosis when long-course volume cannot fit the time budget.
 

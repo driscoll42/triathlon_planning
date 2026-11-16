@@ -11,7 +11,7 @@ from triplan.library.candidates import build_default_candidate_library
 from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run_strain
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
-from triplan.control.periodization import build_season_matrix, filter_test_workouts, normalize_distance
+from triplan.control.periodization import apply_deload_relief, build_season_matrix, filter_test_workouts, normalize_distance
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
 logger = logging.getLogger(__name__)
@@ -160,6 +160,8 @@ def generate_closed_loop_season_schedule(
         if req_strength == 0:
             # Recovery / taper / race weeks keep maintenance (non-heavy) lifting, never 0 (DECISION-009).
             cfg.sport_freq_bounds["Strength"] = (maint_sessions, maint_sessions)
+        # Deload / taper / race weeks scale the full-week structure minimums down (TASK-034); caps untouched.
+        apply_deload_relief(cfg, wk.role)
         if in_reentry:
             # General prep: strength + bike + run only. No swim, even if the pool were open.
             cfg.sport_freq_bounds["Swim"] = (0, 0)
