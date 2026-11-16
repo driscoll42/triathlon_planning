@@ -3,8 +3,12 @@ Stress Testing & Scenario Analysis Suite for Closed-Loop Triathlon Training Opti
 Evaluates model robustness, edge cases, combinatorial scalability, and failure boundaries.
 """
 
+import contextlib
 import copy
+import io
+import os
 import time
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 import pandas as pd
 import numpy as np
@@ -51,25 +55,21 @@ def run_scenario(name: str, library: list, cfg: MesoCycleTargetsAndConstraints, 
         return {"status": "ERROR", "error": str(e), "duration": dur, "plans": []}
 
 
-def stress_test_suite():
+def _scenario_1() -> dict:
     results = {}
     default_lib = build_default_candidate_library()
-
-    print_header("CLOSED-LOOP TRIATHLON TRAINING OPTIMIZER STRESS TEST SUITE")
-
-    # -------------------------------------------------------------------------
-    # Scenario 1: Baseline Nominal
-    # -------------------------------------------------------------------------
     cfg_base = MesoCycleTargetsAndConstraints(
         target_weekly_tss=540.0,
         max_48h_ans_cost=700.0,
     )
     res1 = run_scenario("1. Baseline Nominal (540 TSS, Balanced 7-day)", default_lib, cfg_base, k_plans=3)
     results["1_baseline"] = res1
+    return results
 
-    # -------------------------------------------------------------------------
-    # Scenario 2: The 650 vs 700 ANS Boundary & Soft Slack Behavior
-    # -------------------------------------------------------------------------
+
+def _scenario_2() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     cfg_strict_650 = MesoCycleTargetsAndConstraints(
         target_weekly_tss=540.0,
         max_48h_ans_cost=650.0,
@@ -85,13 +85,12 @@ def stress_test_suite():
     )
     res2_soft = run_scenario("2b. Soft Cap 650 ANS (With High-Penalty Slacks)", default_lib, cfg_soft_650)
     results["2b_soft_650"] = res2_soft
+    return results
 
-    # -------------------------------------------------------------------------
-    # Scenario 3: Severe Time Starvation (Executive Schedule)
-    # Weekdays: 45m cap. Weekend: 90m cap.
-    # Note: Default anchor BIKE_DUR_OUT_DEF is 180m, which exceeds 90m!
-    # -------------------------------------------------------------------------
-    # Let's see what happens if anchor duration exceeds weekend cap:
+
+def _scenario_3() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     cfg_time_starved = MesoCycleTargetsAndConstraints(
         daily_time_caps=[45.0, 45.0, 45.0, 45.0, 45.0, 90.0, 90.0],
         weekday_single_workout_cap=45.0,
@@ -122,11 +121,12 @@ def stress_test_suite():
     )
     res3_real = run_scenario("3b. Realistic Time Starvation (Capped <=90m workouts)", lib_time_starved_no_anchors, cfg_time_starved_realistic)
     results["3b_time_starvation_realistic"] = res3_real
+    return results
 
-    # -------------------------------------------------------------------------
-    # Scenario 4: High-Volume Ironman Athlete
-    # TSS 800, weekend windows up to 360m (6 hours)
-    # -------------------------------------------------------------------------
+
+def _scenario_4() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     cfg_ironman = MesoCycleTargetsAndConstraints(
         daily_time_caps=[75.0, 120.0, 75.0, 120.0, 75.0, 360.0, 300.0],
         weekday_single_workout_cap=75.0,
@@ -140,11 +140,12 @@ def stress_test_suite():
     )
     res4 = run_scenario("4. High-Volume Ironman (750 TSS, 15+ Hours)", default_lib, cfg_ironman)
     results["4_ironman"] = res4
+    return results
 
-    # -------------------------------------------------------------------------
-    # Scenario 5: Orthopedically Compromised Runner (Achilles / Bone Stress Guard)
-    # Tight run strain cap = 160.0, single run cap = 28%
-    # -------------------------------------------------------------------------
+
+def _scenario_5() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     cfg_rehab = MesoCycleTargetsAndConstraints(
         target_weekly_tss=480.0,
         max_weekly_run_mech_strain=160.0,   # Very low mechanical ceiling for run
@@ -163,10 +164,12 @@ def stress_test_suite():
     ]
     res5 = run_scenario("5. Orthopedic Rehab Runner (Run Mech <= 160, 75% Bike)", lib_rehab, cfg_rehab)
     results["5_orthopedic_rehab"] = res5
+    return results
 
-    # -------------------------------------------------------------------------
-    # Scenario 6: Facility Lockdown (Pool Closed All Week)
-    # -------------------------------------------------------------------------
+
+def _scenario_6() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     cfg_lockdown = MesoCycleTargetsAndConstraints(
         facility_access={
             "Swim": [False]*7,
@@ -191,11 +194,12 @@ def stress_test_suite():
     )
     res6_adapted = run_scenario("6b. Pool Lockdown with Adapted Freq=(0,0)", default_lib, cfg_lockdown_adapted)
     results["6b_pool_lockdown_adapted"] = res6_adapted
+    return results
 
-    # -------------------------------------------------------------------------
-    # Scenario 7: Master Athlete / Slower Recovery
-    # 2 Complete Rest Days, Zero Double Sessions
-    # -------------------------------------------------------------------------
+
+def _scenario_7() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     cfg_master = MesoCycleTargetsAndConstraints(
         daily_time_caps=[60.0, 60.0, 60.0, 60.0, 60.0, 180.0, 120.0],
         weekday_single_workout_cap=60.0,
@@ -209,11 +213,12 @@ def stress_test_suite():
     lib_master = [replace(w, is_anchor=False) for w in default_lib]
     res7 = run_scenario("7. Master Athlete (2 Rest Days, Single Sessions Only)", lib_master, cfg_master)
     results["7_master_athlete"] = res7
+    return results
 
-    # -------------------------------------------------------------------------
-    # Scenario 8: Large Library Stress Test (Hundreds of Workouts)
-    # Loads the canonical library (80/20 + agent-authored rows, explicit flags; TASK-011)
-    # -------------------------------------------------------------------------
+
+def _scenario_8() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     print_header("SCENARIO 8: LARGE WORKOUT LIBRARY SCALE TEST")
     try:
         triv.set_distance_profile('olympic')
@@ -246,10 +251,12 @@ def stress_test_suite():
     except Exception as e:
         print(f"Scenario 8 Error loading library: {e}")
         results["8_large_library"] = {"status": "ERROR", "error": str(e)}
+    return results
 
-    # -------------------------------------------------------------------------
-    # Scenario 9: Closed-Loop Tier 1 Daily Micro-Adjustment (Mid-Week Sickness)
-    # -------------------------------------------------------------------------
+
+def _scenario_9() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     print_header("SCENARIO 9: CLOSED-LOOP TIER 1 DAILY SICKNESS PERTURBATION")
     mpc = ClosedLoopMPCController()
     # Look up by code: index 6 is BIKE_AE2_Z2 (easy), which silently tested the wrong session (TASK-008)
@@ -269,11 +276,12 @@ def stress_test_suite():
     print(f"Reason: {tier1_fresh['reason']}")
     print(f"Adjusted: Dur={tier1_fresh['adjusted_duration']}m, TSS={tier1_fresh['adjusted_tss']}, ANS={tier1_fresh['adjusted_ans_cost']}")
     results["9_tier1_readiness"] = {"sick": tier1_sick, "fresh": tier1_fresh}
+    return results
 
-    # -------------------------------------------------------------------------
-    # Scenario 10: Closed-Loop Tier 2 Intensity Creep & Receding-Horizon Recalibration
-    # Athlete ran Zone 4 on easy recovery day, causing ACWR & ODI spike
-    # -------------------------------------------------------------------------
+
+def _scenario_10() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     print_header("SCENARIO 10: CLOSED-LOOP TIER 2 INTENSITY CREEP RECALIBRATION")
     # Simulate an athlete where metabolic load outpaces orthopedic chassis:
     decoupled_state = AthletePhysiologicalState(
@@ -299,10 +307,12 @@ def stress_test_suite():
         "pre_acwr": decoupled_state.running_mechanical_acwr,
         "recal_run_strain": recal_cfg.max_weekly_run_mech_strain,
     }
+    return results
 
-    # =========================================================================
-    # SCENARIO 11: DUAL-OBJECTIVE HYBRID ATHLETE OPTIMIZATION (SWIM, BIKE, RUN, LIFT)
-    # =========================================================================
+
+def _scenario_11() -> dict:
+    results = {}
+    default_lib = build_default_candidate_library()
     print_header("SCENARIO 11: DUAL-OBJECTIVE HYBRID ATHLETE BALANCED OPTIMIZATION")
     hybrid_lib = build_hybrid_candidate_library()
     hybrid_cfg = {
@@ -341,6 +351,70 @@ def stress_test_suite():
     else:
         print(f"RESULT: FAILED (Found {len(hybrid_plans)} plans in {dur_h:.2f}s)")
         results["11_hybrid_athlete"] = {"status": "FAILED", "duration": dur_h, "plans": len(hybrid_plans)}
+    return results
+
+
+# Scenario registry. Long-running scenario 8 is listed first in SUBMIT_ORDER so it starts immediately;
+# results and printed output are always assembled in REGISTRY order (identical to the old serial suite).
+REGISTRY = [
+    ("1", _scenario_1), ("2", _scenario_2), ("3", _scenario_3), ("4", _scenario_4),
+    ("5", _scenario_5), ("6", _scenario_6), ("7", _scenario_7), ("8", _scenario_8),
+    ("9", _scenario_9), ("10", _scenario_10), ("11", _scenario_11),
+]
+SUBMIT_ORDER = ["8", "1", "11"]  # slowest first; the rest follow in registry order
+
+
+def _worker_init(threads: int) -> None:
+    """Cap HiGHS threads per worker so workers x threads <= cpu_count (explicit env var still wins)."""
+    os.environ.setdefault("TRI_HIGHS_THREADS", str(threads))
+
+
+def _run_captured(key: str):
+    """Run one scenario in a worker process; return (key, results, captured stdout)."""
+    fn = dict(REGISTRY)[key]
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        res = fn()
+    return key, res, buf.getvalue()
+
+
+def _resolve_workers(workers):
+    if workers is None:
+        env = os.environ.get("TRIPLAN_STRESS_WORKERS", "").strip()
+        workers = int(env) if env else None
+    n = len(REGISTRY)
+    if workers is None:
+        workers = min(n, os.cpu_count() or 1)
+    return max(1, min(int(workers), n))
+
+
+def stress_test_suite(workers: int | None = None):
+    """Run all stress scenarios. ``workers=1`` runs serially in-process (live output, for debugging);
+    otherwise scenarios run in a spawn-safe ProcessPoolExecutor (``TRIPLAN_STRESS_WORKERS`` overrides
+    the default of min(#scenarios, cpu_count))."""
+    workers = _resolve_workers(workers)
+    print_header("CLOSED-LOOP TRIATHLON TRAINING OPTIMIZER STRESS TEST SUITE")
+    parts = {}
+    if workers == 1:
+        for key, fn in REGISTRY:
+            parts[key] = fn()
+    else:
+        from triplan.solver.highs_runtime import DEFAULT_THREADS
+        threads = min(DEFAULT_THREADS, max(1, (os.cpu_count() or 1) // workers))
+        order = SUBMIT_ORDER + [k for k, _ in REGISTRY if k not in SUBMIT_ORDER]
+        outputs = {}
+        with ProcessPoolExecutor(max_workers=workers, initializer=_worker_init, initargs=(threads,)) as ex:
+            futs = [ex.submit(_run_captured, k) for k in order]
+            for f in futs:
+                key, res, out = f.result()
+                parts[key] = res
+                outputs[key] = out
+        for key, _ in REGISTRY:
+            print(outputs[key], end="")
+
+    results = {}
+    for key, _ in REGISTRY:
+        results.update(parts[key])
 
     print_header("STRESS TEST SUMMARY")
     for k, v in results.items():
