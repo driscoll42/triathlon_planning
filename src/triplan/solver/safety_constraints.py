@@ -85,6 +85,12 @@ class SafetyLimits:
     # Pigeonhole caps for weeks with fewer than 4 runs (smallest possible share is 1/N). ADR-013.
     pigeonhole_run_share: Dict[int, float] = field(default_factory=lambda: {3: 0.40, 2: 0.60})
     readiness_alpha: List[float] = field(default_factory=lambda: [1.0] * 7)
+    # ADR-022 (TASK-039): absolute long-run cap in MINUTES for weeks with < 4 runs, where the 32% ratio is vacuous.
+    # long_run_step_min None = progression rule disabled (library/test default); the profile enables it.
+    long_run_step_min: Optional[float] = None            # longest run <= previous week's longest + step
+    long_run_floor_min: float = 30.0                     # cap never below this (first week / shortest library run)
+    reentry_long_run_max_min: Optional[float] = None     # re-entry (run CTL < exit) ceiling; None = none
+    long_run_abs_cap_min: Optional[float] = None         # RESOLVED per-week cap (resolve_long_run_cap); None = off
 
     @classmethod
     def from_config(cls, cfg: Any) -> "SafetyLimits":
@@ -102,12 +108,38 @@ class SafetyLimits:
                                                default=d.max_single_run_share)),
             pigeonhole_run_share=dict(cfg_get(cfg, "pigeonhole_run_share", default=d.pigeonhole_run_share)),
             readiness_alpha=list(cfg_get(cfg, "readiness_alpha", default=d.readiness_alpha)),
+            long_run_step_min=_opt_float(cfg_get(cfg, "long_run_step_min", default=None)),
+            long_run_floor_min=float(cfg_get(cfg, "long_run_floor_min", default=d.long_run_floor_min)),
+            reentry_long_run_max_min=_opt_float(cfg_get(cfg, "reentry_long_run_max_min", default=None)),
         )
 
     def run_share_cap(self, n_runs: int) -> float:
         if n_runs >= 4:
             return self.max_single_run_share
         return float(self.pigeonhole_run_share.get(n_runs, 1.0))
+
+
+def _opt_float(v: Any) -> Optional[float]:
+    return None if v is None else float(v)
+
+
+def resolve_long_run_cap(limits: SafetyLimits, carry_in: Any = None, prev_longest_min: Optional[float] = None
+                         ) -> Optional[float]:
+    """This week's absolute long-run cap in minutes (ADR-022), or None when the rule is off.
+
+    * progression cap ``max(floor, previous week's longest run + step)`` -- only in a season (a carry-in with
+      load state exists; week 1 has previous longest 0, so it is the floor);
+    * re-entry ceiling ``max(floor, reentry_long_run_max_min)`` while run CTL is below the re-entry exit
+      (``carry_in.load.reentry``), and also for an isolated week with no carry-in;
+    the tighter applies. Applied only to weeks with fewer than 4 runs (see ``_add_run_share_cap``)."""
+    caps: List[float] = []
+    load = getattr(carry_in, "load", None)
+    if limits.long_run_step_min is not None and load is not None:
+        prev = prev_longest_min if prev_longest_min is not None else float(getattr(carry_in, "prev_longest_run_min", 0.0))
+        caps.append(max(limits.long_run_floor_min, prev + limits.long_run_step_min))
+    if limits.reentry_long_run_max_min is not None and (load is None or getattr(load, "reentry", False)):
+        caps.append(max(limits.long_run_floor_min, limits.reentry_long_run_max_min))
+    return min(caps) if caps else None
 
 
 def run_strain(w: Any) -> float:
@@ -304,6 +336,16 @@ def _add_run_share_cap(hooks: ModelHooks, workouts, limits: SafetyLimits, S: Wor
             r[hooks.x(i, d)] = r[hooks.x(i, d)] + durs[i]
             r[z[n]] = durs[i]
             hooks.add_row(r, -inf, durs[i])
+
+    # ADR-022: with < 4 runs the ratio is vacuous, so cap every single run in absolute minutes instead.
+    # z4 = 1 iff >= 4 runs, so for a run longer than L the row  x_id - z4 <= 0  forbids it unless the week has
+    # >= 4 runs (where the 32% rule governs). L is raised to the shortest schedulable run so a run always fits.
+    L = limits.long_run_abs_cap_min
+    if L is not None:
+        L = max(L, min(durs[i] for i, _ in pairs))
+        for i, d in pairs:
+            if durs[i] > L + 1e-9:
+                hooks.add_row({hooks.x(i, d): 1.0, z[4]: -1.0}, -inf, 0.0)
     return RunShareModel(z, pairs)
 
 
@@ -314,11 +356,21 @@ def run_share_report(schedule_by_day: Dict[int, List[Any]], limits: SafetyLimits
     share = (max(run_minutes(w) for w in runs) / total) if total > 0 else 0.0
     cap = limits.run_share_cap(n)
     note = None
+    abs_cap = limits.long_run_abs_cap_min
+    longest = max((run_minutes(w) for w in runs), default=0.0)
+    if 0 < n < 4 and abs_cap is not None:
+        note = (f"Absolute long-run cap (ADR-022): with {n} run(s) the {limits.max_single_run_share:.0%} ratio "
+                f"(ADR-003) is unattainable, so the longest run is capped at {abs_cap:.0f} min instead "
+                f"(longest scheduled {longest:.0f} min).")
+        return {"n_runs": n, "max_single_run_share": share, "applied_cap": cap, "regime": "absolute",
+                "abs_cap_min": abs_cap, "longest_run_min": longest, "note": note}
     if 0 < n < 4:
         note = (f"Pigeonhole: with {n} run(s) the largest run is at least {100.0 / n:.0f}% of running time, so the "
                 f"{limits.max_single_run_share:.0%} cap (ADR-003) is unattainable; the explicit {n}-run cap "
                 f"of {cap:.0%} was enforced instead.")
-    return {"n_runs": n, "max_single_run_share": share, "applied_cap": cap, "note": note}
+    return {"n_runs": n, "max_single_run_share": share, "applied_cap": cap,
+            "regime": "pigeonhole" if 0 < n < 4 else "ratio", "abs_cap_min": abs_cap,
+            "longest_run_min": longest, "note": note}
 
 
 # =============================================================================
@@ -550,9 +602,14 @@ def explain_feasibility(workouts: Sequence[Any], cfg: Any, limits: SafetyLimits,
 
     run_bounds = bounds.get("Run")
     if run_bounds and 0 < run_bounds[1] < 4:
-        msgs.append(f"Run frequency is capped at {run_bounds[1]}; with fewer than 4 runs the 32% single-run cap is "
-                    f"mathematically unattainable, so the explicit {run_bounds[1]}-run cap of "
-                    f"{limits.run_share_cap(run_bounds[1]):.0%} applies.")
+        if limits.long_run_abs_cap_min is not None:
+            msgs.append(f"Run frequency is capped at {run_bounds[1]}; with fewer than 4 runs the 32% single-run cap is "
+                        f"unattainable, so an absolute long-run cap of {limits.long_run_abs_cap_min:.0f} min "
+                        f"applies (ADR-022).")
+        else:
+            msgs.append(f"Run frequency is capped at {run_bounds[1]}; with fewer than 4 runs the 32% single-run cap is "
+                        f"mathematically unattainable, so the explicit {run_bounds[1]}-run cap of "
+                        f"{limits.run_share_cap(run_bounds[1]):.0%} applies.")
 
     min_rest = int(cfg_get(cfg, "min_rest_days", default=0) or 0)
     min_sessions = sum(lo for lo, _ in bounds.values())

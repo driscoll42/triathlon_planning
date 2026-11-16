@@ -97,6 +97,27 @@ def _sum(ws: Sequence[Any], attr: str) -> float:
     return float(sum(float(getattr(w, attr, 0.0) or 0.0) for w in ws))
 
 
+def independent_long_run_cap(rec: WeekRecord, prev: Optional[WeekRecord]) -> Optional[float]:
+    """The ADR-022 absolute long-run cap for ``rec`` recomputed from first principles: progression cap
+    ``max(floor, prev longest run + step)`` in a season, re-entry ceiling while ``carry.load.reentry``."""
+    lim, carry = rec.limits, rec.carry
+    if lim is None:
+        return None
+    load = getattr(carry, "load", None)
+    caps: List[float] = []
+    step, floor, ceil = lim.long_run_step_min, lim.long_run_floor_min, lim.reentry_long_run_max_min
+    if step is not None and load is not None:
+        if prev is not None and prev.solved:
+            prev_runs = [run_minutes(w) for d in range(7) for w in _day(prev, d) if run_minutes(w) > 0]
+        else:
+            prev_runs = []
+        prev_longest = max(prev_runs) if prev_runs else float(getattr(carry, "prev_longest_run_min", 0.0))
+        caps.append(max(floor, prev_longest + step))
+    if ceil is not None and (load is None or getattr(load, "reentry", False)):
+        caps.append(max(floor, ceil))
+    return min(caps) if caps else None
+
+
 def check_week(rec: WeekRecord, prev: Optional[WeekRecord] = None) -> List[Violation]:
     v: List[Violation] = []
     n = rec.week_num
@@ -141,6 +162,12 @@ def check_week(rec: WeekRecord, prev: Optional[WeekRecord] = None) -> List[Viola
         cap = lim.run_share_cap(len(runs))
         if share > cap + TOL:
             add("run_share", f"single run {share:.3f} of run time > {cap:.2f} ({len(runs)} runs)", share, cap)
+        # ADR-022: weeks with < 4 runs are held to an ABSOLUTE long-run cap, re-derived here from the previous
+        # week's actual schedule (not from the solver's resolved value) and the profile parameters.
+        abs_cap = independent_long_run_cap(rec, prev)
+        if len(runs) < 4 and abs_cap is not None and max(runs) > abs_cap + TOL:
+            add("long_run_abs", f"longest run {max(runs):.0f} min > absolute cap {abs_cap:.0f} min ({len(runs)} runs)",
+                max(runs), abs_cap)
 
     # Hard/easy adjacency, one strength a day, deadlift <-> heavy/long run lockout (same day and +-24h)
     flat = [(d, w) for d in range(7) for w in _day(rec, d)]
@@ -248,6 +275,7 @@ def season_metrics(records: Sequence[WeekRecord]) -> Dict[str, Any]:
     max48 = {"tss": 0.0, "ans": 0.0, "strain": 0.0}
     max_ax = max_nu = max_share = 0.0
     pigeon = single = 0
+    longest_by_week: List[float] = []
     low_all, hi_all = [], []
     prev: Optional[WeekRecord] = None
     for r in ok:
@@ -263,6 +291,7 @@ def season_metrics(records: Sequence[WeekRecord]) -> Dict[str, Any]:
                 pigeon += 1
         if len(runs) == 1:
             single += 1
+        longest_by_week.append(round(max(runs), 1) if runs else 0.0)
         z = [endurance_zone7(w) for d in range(7) for w in _day(r, d)]
         tot = sum(sum(x) for x in z)
         if tot > 0:
@@ -273,7 +302,7 @@ def season_metrics(records: Sequence[WeekRecord]) -> Dict[str, Any]:
         "weeks": len(records), "solved": len(ok), "fallback": len(records) - len(ok),
         "relaxations": int(sum(len(r.relaxations) for r in records)),
         "max48_tss": max48["tss"], "max48_ans": max48["ans"], "max48_strain": max48["strain"],
-        "pigeonhole_weeks": pigeon, "single_run_weeks": single, "max_axial": max_ax, "max_neuro": max_nu, "max_run_share": max_share,
+        "longest_run_by_week": longest_by_week, "pigeonhole_weeks": pigeon, "single_run_weeks": single, "max_axial": max_ax, "max_neuro": max_nu, "max_run_share": max_share,
         "low_pct_mean": 100 * (sum(low_all) / len(low_all)) if low_all else 0.0,
         "low_pct_min": 100 * min(low_all) if low_all else 0.0,
         "high_pct_max": 100 * max(hi_all) if hi_all else 0.0,

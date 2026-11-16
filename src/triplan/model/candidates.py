@@ -100,6 +100,9 @@ class MesoCycleTargetsAndConstraints:
 
     # Safety & Orthopedic Guardrails
     max_single_run_vol_ratio: float = 0.32       # Single run <= 32% of weekly run duration
+    long_run_step_min: Optional[float] = None    # ADR-022 absolute long-run cap inputs (None = rule off)
+    long_run_floor_min: float = 30.0
+    reentry_long_run_max_min: Optional[float] = None
     max_48h_aerobic_tss: float = 295.0           # Rolling 48h glycogen/immune cap
     max_48h_ans_cost: float = 700.0              # Rolling 48h autonomic strain cap (calibrated safe)
     max_48h_mech_strain: float = 260.0           # Rolling 48h mechanical strain cap

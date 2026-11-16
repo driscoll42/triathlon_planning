@@ -42,6 +42,7 @@ from triplan.solver.safety_constraints import (
     classify_workouts,
     explain_feasibility,
     lexicographic_solve,
+    resolve_long_run_cap,
     run_share_report,
 )
 
@@ -86,6 +87,7 @@ class UnifiedWeekEngine:
         self.table = WorkoutTable(self.workouts)
         self.key = sq.key_mask(self.workouts, self.quality_params)
         self.limits = SafetyLimits.from_config(config)
+        self.limits.long_run_abs_cap_min = resolve_long_run_cap(self.limits, carry_in)   # ADR-022
         self.sets = classify_workouts(self.workouts)
         self.allowed = calendar.make_allowed(self.table, self.cfg, options)
         self.notes: List[str] = list(notes or [])

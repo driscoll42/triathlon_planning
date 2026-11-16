@@ -16,6 +16,7 @@ Rules in this domain are automatically injected into agent briefings across all 
 In endurance triathlon training, disproportionately long runs account for the majority of bone stress injuries, tibial stress syndrome, and plantar fasciitis:
 $$\forall w \in W_{run}, \forall d \in D: \quad \text{Duration}_{w,d} \le 0.32 \cdot \sum_{d' \in D} \text{Run Duration}_{d'}$$
 - **Nominal Ceiling:** Single run duration must never exceed **32%** of total weekly running duration (`max_single_run_vol_ratio <= 0.32`).
+- **Fewer than 4 runs (`ADR-022`):** the ratio is unattainable, so every run is capped in minutes: $L=\min(\max(30,\text{prev longest}+10),\ 45\text{ if run CTL}<15)$ (`long_run_step_min`, `long_run_floor_min`, `reentry_long_run_max_min`; previous longest carried in `WeekCarryIn`). `run_share_report` states which regime applied.
 - **Restricted/Rehab Ceiling:** Tightens to $\le 25\%$ (or $\le 20\%$) when `orthopedic_status != 'HEALTHY'`.
 - **Mathematical Enforcement:** Exact algebraic linear inequality constraint embedded in the HiGHS MILP matrix.
 

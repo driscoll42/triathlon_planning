@@ -727,35 +727,34 @@ Every weekly MILP was an isolated week: Monday ignored Sunday (hard/easy adjacen
 - **Negative / Operational Cost:** a re-solve (up to two extra MILPs) in overshooting re-entry weeks; early re-entry weeks may carry 1 key session / 1 stride session instead of 2 (OWNER DECISION to confirm, see PR).
 - **When to Revisit:** if the structure floor is made a modelled quantity (a Tier-2 trade-off instead of Tier-1 slacks), or `base_weekly_tss` is re-derived from the structure.
 
-### `ADR-022` — Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge [`ACTIVE` | `optimizer`]
+### `ADR-022` — Absolute long-run cap in minutes for weeks with fewer than 4 runs [`ACTIVE` | `safety`]
 
-# `ADR-022`: Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge
+# `ADR-022`: Absolute long-run cap in minutes for weeks with fewer than 4 runs
 
 ## 1. Context & Problem
-After `TASK-034` (deload structure relief) `EXP-007` still showed recovery weeks up to +68 TSS (`CURRENT_ATHLETE`) / +244 (unconstrained reference) and taper/race weeks up to +44 / +275 over target. Single-week ablations on the real library (re-solving recorded `WeekRecord` configs and carry-ins) found three independent Tier-1 charges, each minimised BEFORE the soft Tier-2 TSS goal:
-1. **Key-session minimum >= 1** (`CURRENT_ATHLETE`): the cheapest hard session forces ~160-170 TSS in a 72-141 target week (key min 0 alone: weeks 8-39 within +10 of target; stride min 0 alone did not help).
-2. **Mandatory anchors** (reference profile, whose caps can host a 180 min ride and 75 min run): `shorten_or_drop_anchor` forces them every week (floor ~350-400 vs 186-220 target; dropping the obligation alone: reference recovery +0..+3).
-3. **Running-ACWR 0.80 floor waiver** (`ADR-019`, binary Tier-1 slack of weight 1): whenever any plan can hold `A_d >= 0.8 C_d` the solver pays for extra running instead of waiving, although a deload week is *defined* by acute < chronic load. Reference recovery solved 275/269/269 vs 186/203/220 with the carry-in, 187/203/223 with the floor removed (`nocarry` and `nofloor` ablations coincide; CTL-ramp ablation changed nothing).
-The reference swim minimum of 2 (not scaled by `TASK-034`) additionally held its race week +48.
+`ADR-003` caps a single run at 32% of weekly run time, which is only satisfiable with >= 4 runs. `ADR-013` fell back to pigeonhole caps (40% for 3 runs, 60% for 2, 100% for 1), so for `CURRENT_ATHLETE` (1-3 runs per week, one session per day) the injury-prevention intent was vacuous: `EXP-007` found every week of every season had < 4 runs and 13-25 had exactly one, with no limit on that run's length. Owner decision (2026-11-16): below 4 runs, enforce an ABSOLUTE cap in minutes instead of the ratio.
 
 ## 2. Considered Alternatives
-1. **Option A (Rejected): retarget deload weeks to the floor.** The floors (166-275 TSS) are larger than the build week they follow in several weeks; it would defeat the recovery week.
-2. **Option B (Rejected): loosen/rank the ACWR floor in every week.** The floor stays in build weeks (`ADR-019`); only deload roles are exempt.
-3. **Option C (ADOPTED): remove each charge in deload roles only.**
+1. **Option A (Rejected):** Keep the pigeonhole shares. 100% for one run is no cap at all.
+2. **Option B (Rejected):** A fixed global ceiling (e.g. 90 min), already rejected in `ADR-003` Option B; it also ignores progression (a 75 min run after 30 min runs).
+3. **Option C (ADOPTED):** Progression cap + re-entry ceiling in minutes, applied only when the realized run count is < 4.
 
 ## 3. Decision & Production Invariant
-- **Target Component / Path:** `control/periodization.py` (`apply_deload_relief`: key min 0, Swim joins Bike/Run halving; `relax_deload_anchors`; `relax_deload_acwr_floor`), `control/season.py` (applied to the week library and the carry-in handed to the solver; the carry handed to the next week is the original).
-- **Locked Parameters / Contract:** roles recovery/taper/race only. Anchors stay in the library as ordinary optional candidates. `LoadState.acwr_min` is set to 0 for the solve (no floor row, no waiver); the running-ACWR ceiling, boundary rows, CTL ramp, run-minutes guard, every cap and every maximum are untouched.
-- **Enforcement Mechanism:** `tests/test_season_periodization.py` (relief only in deload roles; short 14-week `CURRENT_ATHLETE` season, deload weeks <= target + 25); slow `tests/test_season_validation.py::test_full_matrix_season` asserts recovery and taper/race max over-target <= 25 TSS and 0 violations for all 8 seasons.
+- **Rule (Tier 0, hard):** if a week has fewer than 4 runs, every run `r` satisfies `run_minutes(r) <= L`, with `L = min(max(floor, prev_longest + step), reentry_ceiling if run CTL < reentry exit)`. Weeks with >= 4 runs are governed only by the 32% ratio (unchanged); the pigeonhole caps remain as before.
+- **Defaults:** `long_run_step_min` 10, `long_run_floor_min` 30 (shortest library run, so week 1 is schedulable; week 1 has previous longest 0), `reentry_long_run_max_min` 45 for `CURRENT_ATHLETE` (None elsewhere). `L` is lifted to the shortest schedulable run so a run always fits. A rule with `long_run_step_min=None` and no ceiling is off (library/test default); the profile enables it.
+- **Previous longest** is carried in `WeekCarryIn.prev_longest_run_min` (`control/carry.py`), held through run-free weeks so a rest week does not reset the ratchet. An isolated week (no carry-in) gets only the ceiling.
+- **Linearisation:** the run-count indicator `z4` (1 iff >= 4 runs) already exists for the ratio rows; for each run candidate with `run_minutes > L` the row `x_{i,d} - z4 <= 0` forbids it unless the week has >= 4 runs. No big-M and no new binaries. Lift+run combos count toward the run count with their run leg (<= 20 min <= floor, so they are never capped).
+- **Targets:** `safety_constraints._add_run_share_cap` / `resolve_long_run_cap`; both facades via `UnifiedWeekEngine`; `run_share_report` returns `regime` (`absolute` / `pigeonhole` / `ratio`), `abs_cap_min`, `longest_run_min`; independent check `perf.season_validation.check_week` rule `long_run_abs` (re-derives `L` from the previous week's actual schedule).
+- **Enforcement:** `tests/test_long_run_cap.py`; the 8-season matrix must stay at 0 fallback and 0 violations.
 
 ## 4. Empirical Evidence & Validation Lineage
-- **Validated By:** `EXP-007` matrix re-run: recovery max over +68/+244 -> +8/+4, taper/race +44/+275 -> +11/+14 (see `TASK-038` archive entry). 0 independent Tier-0 violations in all 8 seasons.
-- **Supersedes:** None; completes `TASK-034`.
+- **Validated By:** `EXP-007` (problem), `tests/test_long_run_cap.py`, 8-season matrix (see TASK-039 archive entry).
+- **Supersedes:** None. Refines `ADR-003` / `ADR-013` for < 4 runs; the 45 min re-entry ceiling is a conservative judgement (about 3 x 15 min continuous run/walk blocks; weekly re-entry minutes are separately capped by `ADR-012`) and is flagged for owner review.
 
 ## 5. Consequences & Trade-Offs
-- **Positive:** deload weeks are deload weeks on both profiles; the ACWR floor no longer pushes extra running into recovery weeks.
-- **Negative / Operational Cost:** a deload week may now contain no key session / no long keystone session (OWNER DECISION, reported in the PR); a deload week may fall below acute:chronic 0.80 without a reported relaxation.
-- **When to Revisit:** if the structure floors become a modelled Tier-2 trade-off, or `TASK-023` walk-jog candidates change the floor economics.
+- **Positive:** A 1-3 run week can no longer hold an arbitrarily long run; long runs ramp at most 10 min/week.
+- **Negative / Operational Cost:** Long-course (70.3/IM) long runs of 90+ min are reachable only through the 10 min/week ramp or with >= 4 runs; `TASK-040` library gaps interact. Week 1 of a season with a real running history is capped at the floor unless a starting longest run is supplied (queued).
+- **When to Revisit:** After re-entry (run CTL >= 15) if the ramp proves too slow for race-specific long runs, or when the athlete's run frequency rises to >= 4.
 
 ### `ADR-023` — Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge [`ACTIVE` | `optimizer`]
 

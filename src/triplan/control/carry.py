@@ -47,7 +47,8 @@ def load_state_for_week(state: AthletePhysiologicalState, profile: Optional[Any]
         ramp = MASTERS_CTL_RAMP if ramp is None else min(ramp, MASTERS_CTL_RAMP)
     return LoadState(run_acute=state.running_acute_mech, run_chronic=state.running_chronic_mech,
                      total_ctl=state.total_ctl, run_ctl=state.run_ctl, acwr_max=rho, acwr_min=GLOBAL_ACWR_MIN,
-                     acwr_eps=acwr_eps_floor(library, rho), ctl_ramp_max=ramp, run_minutes_cap=run_cap)
+                     acwr_eps=acwr_eps_floor(library, rho), ctl_ramp_max=ramp, run_minutes_cap=run_cap,
+                     reentry=bool(reentry))
 
 
 def initial_carry_in(state: AthletePhysiologicalState, profile: Optional[Any], library: Iterable[Any],
@@ -61,7 +62,9 @@ def next_week_carry_in(prev: WeekCarryIn, schedule: Dict[int, list], state: Athl
                        profile: Optional[Any], library: Iterable[Any], week_tss: float) -> WeekCarryIn:
     """Carry-in for week k+1 from week k's solved ``schedule`` ({0..6: [workouts]}) and the already advanced state."""
     run_minutes = float(sum(run_minutes_of(w) for d in range(7) for w in schedule.get(d, [])))  # incl. combo run legs
+    longest = max((run_minutes_of(w) for d in range(7) for w in schedule.get(d, [])), default=0.0)
     return WeekCarryIn(
+        prev_longest_run_min=float(longest) if longest > 0 else prev.prev_longest_run_min,
         day_m1=DayLoad.from_workouts(schedule.get(6, [])),
         day_m2=DayLoad.from_workouts(schedule.get(5, [])),
         load=load_state_for_week(state, profile, run_minutes, library),
