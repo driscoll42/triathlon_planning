@@ -37,6 +37,7 @@
 - **`ADR-014`** (`workouts`): Adopt Single Validated Canonical Workout Library and YAML Athlete Profile
 - **`ADR-015`** (`general`): Adopt src-layout triplan package with domain subpackages
 - **`ADR-016`** (`general`): Scope the Startup Token Budget to the Charter's Read List
+- **`ADR-017`** (`optimizer`): Unified WeekModel engine with modular constraint builders
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`
