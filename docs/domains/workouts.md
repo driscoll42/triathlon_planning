@@ -43,13 +43,13 @@ Commercial 5-zone systems (such as Stryd 5-Zone and MyProCoach 5-Zone) inappropr
 The modular LEGO catalog standardizes sessions across all 5 disciplines:
 1. **Strength Disciplines (`data/strength_workouts.csv`):**
    - *Anatomical Adaptation (`STR_AA1`):* High-volume (15–20 reps) dumbbell/core movements establishing tendon stiffness.
-   - *Maximum Strength (`STR_MS1_HEAVY`, `STR_MS2_HEAVY`):* 85%–88% 1RM barbell compound drivers (Back Squat, Deadlift, Trap Bar, OHP, Bench).
+   - *Maximum Strength (`STR_MS1_HEAVY`, `STR_MS2_HEAVY`):* 85%–88% 1RM barbell compound drivers (Back Squat, Conventional Deadlift, OHP, Bench; no trap bar per `TASK-028`).
    - *In-Season Maintenance (`STR_SM1_MAINT`, `STR_SM2_MAINT`):* 30–45m sessions sustaining neural drive with minimal DOMS.
    - *Plyometrics (`STR_PLYO1`):* Depth jumps (<200ms GCT), pogo hops, and broad jumps for leg-spring stiffness ($LSS$).
-   - *Upper Hypertrophy (`STR_UPPER_HYP`):* DB incline press, weighted pull-ups, and face pulls for aero and swimming posture.
+   - *Upper Hypertrophy (`STR_UPPER_HYP`):* DB incline press, weighted pull-ups, and DB rear-delt flys for aero and swimming posture.
    - *Unilateral Lower (`STR_LOWER_UNI`):* DB Bulgarian split squats and single-leg RDLs avoiding home dumbbell limits.
    - *Posterior & Core (`STR_POST_CORE`):* Barbell hip thrusts and Nordic curls with zero axial spinal compression.
-   - *Regeneration Deload (`STR_DELOAD`):* Mobility flows and banded restoration for Step Week 4 recovery.
+   - *Regeneration Deload (`STR_DELOAD`):* Mobility flows and prone Y-T-W (no bands, `DECISION-022`) for Step Week 4 recovery.
 2. **Endurance Disciplines (`Run.xlsx`, `Bike.xlsx`, `Swim.xlsx`, `brick_workouts.csv`):**
    - *Bike:* Lactate shuttle over-unders (`BK_TH_OU1/2`), low-cadence force & torque (`BK_FR_TQ1/2`), and $VO_2\text{max}$ (`BK_MAP_VO2`).
    - *Run:* Base with alactic strides (`RUN_SS1/2_STR`), progression long runs (`RUN_FF_PROG`), and track intervals (`RUN_VO2_MAP`).

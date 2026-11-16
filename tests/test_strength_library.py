@@ -3,7 +3,7 @@ import re
 
 import pytest
 
-from library.loader import load_library
+from triplan.library.loader import load_library
 
 LEGOS_STRENGTH = {
     "STR_AA1", "STR_MS1_HEAVY", "STR_MS2_HEAVY", "STR_SM1_MAINT", "STR_SM2_MAINT",

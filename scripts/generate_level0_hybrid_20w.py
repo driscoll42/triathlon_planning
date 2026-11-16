@@ -156,7 +156,7 @@ def build_20_week_plan():
                 r1_desc = f"Active Recovery Jog ({int(run1_dur)}m): Zone 1/2 very light"
                 r2_desc = f"Active Recovery Jog ({int(run2_dur)}m): Zone 1/2 light spin/jog"
                 r3_desc = f"Aerobic Shakeout ({int(run3_dur)}m): Gentle Zone 1/2 run"
-                str_a_desc = "Regeneration Strength: Bodyweight & Band Flow, 90/90 Hips, Light Goblet Squats (2x8 w/ 35lb DB), Face Pulls"
+                str_a_desc = "Regeneration Strength: Bodyweight Mobility Flow, 90/90 Hips, Light Goblet Squats (2x8 w/ 35lb DB), Prone Y-T-W"
                 str_b_desc = "Regeneration Mobility: Foam Rolling, Thoracic Extensions, Light DB RDL (2x8 w/ 35lb DBs), Bird-Dogs, Planks"
             else:
                 r1_desc = f"Aerobic Base Run ({int(run1_dur)}m): Zone 2 steady"
