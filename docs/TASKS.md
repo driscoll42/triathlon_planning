@@ -12,7 +12,7 @@ Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library +
 ### Phase 2 — Unified MILP Engine
 - [ ] `TASK-018` (`mpc`): cross-week carry-in state; in-model linearized ACWR and CTL-ramp caps.
 - [ ] `TASK-019` (`physiology`): key-session/stride structure, hard-days-hard, AM/PM gating, lift+easy combo, full 80/20 TiZ rule.
-- [ ] `TASK-032` (`optimizer`): weekly TSS floor — recovery/taper/race weeks solve at ~126-146 TSS vs 72-112 targets; find the binding floor (duration splits / min frequencies / anchors).
+- [ ] `TASK-034` (`optimizer`): weekly TSS floor — recovery/taper/race weeks solve at ~126-146 TSS vs 72-112 targets; find the binding floor (duration splits / min frequencies / anchors).
 - [ ] `TASK-033` (`workouts`): library has no heavy lift within the Tier-0 axial 65 / neuro 75 caps (`STR_MS1_HEAVY_DEF` is 85/85); race-block weeks run 0 heavy lifts. Add/rescale compliant heavy lifts (with `TASK-028`).
 - [ ] `TASK-027` (`perf`): multi-distance season validation on real + unconstrained profiles.
 
