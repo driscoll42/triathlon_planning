@@ -74,6 +74,54 @@ def mechanical_strain(sport: str, tss: float, intensity_factor: float, duration:
     return round(0.50 * tss, 1)
 
 
+# -----------------------------------------------------------------------------
+# Cap-compatible heavy lifts (TASK-033)
+# -----------------------------------------------------------------------------
+# The authored strength rows carry hand-set neuromuscular / axial loads (no generating formula existed). This is
+# the least-squares line through the four authored barbell rows (STR_MS1_HEAVY, STR_MS2_HEAVY, STR_SM1_MAINT,
+# STR_SM2_MAINT) on L = heavy axial barbell lower-body working sets (squat / deadlift / RDL):
+#   axial = 35.2 + 8.85 L        neuro = 41.1 + 9.2 L      (reproduces SM2_MAINT 55/60 to within 2)
+# Non-axial barbell upper-body sets (bench) add neuromuscular load only; DB accessory sets are not counted.
+STRENGTH_AXIAL_BASE, STRENGTH_AXIAL_PER_SET = 35.2, 8.85
+STRENGTH_NEURO_BASE, STRENGTH_NEURO_PER_SET = 41.1, 9.2
+STRENGTH_NEURO_PER_BENCH_SET = 2.0
+
+
+def strength_loads(lower_bb_sets: int, bench_sets: int = 0) -> Dict[str, float]:
+    """(neuromuscular_load, axial_load) of a barbell strength session from its working-set counts."""
+    return {"neuromuscular_load": round(STRENGTH_NEURO_BASE + STRENGTH_NEURO_PER_SET * lower_bb_sets
+                                        + STRENGTH_NEURO_PER_BENCH_SET * bench_sets, 1),
+            "axial_load": round(STRENGTH_AXIAL_BASE + STRENGTH_AXIAL_PER_SET * lower_bb_sets, 1)}
+
+
+# Heavy = main lift >= 85% 1RM. Every variant keeps 3 or fewer heavy lower-body barbell sets so the session fits the
+# CURRENT_ATHLETE daily caps (axial <= 65, neuro <= 75) with headroom for a lift + easy-bike combo. Barbell 60% share
+# holds per session (bb/(bb+db) >= 0.6). Equipment per ADR-008 / DECISION-022 (barbell, DB <= 75 lb, no trap bar/bands).
+HEAVY_VARIANTS = {
+    "STR_HV1_SQUAT": dict(
+        category="Maximum Strength (cap-compatible)", sq=1, dl=0, lower=3, bench=2, bb=5, db=2, sets=(3, 0, 2, 2),
+        description="10 min ramp warm-up, Back Squat (3 x 3 @ 87.5% 1RM, heavy lift), Bench Press (2 x 5 @ 85% 1RM), "
+                    "DB Rows (2 x 8 w/ 60lb DBs), 3 min rest between main sets, 5 min cooldown.",
+        adaptations="Maximal strength with 3 heavy squat sets: low axial and neuromuscular cost for in-season weeks"),
+    "STR_HV2_DEADLIFT": dict(
+        category="Maximum Strength (cap-compatible)", sq=0, dl=1, lower=3, bench=2, bb=5, db=2, sets=(0, 3, 2, 2),
+        description="10 min ramp warm-up, Conventional Deadlift (3 x 3 @ 87.5% 1RM, heavy lift), Bench Press (2 x 5 @ 85% "
+                    "1RM), Pull-Ups (2 x 6), 3 min rest between main sets, 5 min cooldown.",
+        adaptations="Posterior chain maximal force with 3 heavy pull sets and upper-body pressing"),
+    "STR_HV3_SQUAT_SL": dict(
+        category="Maximum Strength (cap-compatible)", sq=1, dl=0, lower=2, bench=3, bb=5, db=3, sets=(2, 3, 3, 0),
+        description="10 min ramp warm-up, Back Squat (2 x 4 @ 87.5% 1RM, heavy lift), Bench Press (3 x 5 @ 85% 1RM), "
+                    "Single-Leg DB Romanian Deadlift (3 x 8/leg w/ 60lb DBs), 3 min rest between main sets, 5 min cooldown.",
+        adaptations="Heavy bilateral squat plus single-leg posterior chain at reduced axial load"),
+    "STR_HV4_DEADLIFT_SL": dict(
+        category="Maximum Strength (cap-compatible)", sq=0, dl=1, lower=2, bench=3, bb=5, db=3, sets=(3, 2, 3, 0),
+        description="10 min ramp warm-up, Conventional Deadlift (2 x 4 @ 87.5% 1RM, heavy lift), Bench Press (3 x 5 @ 85% "
+                    "1RM), DB Bulgarian Split Squats (3 x 6/leg w/ 50lb DBs), 3 min rest between main sets, 5 min cooldown.",
+        adaptations="Heavy deadlift plus unilateral quad strength at reduced axial load"),
+}
+HEAVY_VARIANT_ZONES = (20.0, 20.0, 0.0, 5.0, 0.0, 0.0, 0.0)  # 45 min, same envelope as STR_SM1_MAINT (zone minutes)
+
+
 def zone_tss(z5: List[float], zone_if=BRICK_ZONE_IF) -> float:
     """TSS from zone minutes via an NP-style 4th-power mean (same method as legacy util.load_workouts):
     IF = (sum_z m_z^4 t_z / T)^(1/4); TSS = 100 * IF^2 * T/60."""
