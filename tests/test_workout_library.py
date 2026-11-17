@@ -23,8 +23,8 @@ def test_canonical_library_validates_and_has_expected_shape(lib):
     assert list(lib.columns) == WORKOUT_COLUMNS
     assert lib["code"].is_unique
     counts = lib.groupby("provenance").size().to_dict()
-    assert counts == {"8020_library": 479, "agent_authored": 47, "hand_coded_default": 24, "hand_coded_hybrid": 18}  # +4 TASK-033 heavy variants, +8 TASK-040 long-course
-    assert lib["lib_default"].sum() == 38 and lib["lib_hybrid"].sum() == 22
+    assert counts == {"8020_library": 479, "agent_authored": 61, "hand_coded_default": 24, "hand_coded_hybrid": 18}  # +4 TASK-033 heavy variants, +8 TASK-040 long-course, +14 TASK-051 gap-fill
+    assert lib["lib_default"].sum() == 38 + 14 and lib["lib_hybrid"].sum() == 22
 
 
 def test_stale_duplicate_sources_are_gone():
@@ -53,7 +53,8 @@ def test_no_swim_is_tagged_as_strides(lib):
     # Old enrich: 'SS' in code tagged every SSP*/SSI*/SW_CSS_* swim as strides (zero Z5 ANS cost).
     assert not lib[(lib["sport"] == "Swim") & lib["has_strides"]].shape[0]
     assert set(lib.loc[lib["has_strides"], "code"]) == {
-        "RUN_SS1_STR", "RUN_SS2_STR", "RUN_SS1_STR_DEF", "RN_Z2_STRIDE", "BIKE_SS1_CAD", "RUN_AE1_STR30", "BIKE_AE2_CAD_STR"}
+        "RUN_SS1_STR", "RUN_SS2_STR", "RUN_SS1_STR_DEF", "RN_Z2_STRIDE", "BIKE_SS1_CAD", "RUN_AE1_STR30", "BIKE_AE2_CAD_STR",
+        "RUN_AE1_STR25", "BIKE_TH_STR_45", "BIKE_TE_Z3_STR_45"}   # +3 TASK-051 gap-fill
 
 
 def test_80_20_rides_are_trainer_eligible_not_guessed_by_duration(lib):
@@ -202,7 +203,7 @@ def test_row_model_rejects_cross_sport_flags():
 # ----------------------------------------------------------------------------- loader
 
 def test_loader_sets_and_legacy_frame(lib):
-    assert len(load_candidates(library="default")) == 38
+    assert len(load_candidates(library="default")) == 38 + 14   # TASK-051 gap-fill
     assert len(load_candidates(library="hybrid")) == 22
     no_tests = select(lib, library="default", include_tests=False)
     assert not no_tests["is_test"].any()

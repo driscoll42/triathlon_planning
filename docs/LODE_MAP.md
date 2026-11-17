@@ -49,7 +49,7 @@
 - **`ADR-028`** (`mpc`): Alternating long-run / long-ride keystone weeks in long-course race-block builds
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
-- **`workouts`:** `HEUR-003`
+- **`workouts`:** `HEUR-003`, `HEUR-008`
 - **`integrations`:** `HEUR-005`, `HEUR-006`, `HEUR-007`
 - **`safety`:** `HEUR-002`, `HEUR-004`
 - **`perf`:** `HEUR-001`
