@@ -174,7 +174,7 @@ def test_recovery_week_solves_well_below_full_week_floor(default_library):
         return plans[0]["total_tss"]
 
     full, relieved = solve(False), solve(True)
-    assert full > 200 and relieved < 0.6 * full      # was ~250 (floor from keys/strides/frequency/rest rows)
+    assert full > 150 and relieved < 0.6 * full      # was ~250 (162 after the TASK-051 short runs / hard-stride rides) (floor from keys/strides/frequency/rest rows)
 
 
 # ----------------------------------------------------------------------------- TASK-037 re-entry structure relief

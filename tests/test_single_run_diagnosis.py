@@ -24,14 +24,14 @@ def test_unconstrained_week_is_not_single_run(default_library):
 
 
 def test_run_minutes_guard_is_named(default_library):
-    cfg, carry, n = _week(default_library, run_minutes_cap=35.0)
+    cfg, carry, n = _week(default_library, run_minutes_cap=18.0)   # 18 < 15 + 15: two TASK-051 15 min runs no longer fit
     assert n == 1
     out = attribute_single_run_week(default_library, cfg, carry, time_limit=1.5)
     assert out["binding"] == ["run-minutes guard"] and out["label"] == "run-minutes guard"
 
 
 def test_weekly_run_strain_cap_is_named(default_library):
-    cfg, carry, n = _week(default_library, cfg_mod=lambda c: setattr(c, "max_weekly_run_mech_strain", 25.0))
+    cfg, carry, n = _week(default_library, cfg_mod=lambda c: setattr(c, "max_weekly_run_mech_strain", 8.0))
     assert n == 1
     out = attribute_single_run_week(default_library, cfg, carry, time_limit=1.5)
     assert out["binding"] == ["weekly run strain cap"]
