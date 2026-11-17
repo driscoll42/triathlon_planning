@@ -47,7 +47,7 @@
 - **`ADR-024`** (`workouts`): Long-Course Library Rows, Profile-Level 48h Caps Bounded By The Charter
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
-- **`workouts`:** `HEUR-003`
+- **`workouts`:** `HEUR-003`, `HEUR-008`
 - **`integrations`:** `HEUR-005`, `HEUR-006`, `HEUR-007`
 - **`safety`:** `HEUR-002`, `HEUR-004`
 - **`perf`:** `HEUR-001`

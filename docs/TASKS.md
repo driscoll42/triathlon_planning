@@ -15,6 +15,9 @@ Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library +
 - [ ] `TASK-046` (`safety`): attribute each `CURRENT_ATHLETE` single-run week to its binding row (run-minutes guard / ACWR / strain 75) as a season-level message; walk-jog split decision (`TASK-023`).
 - [ ] `TASK-049` (`safety`): the unconstrained reference profile never leaves re-entry mode (run CTL decays below the 15 exit): runs stay 33-60 min x 2-4 so the 90-150 min long runs are never chosen; give it a real run ramp (`TASK-045` seed) or a no-re-entry setting.
 - [ ] `TASK-050` (`physiology`): Ironman build weeks stay 64-139 TSS under target because the rolling 48h ANS cap (700) binds at 690; low-intensity long sessions are ANS-expensive (`e^(0.65(z-1))`, with `TASK-021`). Owner decision: keep, or re-weight ANS for Z1/Z2 long sessions; plus distance-aware anchors (IM long-ride anchor).
+- [ ] `TASK-058` (`workouts`): walk-jog (run/walk) re-entry workouts: the schema has no walk component and a reduced impact load is an invented number; build them on the `TASK-023` impact model (`EXP-008`).
+- [ ] `TASK-059` (`safety`): a `Brick` run leg is invisible to `run_minutes` / `run_strain` / ACWR / run-share rows, so no Brick can enter the default library until its run leg is modelled (`EXP-008`).
+- [ ] `TASK-060` (`perf`): candidate-set growth is a solve-time tax (+31 default rows tripled season wall time before pruning; lift x cardio combos dominate); add dominance / symmetry pruning of near-identical rows (`EXP-008`).
 
 ### Phase 3 — Physiology Calibration
 - [ ] `TASK-021` (`physiology`): unify ANS cost, strain, strength TSS; exact Banister decay.

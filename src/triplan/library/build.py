@@ -183,6 +183,124 @@ def long_endurance_rows(profile=None, source: str = "scripts/migrations/m2026_11
     return rows
 
 
+# -----------------------------------------------------------------------------
+# Library gap-fill (TASK-051, EXP-008)
+# -----------------------------------------------------------------------------
+# The season solver only sees ``lib_default`` rows (38 before this task), so the 80/20 scrape never reaches it. The audit
+# (docs/experiments/EXP-008.md) found short easy runs, mid-length quality runs / rides and swim variants missing. Every row
+# is (Z1, Z2, Z3, Z4, Z5) minutes on the 5-zone scale (ZX = ZY = 0, so no grey-zone session), derived with the shared
+# rules: ``power_tss`` (runs / rides; same 4th-power zone mean as ``calculate_TSS``), ``swim_time_tss`` (swims; same
+# sTSS = IF^3 x hours x 100 as the distance-prescribed 80/20 swims), ``endurance_flags`` and ``endurance_loads``.
+# A row is "hard" by the library rule (>= 15 min Z3+ or >= 5 min Z4+, i.e. q_i >= 5), otherwise it is 100% Z1/Z2 (a few
+# stride seconds excepted). Walk-jog rows are deliberately NOT here: the schema has no walk component and an invented
+# reduced impact load would loosen the ACWR / strain rows (TASK-058).
+GAP_ENDURANCE_SPECS = {
+    # code: (sport, (Z1, Z2, Z3, Z4, Z5), description, adaptation, outdoor)
+    "RUN_AE1_15": ("Run", (15, 0, 0, 0, 0), "15 minutes Zone 1 easy jog",
+                   "Re-entry running frequency at minimal ACWR / strain cost", False),
+    "RUN_AE1_20": ("Run", (20, 0, 0, 0, 0), "20 minutes Zone 1 easy run",
+                   "Re-entry running frequency at minimal ACWR / strain cost", False),
+    "RUN_AE1_STR25": ("Run", (18, 5, 0, 0, 2), "18 minutes Zone 1, 5 minutes Zone 2, 6 x 20 second strides (Zone 5, alactic) "
+                      "with full recovery", "Neuromuscular running economy with a short, low-strain session", False),
+    "BIKE_AE1_20": ("Bike", (20, 0, 0, 0, 0), "20 minutes Zone 1 recovery spin on the trainer",
+                    "Active recovery / frequency filler on a short day", False),
+    "BIKE_AE2_120": ("Bike", (30, 90, 0, 0, 0), "30 minutes Zone 1, 90 minutes Zone 2 steady trainer ride",
+                     "Aerobic base volume for athletes with 120 minute weekdays", False),
+    "BIKE_AE2_OUT_120": ("Bike", (30, 90, 0, 0, 0), "30 minutes Zone 1, 90 minutes Zone 2 steady endurance ride outdoors",
+                         "Weekend aerobic ride between the 75 and 165 minute options", True),
+    "BIKE_TE_Z3_45": ("Bike", (14, 13, 18, 0, 0), "10 minutes Zone 1, 5 minutes Zone 2, 2 x (9 minutes Zone 3 / 4 minutes "
+                      "Zone 1), 8 minutes Zone 2 cool-down", "Tempo endurance that fits a 45 minute weekday", False),
+    "BIKE_TH_45": ("Bike", (19, 14, 0, 12, 0), "10 minutes Zone 1, 5 minutes Zone 2, 3 x (4 minutes Zone 4 / 3 minutes Zone 1), "
+                   "9 minutes Zone 2 cool-down", "Threshold power in a 45 minute session", False),
+    "BIKE_TH_STR_45": ("Bike", (19, 13, 0, 12, 1), "10 minutes Zone 1, 5 minutes Zone 2, 3 x (4 minutes Zone 4 / 3 minutes Zone 1), "
+                       "8 minutes Zone 2 cool-down with 6 x 10 second seated cadence bursts (Zone 5, alactic)",
+                       "Threshold power plus a neuromuscular primer that counts as a stride session", False),
+    "BIKE_TE_Z3_STR_45": ("Bike", (14, 12, 18, 0, 1), "10 minutes Zone 1, 5 minutes Zone 2, 2 x (9 minutes Zone 3 / 4 minutes "
+                          "Zone 1), 7 minutes Zone 2 cool-down with 6 x 10 second seated cadence bursts (Zone 5, alactic)",
+                          "Tempo endurance plus a neuromuscular primer that counts as a stride session", False),
+    "SWIM_AE1_20": ("Swim", (20, 0, 0, 0, 0), "20 minutes Zone 1 technique and drill swim",
+                    "Short technique session; frequency filler on short pool days", False),
+    "SWIM_AE1_40": ("Swim", (30, 10, 0, 0, 0), "30 minutes Zone 1 drills and technique, 10 minutes Zone 2 aerobic swim",
+                    "Technique-weighted aerobic swim", False),
+    "SWIM_AE2_65": ("Swim", (15, 50, 0, 0, 0), "15 minutes Zone 1, 50 minutes Zone 2 continuous / long-repeat aerobic swim",
+                    "Aerobic swim endurance for long-course swims", False),
+}
+
+
+def swim_time_tss(z: List[float], swim_css: float):
+    """(normalized speed m/min, IF, sTSS) of a time-prescribed swim: IF = time-weighted zone speed / CSS, sTSS = IF^3 x h x 100
+    (the same model ``materialize_distance_row`` uses for distance-prescribed swims)."""
+    tot = sum(z)
+    if_ = sum(m * t for m, t in zip(SWIM_ZONE_CSS_MULT, z)) / tot
+    return round(if_ * swim_css, 4), round(if_, 4), round((if_ ** 3) * tot / 60.0 * 100.0, 2)
+
+
+# Strength rows. Only a bodyweight prehab session: two barbell maintenance lifts (upper / lower, 35 min) were authored and
+# measured too, but their lift x cardio combos doubled season wall time with identical relaxations (EXP-008, TASK-060), so
+# they are not shipped. Loads are estimates (``needs_review``); split_group ANY never forces the Upper/Lower split.
+GAP_STRENGTH_SPECS = {
+    "STR_PREHAB_25": dict(
+        duration=25.0, zones=(25.0, 0.0, 0.0, 0.0, 0.0), bb=0, db=0, sets=(2, 2, 0, 0), neuro=20.0, axial=8.0,
+        press=False, sq=False, dl=False, split="ANY", category="Prehab / mobility",
+        description="25 min bodyweight prehab: single-leg calf raises (3 x 12), Nordic hamstring negatives (2 x 5), side-plank "
+                    "hip abduction (2 x 12), tibialis raises (2 x 15), thoracic mobility.",
+        adaptations="Run-specific tissue capacity (calf / Achilles / hamstring) for re-entry and deload weeks"),
+}
+GAP_FILL_CODES = list(GAP_ENDURANCE_SPECS) + list(GAP_STRENGTH_SPECS)
+
+
+def gap_fill_rows(profile=None, source: str = "scripts/migrations/m2026_11_16_library_gap_fill.py"
+                  ) -> List[Dict[str, object]]:
+    """Canonical rows for the TASK-051 gap-fill workouts (all ``agent_authored``, ``lib_default``, ``needs_review``)."""
+    if profile is None:
+        from triplan.physiology.athlete_profile import CURRENT_ATHLETE as profile
+    rows: List[Dict[str, object]] = []
+    for code, (sport, z, desc, adapt, outdoor) in GAP_ENDURANCE_SPECS.items():
+        z = [float(x) for x in z]
+        duration = sum(z)
+        if sport == "Swim":
+            np_, if_, tss = swim_time_tss(z, profile.swim_css)
+        else:
+            np_, if_, tss = power_tss(z, RUN_ZONE_IF if sport == "Run" else BIKE_ZONE_IF,
+                                      profile.run_cp if sport == "Run" else profile.bike_cp)
+        row = _blank_row()
+        row.update(code=code, name=code, sport=sport, category="Gap-fill endurance", provenance="agent_authored",
+                   source=source, description=desc, duration_min=duration, tss=tss, intensity_factor=if_,
+                   normalized_power=np_, z1_min=z[0], z2_min=z[1], z3_min=z[2], z4_min=z[3], z5_min=z[4],
+                   lib_default=True, needs_review=True, target_adaptations=adapt, preference_penalty=0.1,
+                   notes="Library gap-fill (TASK-051, EXP-008); derived with build.power_tss / swim_time_tss / "
+                         "endurance_flags / endurance_loads.")
+        flags = endurance_flags(sport, desc, duration, z)
+        if sport == "Bike" and outdoor:
+            flags.update(is_indoor_bike=False, is_outdoor_bike=True)
+        row.update(flags)
+        row.update(endurance_loads(sport, tss, if_, duration, z, bool(flags.get("has_strides"))))
+        rows.append(row)
+    for code, v in GAP_STRENGTH_SPECS.items():
+        z = v["zones"]
+        duration = v["duration"]
+        tss = round(38.88 * duration / 45.0, 2)
+        if_ = 0.72
+        if "lower" in v:
+            loads = strength_loads(v["lower"], v.get("bench", 0))
+        else:
+            loads = {"neuromuscular_load": v["neuro"], "axial_load": v["axial"]}
+        row = _blank_row()
+        row.update(code=code, name=code, sport="Strength", category=v["category"], provenance="agent_authored",
+                   source=source, description=v["description"], duration_min=duration, tss=tss, intensity_factor=if_,
+                   z1_min=z[0], z2_min=z[1], z3_min=z[2], z4_min=z[3], z5_min=z[4],
+                   mechanical_strain=mechanical_strain("Strength", tss, if_, duration),
+                   ans_cost=round(ans_cost(list(z), False), 1), durability_score=2.0,
+                   neuromuscular_load=loads["neuromuscular_load"], axial_load=loads["axial_load"],
+                   heavy_sq=v["sq"], heavy_dl=v["dl"], heavy_press=v["press"], lib_default=True, needs_review=True,
+                   split_group=v["split"], bb_sets=v["bb"], db_sets=v["db"], sets_anterior_chain=v["sets"][0],
+                   sets_posterior_chain=v["sets"][1], sets_push=v["sets"][2], sets_pull=v["sets"][3],
+                   target_adaptations=v["adaptations"], preference_penalty=0.1,
+                   notes="Library gap-fill (TASK-051, EXP-008); maintenance (non-heavy) lift; loads estimated, TSS awaits TASK-021.")
+        rows.append(row)
+    return rows
+
+
 def zone_tss(z5: List[float], zone_if=BRICK_ZONE_IF) -> float:
     """TSS from zone minutes via an NP-style 4th-power mean (same method as legacy util.load_workouts):
     IF = (sum_z m_z^4 t_z / T)^(1/4); TSS = 100 * IF^2 * T/60."""
