@@ -345,7 +345,8 @@ def run_closed_loop_season_demo(distance: str = "olympic"):
     daily_df, summary_df = generate_closed_loop_season_schedule(
         profile=CURRENT_ATHLETE,
         distance=distance,
-        time_limit_per_week=2.0
+        time_limit_per_week=2.0,
+        diagnose_single_run=True,
     )
     dur = time.time() - t0
     print(f"\nEntire {distance.upper()} Season solved in {dur:.2f}s!")
