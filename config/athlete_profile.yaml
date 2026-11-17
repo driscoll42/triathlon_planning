@@ -49,6 +49,7 @@ max_weekly_run_minutes_increase: 15.0
 long_run_step_min: 10.0
 long_run_floor_min: 30.0
 reentry_long_run_max_min: 45.0
+starting_longest_run_min: 30.0
 reentry_phase: true
 reentry_heavy_strength_sessions: 0
 default_run_surface: outdoor

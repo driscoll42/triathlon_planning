@@ -186,3 +186,11 @@
 - **Result (`EXP-007` addendum, 8 seasons):** 0 fallback, 0 violations; `CURRENT_ATHLETE` unchanged; reference 70.3 build weeks within 10% (worst -41 of 613); reference recovery undershoot -157 / -186 / -225 -> -18 / -2 / -41; Ironman build weeks 14/15/18/19 remain 10-20% short with `Rolling 48h ANS cost cap 700 binds ... (peak 690)` reported (ablation: only TSS cap or CTL ramp raised = no change; TSS 420 + strain 380 + ANS 1000 = 619 and 210 min rides). The "not in the workout library" message is gone. Distance-aware anchors not implemented (would add ~60 TSS to a weekend pair already at 260 of 295). Queued: `TASK-049` (reference profile stuck in re-entry, never picks 90+ min runs), `TASK-050` (ANS cap binds Ironman; owner decision + distance-aware anchors).
 - **Verification:** `tests/test_long_course_library.py` (18 tests incl. flag/zone split/formula equality per row, caps, profile round trip and validation, engine-row change, diagnosis, gating); `tests/test_workout_library.py` counts updated (568 rows, default set 38). Full suite 310 pass + 8 `slow` = 318 pass (373 s).
 
+
+## Phase 2 — TASK-045 — completed 2026-11-16 (PR #TBD)
+
+- [x] **`TASK-045` (`safety`):** **Starting Longest Run And Re-Entry Ceiling Review (`ADR-022`)** — week 1 of a season had previous longest run 0, capping the long run at the 30 min floor regardless of running history.
+
+### Outcomes
+- **TASK-045:** `AthleteProfile.starting_longest_run_min` (default 30, validated >= 0; `config/athlete_profile.yaml`) seeds `WeekCarryIn.prev_longest_run_min` in `control/carry.py::initial_carry_in`; a seed <= `long_run_floor_min` means no evidence beyond the floor (week-1 cap stays 30, `CURRENT_ATHLETE` unchanged), a larger seed gives week-1 cap seed + 10 (e.g. 90 -> 100 when not in re-entry; 45 -> 55 but still 45 under the re-entry ceiling). Owner review: the 45 min re-entry ceiling is KEPT (confirmed 2026-11-16, recorded in `ADR-022` Notes). `load_state_for_week` now treats `reentry_phase=False` profiles as never in re-entry (groundwork for `TASK-049`; no effect on `CURRENT_ATHLETE`). No Garmin parser exists, so no history-derived seed. Single-week facades take a `carry_in` directly; only seasons go through `initial_carry_in`.
+- **Verification:** 5 new tests in `tests/test_long_run_cap.py`; full suite incl. `slow` run once before PR.
