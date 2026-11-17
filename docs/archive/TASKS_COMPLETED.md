@@ -205,3 +205,19 @@
 - **Open / decisions:** the dominant binder of race-block single-run weeks is the 75 strain cap (`GEMINI.md` section 2 global cap: not relaxable), so a second run needs a lower-strain run candidate (walk-jog sessions, `TASK-023`); the walk-jog vs split question waits for `TASK-023`. The 9 deload one-run weeks are the halved Run minimum, not a cap.
 - **Verification:** `tests/test_single_run_diagnosis.py` (5 tests: constructed weeks bound by the run-minutes guard and by the strain cap are named, input cfg/carry untouched, roll-up message). Full suite 317 pass + 8 `slow` = 325 pass (984 s; the season now carries ~60 s of scratch re-solves).
 
+
+## Phase 2 — TASK-045 — completed 2026-11-16 (PR #17)
+
+- [x] **`TASK-045` (`safety`):** **Starting Longest Run And Re-Entry Ceiling Review (`ADR-022`)** — week 1 of a season had previous longest run 0, capping the long run at the 30 min floor regardless of running history.
+
+### Outcomes
+- **TASK-045:** `AthleteProfile.starting_longest_run_min` (default 30, validated >= 0; `config/athlete_profile.yaml`) seeds `WeekCarryIn.prev_longest_run_min` in `control/carry.py::initial_carry_in`; a seed <= `long_run_floor_min` means no evidence beyond the floor (week-1 cap stays 30, `CURRENT_ATHLETE` unchanged), a larger seed gives week-1 cap seed + 10 (e.g. 90 -> 100 when not in re-entry; 45 -> 55 but still 45 under the re-entry ceiling). Owner review: the 45 min re-entry ceiling is KEPT (confirmed 2026-11-16, recorded in `ADR-022` Notes). `load_state_for_week` now treats `reentry_phase=False` profiles as never in re-entry (groundwork for `TASK-049`; no effect on `CURRENT_ATHLETE`). No Garmin parser exists, so no history-derived seed. Single-week facades take a `carry_in` directly; only seasons go through `initial_carry_in`.
+- **Verification:** 5 new tests in `tests/test_long_run_cap.py`; full suite incl. `slow`: 323 pass (310 + 5 new + 8 slow).
+
+## Phase 2 — TASK-049 — completed 2026-11-16 (PR #20)
+
+- [x] **`TASK-049` (`safety`):** **Reference Profile Never Leaves Re-Entry Mode** — the unconstrained reference profile decayed below run CTL 15 and stayed in re-entry (ACWR 1.20, +15 run min/week, 45 min ceiling), so runs stayed 33-60 min.
+
+### Outcomes
+- **TASK-049 (partial, re-entry half done):** `control/carry.py::load_state_for_week` honours `reentry_phase=False` (one source of truth: `LoadState.reentry` drives the ACWR rho, the run-minutes guard, the `ADR-022` ceiling and the independent checker); `perf/season_validation.py::reference_profile` now starts with run CTL 22 / ATL 20 and `starting_longest_run_min` 90 (`TASK-045`). `CURRENT_ATHLETE` untouched. 8-season matrix: 0 fallback, 0 violations; reference runs are still 33-60 min because a week-1 ablation shows the heavy lifts + the two weekend anchors + the 40% / 32% run shares crowd out long runs, not re-entry (`EXP-007` section 10). Reference Ironman build weeks got worse outside re-entry (w15 -83 -> -148, w18 -77 -> -161, w19 -139 -> -224; ANS 700 cap, `TASK-050` / Phase 3 `TASK-021`; reported not fixed). Queued: `TASK-055` (long runs crowded out in the weekly calendar).
+- **Verification:** `tests/test_long_run_cap.py::test_reference_profile_is_never_in_reentry_and_seeds_a_long_run`; full suite incl. `slow`: 324 pass.
