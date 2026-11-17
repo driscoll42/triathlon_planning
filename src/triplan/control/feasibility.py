@@ -12,8 +12,10 @@ shortfalls; they never change a constraint.
 
 from __future__ import annotations
 
+import copy
 import re
 from collections import OrderedDict
+from dataclasses import replace
 from typing import Any, Dict, List, Optional, Sequence
 
 import pandas as pd
@@ -116,6 +118,8 @@ def season_infeasibility_report(summary: pd.DataFrame, profile: Any, distance: s
     for text, weeks in by_msg.items():
         msgs.append(f"Relaxed in {len(weeks)} week(s) ({_week_ranges(weeks)}): {text}")
 
+    msgs.extend(_target_raised_message(summary))
+    msgs.extend(single_run_message(summary))
     short = summary[(summary.Target_TSS > 0) & (summary.Solved_TSS < summary.Target_TSS * (1.0 - shortfall_frac))]
     if len(short):
         worst = short.assign(gap=short.Target_TSS - short.Solved_TSS).sort_values("gap", ascending=False).iloc[0]
@@ -133,6 +137,20 @@ def season_infeasibility_report(summary: pd.DataFrame, profile: Any, distance: s
         first = str(diag.iloc[0].Diagnostics).split("; ")[0]
         msgs.append(f"Solver diagnostics in {len(diag)} week(s) ({_week_ranges(diag.Week.tolist())}), e.g. {first}")
     return msgs
+
+
+def _target_raised_message(summary: pd.DataFrame) -> List[str]:
+    """TASK-041 / ADR-025: race-block weeks whose TSS target was raised from the matrix value to the structural floor."""
+    if "Recalibration" not in summary or "Matrix_Target_TSS" not in summary:
+        return []
+    hit = summary[summary.Recalibration.astype(str).str.contains("TARGET_RAISED_TO_STRUCTURE")]
+    if hit.empty:
+        return []
+    return [f"TARGET_RAISED_TO_STRUCTURE in {len(hit)} week(s) ({_week_ranges(hit.Week.tolist())}): the committed weekly "
+            f"structure (key / stride / Bike-Run minimums, strength, 1 session per day) costs more TSS than the matrix "
+            f"target (matrix {hit.Matrix_Target_TSS.min():.0f}-{hit.Matrix_Target_TSS.max():.0f} -> "
+            f"{hit.Target_TSS.min():.0f}-{hit.Target_TSS.max():.0f}); owner decision: the structure is the plan, so the "
+            f"target follows it (ADR-025). The CTL ramp, ACWR and 48h rows stay hard."]
 
 
 def _binding_48h_caps(short: pd.DataFrame, profile: Any, tol: float = 0.03) -> List[str]:
@@ -153,6 +171,87 @@ def _binding_48h_caps(short: pd.DataFrame, profile: Any, tol: float = 0.03) -> L
             out.append(f"Rolling 48h {label} cap {cap:.0f} binds in {len(hit)} of the {len(short)} short week(s) "
                        f"({_week_ranges(hit.Week.tolist())}; peak {hit[col].max():.0f}): the target is not reachable under "
                        f"the profile's 48h caps (global Tier-0 ceilings, never relaxed), not because of the library.")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# TASK-046: which Tier-0 / structure row keeps a week at a single run?
+# ---------------------------------------------------------------------------
+SINGLE_RUN_ROWS = ("run-minutes guard", "running ACWR ceiling", "weekly run strain cap", "long-run cap",
+                   "1 session/day", "structure minimums")
+SINGLE_RUN_COMBINED = "combination of rows"
+SINGLE_RUN_UNBOUND = "no run row (goal trade-off)"
+SINGLE_RUN_MIN_ONE = "run-frequency minimum of 1 (no row prevents more runs)"
+SINGLE_RUN_BUDGET_S = 1.0     # time limit of each scratch re-solve
+
+
+def run_session_count(schedule: Dict[int, Sequence[Any]]) -> int:
+    """Number of sessions that contain running (a lift + easy-run combo counts through its run leg)."""
+    from triplan.solver.safety_constraints import run_minutes
+    return sum(1 for d in schedule for w in schedule[d] if run_minutes(w) > 0)
+
+
+def _relax_row(name: str, cfg: Any, carry: Any):
+    """Scratch copy of (cfg, carry) with ONE candidate binding row relaxed. Diagnostic only: never fed back to a plan."""
+    cfg, load = copy.deepcopy(cfg), getattr(carry, "load", None)
+    if name == "weekly run strain cap":
+        cfg.max_weekly_run_mech_strain = 1e6
+    elif name == "1 session/day":
+        cfg.two_session_windows = [True] * 7
+    elif name == "structure minimums":
+        from triplan.control.periodization import apply_reentry_relief
+        apply_reentry_relief(cfg, 2)
+    elif load is not None:
+        if name == "run-minutes guard":
+            carry = replace(carry, load=replace(load, run_minutes_cap=None))
+        elif name == "running ACWR ceiling":
+            carry = replace(carry, load=replace(load, acwr_max=1e3, acwr_min=0.0))
+        elif name == "long-run cap":
+            carry = replace(carry, prev_longest_run_min=1e4, load=replace(load, reentry=False))
+    return cfg, carry
+
+
+def attribute_single_run_week(library: Sequence[Any], cfg: Any, carry: Any,
+                              time_limit: float = SINGLE_RUN_BUDGET_S, min_runs: int = 2) -> Dict[str, Any]:
+    """Name the row(s) that keep a week at one run, by relaxing each candidate alone in a scratch model.
+
+    A row is *binding* when re-solving the same week (same library, goals and carry-in) with only that row relaxed
+    yields >= ``min_runs`` run sessions. If no single row does but relaxing all of them does, the label is
+    :data:`SINGLE_RUN_COMBINED`; if even that does not, :data:`SINGLE_RUN_UNBOUND` (the week is one run by goal
+    trade-off, not by a run row). Diagnostic only: nothing here changes a constraint of the week that is reported.
+    """
+    from triplan.solver.scheduler import TriathlonMILPScheduler
+
+    def runs_with(names) -> int:
+        c, k = cfg, carry
+        for n in names:
+            c, k = _relax_row(n, c, k)
+        plans = TriathlonMILPScheduler(library, c, carry_in=k).solve_top_k_plans(k_plans=1, time_limit=time_limit)
+        return run_session_count(plans[0]["schedule"]) if plans else 0
+
+    binding = [n for n in SINGLE_RUN_ROWS if runs_with([n]) >= min_runs]
+    if binding:
+        label = " + ".join(binding)
+    else:
+        if runs_with(SINGLE_RUN_ROWS) >= min_runs:
+            label = SINGLE_RUN_COMBINED
+        else:   # nothing blocks a second run: the Run-frequency minimum is already <= 1 (deload relief, ADR-023) or it is a goal trade-off
+            run_min = (getattr(cfg, "sport_freq_bounds", {}) or {}).get("Run", (2, 7))[0]
+            label = SINGLE_RUN_MIN_ONE if run_min <= 1 else SINGLE_RUN_UNBOUND
+    return {"label": label, "binding": binding}
+
+
+def single_run_message(summary: pd.DataFrame) -> List[str]:
+    """TASK-046: season-level roll-up of the single-run weeks by binding row, one message per distinct attribution."""
+    if summary is None or summary.empty or "Single_Run_Binding" not in summary:
+        return []
+    hit = summary[summary.Single_Run_Binding.astype(str).str.len() > 0]
+    if hit.empty:
+        return []
+    out = []
+    for label, grp in hit.groupby("Single_Run_Binding", sort=False):
+        out.append(f"Single-run week(s) bound by {label}: {len(grp)} of {len(summary)} week(s) ({_week_ranges(grp.Week.tolist())}); "
+                   f"relaxing that row in a scratch model yields >= 2 runs (diagnosis only, no constraint changed).")
     return out
 
 

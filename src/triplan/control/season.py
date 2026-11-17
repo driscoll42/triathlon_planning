@@ -14,8 +14,8 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
-                                            apply_deload_relief, apply_reentry_relief, relax_deload_acwr_floor, relax_deload_anchors, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance)
-from triplan.control.feasibility import peak_48h, season_infeasibility_report
+                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance)
+from triplan.control.feasibility import attribute_single_run_week, peak_48h, run_session_count, season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
 logger = logging.getLogger(__name__)
@@ -98,6 +98,7 @@ def generate_closed_loop_season_schedule(
     weeks_to_race: Optional[int] = None,
     reentry_weeks: Optional[int] = None,
     collect: Optional[List["WeekRecord"]] = None,
+    diagnose_single_run: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates a full periodized multi-month triathlon season plan (Olympic or 70.3)
@@ -111,6 +112,8 @@ def generate_closed_loop_season_schedule(
     ``collect``: optional list that receives one ``WeekRecord`` per week (schedule, limits, carry-in) for
     independent validation (``triplan.perf.season_validation``). The season-level infeasibility diagnosis
     (TASK-027) is attached as ``summary.attrs["infeasibility"]`` and printed.
+    ``diagnose_single_run``: attribute every single-run week to its binding row (TASK-046) via extra scratch
+    solves (~3x season wall time); off by default, enabled by the CLI season report.
     """
     if profile is None:
         try:
@@ -267,6 +270,28 @@ def generate_closed_loop_season_schedule(
                 if plans_l and plans_l[0]["total_tss"] < plans[0]["total_tss"]:
                     scheduler, plans, structure_note = sched_l, plans_l, note
 
+        # TASK-041 / ADR-025: the owner's weekly structure is the plan. A race-block base / build / overload week whose
+        # first solve overshoots its target by more than STRUCTURE_OVERSHOOT_TOL has a structural floor above the matrix
+        # target: probe the floor (cheapest plan meeting Tier-0 + the full structure, a ~0 TSS goal), raise the target
+        # to it and re-solve there. No session is dropped; the hard CTL ramp / ACWR / 48h rows still bind in the solve.
+        struct_floor, matrix_target = None, target_tss
+        if (wk.block == "race" and wk.role in FLOOR_RAISE_ROLES and pert_info is None and plans
+                and plans[0]["total_tss"] > STRUCTURE_OVERSHOOT_TOL * cfg.target_weekly_tss):
+            cfg_f = copy.deepcopy(cfg)
+            cfg_f.target_weekly_tss = FLOOR_PROBE_TARGET
+            plans_f = TriathlonMILPScheduler(week_lib, cfg_f, carry_in=solve_carry).solve_top_k_plans(
+                k_plans=1, time_limit=time_limit_per_week)
+            struct_floor = round(min([plans[0]["total_tss"]] + [p_["total_tss"] for p_ in plans_f]), 1)
+            new_target = raised_target(target_tss, struct_floor)
+            if new_target > target_tss:
+                cfg.target_weekly_tss = target_tss = new_target
+                sched_r = TriathlonMILPScheduler(week_lib, cfg, carry_in=solve_carry)
+                plans_r = sched_r.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
+                if plans_r:
+                    scheduler, plans = sched_r, plans_r
+                structure_note = (f"TARGET_RAISED_TO_STRUCTURE ({matrix_target:.0f}->{target_tss:.0f}, "
+                                  f"structural floor {struct_floor:.0f})")
+
         plan = plans[0] if plans else None
         solved_ok = plan is not None
         if plan is None:
@@ -305,6 +330,11 @@ def generate_closed_loop_season_schedule(
                 max_acwr = max(max_acwr, athlete_state.running_mechanical_acwr)
                 max_excess = max(max_excess, athlete_state.running_acute_mech - acwr_cap * athlete_state.running_chronic_mech)
             run_minutes = float(sum(run_minutes_of(w) for d in range(7) for w in plan["schedule"][d]))
+            # TASK-046: a one-run week is attributed to its binding row(s) by relaxing each in a scratch model
+            # (only these weeks are re-solved, ~1 s per candidate row).
+            single_run_binding = ""
+            if diagnose_single_run and solved_ok and run_session_count(plan["schedule"]) == 1:
+                single_run_binding = attribute_single_run_week(week_lib, copy.deepcopy(scheduler.cfg), solve_carry)["label"]
             carry = next_week_carry_in(carry, plan["schedule"], athlete_state, profile, lib, plan["total_tss"])
 
             if any(plan["schedule"][d] for d in range(7)):
@@ -320,6 +350,8 @@ def generate_closed_loop_season_schedule(
                 "Block": wk.block,
                 "Step_Type": step_type,
                 "Target_TSS": target_tss,
+                "Matrix_Target_TSS": matrix_target,      # TASK-041: before the structural-floor raise
+                "StructFloor": struct_floor,             # TASK-041: cheapest plan meeting the full structure (None = not probed)
                 "Solved_TSS": round(plan["total_tss"], 1),
                 "Total_Mech_Strain": round(plan["total_mech_strain"], 1),
                 "Total_ANS_Cost": round(tot_ans, 1),
@@ -336,6 +368,7 @@ def generate_closed_loop_season_schedule(
                 "Run_ACWR_Excess": round(max_excess, 3),     # max_d (A_d - cap * C_d); the in-model row bounds it by eps
                 "Run_ACWR_Eps": round(acwr_eps, 3),
                 "Run_Minutes": run_minutes,
+                "Single_Run_Binding": single_run_binding,    # TASK-046: "" unless the week has exactly one run
                 "Run_CTL": round(athlete_state.run_ctl, 1),
                 "Recalibration": " + ".join(x for x in (recal_action, pert_info, heavy_note, structure_note) if x),
                 "Solve_Status": plan.get("status"),

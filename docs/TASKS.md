@@ -7,14 +7,11 @@
 None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
 ## P1 — Engineering Queue
-Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (310 pass; `-m slow` adds the 8-season `EXP-007` matrix).
+Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (317 pass; `-m slow` adds the 8-season `EXP-007` matrix).
 
 ### Phase 2 — Unified MILP Engine
-- [ ] `TASK-041` (`optimizer`): race-block build weeks of `CURRENT_ATHLETE` still solve 1.1-1.5x target (full structure floor ~222-241 vs targets 140-211).
 - [ ] `TASK-045` (`safety`): `starting_longest_run_min` profile field (week-1 long-run cap seed) + owner review of the 45 min re-entry ceiling (`ADR-022`).
-- [ ] `TASK-046` (`safety`): attribute each `CURRENT_ATHLETE` single-run week to its binding row (run-minutes guard / ACWR / strain 75) as a season-level message; walk-jog split decision (`TASK-023`).
 - [ ] `TASK-049` (`safety`): the unconstrained reference profile never leaves re-entry mode (run CTL decays below the 15 exit): runs stay 33-60 min x 2-4 so the 90-150 min long runs are never chosen; give it a real run ramp (`TASK-045` seed) or a no-re-entry setting.
-- [ ] `TASK-050` (`physiology`): Ironman build weeks stay 64-139 TSS under target because the rolling 48h ANS cap (700) binds at 690; low-intensity long sessions are ANS-expensive (`e^(0.65(z-1))`, with `TASK-021`). Owner decision: keep, or re-weight ANS for Z1/Z2 long sessions; plus distance-aware anchors (IM long-ride anchor).
 - [ ] `TASK-058` (`workouts`): walk-jog (run/walk) re-entry workouts: the schema has no walk component and a reduced impact load is an invented number; build them on the `TASK-023` impact model (`EXP-008`).
 - [ ] `TASK-059` (`safety`): a `Brick` run leg is invisible to `run_minutes` / `run_strain` / ACWR / run-share rows, so no Brick can enter the default library until its run leg is modelled (`EXP-008`).
 - [ ] `TASK-060` (`perf`): candidate-set growth is a solve-time tax (+31 default rows tripled season wall time before pruning; lift x cardio combos dominate); add dominance / symmetry pruning of near-identical rows (`EXP-008`).
@@ -23,6 +20,7 @@ Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library +
 - [ ] `TASK-021` (`physiology`): unify ANS cost, strain, strength TSS; exact Banister decay.
 - [ ] `TASK-022` (`safety`): fix or replace ODI (dimensional mismatch, wrong-sign controller).
 - [ ] `TASK-023` (`mpc`): interval-parsed TTE durability, variety goal, `Phase` enum, walk-jog re-entry.
+- [ ] `TASK-050` (`physiology`): Ironman build weeks stay 64-139 TSS under target because the rolling 48h ANS cap (700) binds at 690; low-intensity long sessions are ANS-expensive (`e^(0.65(z-1))`, with `TASK-021`). Owner decision: keep, or re-weight ANS for Z1/Z2 long sessions; plus distance-aware anchors (IM long-ride anchor). **Deferred by owner to `TASK-021` (ANS weighting of Z1/Z2 long sessions; keep the 700 cap).**
 
 ### Phase 4 — Telemetry & Closed Loop
 - [ ] `TASK-024` (`integrations`): multi-device `.fit` activity parser + 300s ride dedup (`SPEC.md`, `ADR-010`).
