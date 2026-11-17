@@ -222,7 +222,7 @@
 - **TASK-049 (partial, re-entry half done):** `control/carry.py::load_state_for_week` honours `reentry_phase=False` (one source of truth: `LoadState.reentry` drives the ACWR rho, the run-minutes guard, the `ADR-022` ceiling and the independent checker); `perf/season_validation.py::reference_profile` now starts with run CTL 22 / ATL 20 and `starting_longest_run_min` 90 (`TASK-045`). `CURRENT_ATHLETE` untouched. 8-season matrix: 0 fallback, 0 violations; reference runs are still 33-60 min because a week-1 ablation shows the heavy lifts + the two weekend anchors + the 40% / 32% run shares crowd out long runs, not re-entry (`EXP-007` section 10). Reference Ironman build weeks got worse outside re-entry (w15 -83 -> -148, w18 -77 -> -161, w19 -139 -> -224; ANS 700 cap, `TASK-050` / Phase 3 `TASK-021`; reported not fixed). Queued: `TASK-055` (long runs crowded out in the weekly calendar).
 - **Verification:** `tests/test_long_run_cap.py::test_reference_profile_is_never_in_reentry_and_seeds_a_long_run`; full suite incl. `slow`: 324 pass.
 
-## Phase 2 — TASK-051 — completed 2026-11-16 (PR #TBD)
+## Phase 2 — TASK-051 — completed 2026-11-16 (PR #21)
 
 - [x] **`TASK-051` (`workouts`):** **Per-Sport Library Gap Audit And Gap-Fill Workouts** — owner request: evaluate each sport for workouts missing beyond the 80/20 library and build them to help the solver.
 
