@@ -14,7 +14,7 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
-                                            apply_deload_relief, apply_reentry_relief, relax_deload_acwr_floor, relax_deload_anchors, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance)
+                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance)
 from triplan.control.feasibility import peak_48h, season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
@@ -267,6 +267,28 @@ def generate_closed_loop_season_schedule(
                 if plans_l and plans_l[0]["total_tss"] < plans[0]["total_tss"]:
                     scheduler, plans, structure_note = sched_l, plans_l, note
 
+        # TASK-041 / ADR-025: the owner's weekly structure is the plan. A race-block base / build / overload week whose
+        # first solve overshoots its target by more than STRUCTURE_OVERSHOOT_TOL has a structural floor above the matrix
+        # target: probe the floor (cheapest plan meeting Tier-0 + the full structure, a ~0 TSS goal), raise the target
+        # to it and re-solve there. No session is dropped; the hard CTL ramp / ACWR / 48h rows still bind in the solve.
+        struct_floor, matrix_target = None, target_tss
+        if (wk.block == "race" and wk.role in FLOOR_RAISE_ROLES and pert_info is None and plans
+                and plans[0]["total_tss"] > STRUCTURE_OVERSHOOT_TOL * cfg.target_weekly_tss):
+            cfg_f = copy.deepcopy(cfg)
+            cfg_f.target_weekly_tss = FLOOR_PROBE_TARGET
+            plans_f = TriathlonMILPScheduler(week_lib, cfg_f, carry_in=solve_carry).solve_top_k_plans(
+                k_plans=1, time_limit=time_limit_per_week)
+            struct_floor = round(min([plans[0]["total_tss"]] + [p_["total_tss"] for p_ in plans_f]), 1)
+            new_target = raised_target(target_tss, struct_floor)
+            if new_target > target_tss:
+                cfg.target_weekly_tss = target_tss = new_target
+                sched_r = TriathlonMILPScheduler(week_lib, cfg, carry_in=solve_carry)
+                plans_r = sched_r.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
+                if plans_r:
+                    scheduler, plans = sched_r, plans_r
+                structure_note = (f"TARGET_RAISED_TO_STRUCTURE ({matrix_target:.0f}->{target_tss:.0f}, "
+                                  f"structural floor {struct_floor:.0f})")
+
         plan = plans[0] if plans else None
         solved_ok = plan is not None
         if plan is None:
@@ -320,6 +342,8 @@ def generate_closed_loop_season_schedule(
                 "Block": wk.block,
                 "Step_Type": step_type,
                 "Target_TSS": target_tss,
+                "Matrix_Target_TSS": matrix_target,      # TASK-041: before the structural-floor raise
+                "StructFloor": struct_floor,             # TASK-041: cheapest plan meeting the full structure (None = not probed)
                 "Solved_TSS": round(plan["total_tss"], 1),
                 "Total_Mech_Strain": round(plan["total_mech_strain"], 1),
                 "Total_ANS_Cost": round(tot_ans, 1),

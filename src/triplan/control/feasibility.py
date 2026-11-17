@@ -116,6 +116,7 @@ def season_infeasibility_report(summary: pd.DataFrame, profile: Any, distance: s
     for text, weeks in by_msg.items():
         msgs.append(f"Relaxed in {len(weeks)} week(s) ({_week_ranges(weeks)}): {text}")
 
+    msgs.extend(_target_raised_message(summary))
     short = summary[(summary.Target_TSS > 0) & (summary.Solved_TSS < summary.Target_TSS * (1.0 - shortfall_frac))]
     if len(short):
         worst = short.assign(gap=short.Target_TSS - short.Solved_TSS).sort_values("gap", ascending=False).iloc[0]
@@ -133,6 +134,20 @@ def season_infeasibility_report(summary: pd.DataFrame, profile: Any, distance: s
         first = str(diag.iloc[0].Diagnostics).split("; ")[0]
         msgs.append(f"Solver diagnostics in {len(diag)} week(s) ({_week_ranges(diag.Week.tolist())}), e.g. {first}")
     return msgs
+
+
+def _target_raised_message(summary: pd.DataFrame) -> List[str]:
+    """TASK-041 / ADR-025: race-block weeks whose TSS target was raised from the matrix value to the structural floor."""
+    if "Recalibration" not in summary or "Matrix_Target_TSS" not in summary:
+        return []
+    hit = summary[summary.Recalibration.astype(str).str.contains("TARGET_RAISED_TO_STRUCTURE")]
+    if hit.empty:
+        return []
+    return [f"TARGET_RAISED_TO_STRUCTURE in {len(hit)} week(s) ({_week_ranges(hit.Week.tolist())}): the committed weekly "
+            f"structure (key / stride / Bike-Run minimums, strength, 1 session per day) costs more TSS than the matrix "
+            f"target (matrix {hit.Matrix_Target_TSS.min():.0f}-{hit.Matrix_Target_TSS.max():.0f} -> "
+            f"{hit.Target_TSS.min():.0f}-{hit.Target_TSS.max():.0f}); owner decision: the structure is the plan, so the "
+            f"target follows it (ADR-025). The CTL ramp, ACWR and 48h rows stay hard."]
 
 
 def _binding_48h_caps(short: pd.DataFrame, profile: Any, tol: float = 0.03) -> List[str]:

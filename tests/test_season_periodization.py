@@ -262,3 +262,37 @@ def test_short_current_athlete_deload_weeks_track_targets():
     deload = summary[summary.Week.map(roles).isin(["recovery", "taper"])]
     assert len(deload) >= 3
     assert ((deload.Solved_TSS - deload.Target_TSS) <= 25.0).all(), deload[["Week", "Target_TSS", "Solved_TSS"]]
+
+
+# ----------------------------------------------------------------------------- TASK-041 structural floor
+
+def test_raised_target_is_max_of_matrix_and_floor():
+    from triplan.control.periodization import raised_target
+
+    assert raised_target(140.0, None) == 140.0
+    assert raised_target(140.0, 221.7) == 222.0
+    assert raised_target(230.0, 221.7) == 230.0     # a target above the floor is never lowered
+
+
+def test_race_block_build_weeks_track_target_after_floor_raise():
+    """TASK-041 / ADR-025: race-block build weeks solved at 1.1-1.5x target (structure floor ~222 vs target 140-211)."""
+    import contextlib
+    import io
+
+    from triplan.control.season import generate_closed_loop_season_schedule
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE as P
+
+    recs = []
+    with contextlib.redirect_stdout(io.StringIO()):
+        _, s = generate_closed_loop_season_schedule(profile=P, distance="sprint", weeks_to_race=8,
+                                                    reentry_weeks=0, time_limit_per_week=2.0, collect=recs)
+    roles = {r.week_num: r.role for r in recs}
+    builds = s[s.Week.map(roles).isin(["base", "build", "overload"])]
+    ratios = (builds.Solved_TSS / builds.Target_TSS)
+    assert len(builds) >= 5 and ratios.between(0.9, 1.15).all(), s[["Week", "Matrix_Target_TSS", "StructFloor", "Target_TSS", "Solved_TSS"]]
+    raised = s[s.Recalibration.astype(str).str.contains("TARGET_RAISED_TO_STRUCTURE")]
+    assert len(raised) >= 1 and (raised.Target_TSS > raised.Matrix_Target_TSS).all()
+    assert (raised.Target_TSS >= raised.StructFloor.round()).all()
+    assert any("TARGET_RAISED_TO_STRUCTURE" in m for m in s.attrs["infeasibility"])
+    rec = s[s.Week.map(roles) == "recovery"]
+    assert (rec.Target_TSS == rec.Matrix_Target_TSS).all()     # deload weeks keep the matrix target (ADR-023 relief)
