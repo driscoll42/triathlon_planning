@@ -195,7 +195,7 @@
 - **Result (`CURRENT_ATHLETE` olympic race block; week, role, old target, floor, new target, solved, ratio):** 25 base 141/221.7/222/221.7/1.00 (was 1.57); 26 build 168/240.8/241/240.8/1.00 (1.43); 27 overload 176/240.8/241/240.8/1.00 (1.37); 29 base 162/240.8/241/240.8/1.00 (1.49); 30 build 192/222.4/222/222.4/1.00 (1.16); 31 overload 200/-/200/222.4/1.11 (1.11, under the 1.15 trigger so not probed); 33 base 175/222.4/222/222.4/1.00 (1.27); 34 build 216 / 35 overload 224 / 38 overload 240 unchanged (1.03 / 0.99 / 0.97); 37 base 177/222.4/222/222.4/1.00 (1.26). Recovery / taper / race targets unchanged (ratios 0.90-1.06). Base/build/overload solved/target now 0.97-1.11.
 - **Verification:** `tests/test_season_periodization.py` +2 (`raised_target`; 8-week sprint `CURRENT_ATHLETE` season: all base/build/overload weeks in [0.9, 1.15], raised weeks recorded, deload targets unchanged). Full suite 312 pass + 8 `slow` = 320 pass (438 s); 8-season matrix 0 fallback, 0 violations. `TASK-050` moved to Phase 3 by owner decision (deferred to `TASK-021`; keep the 700 ANS cap).
 
-## Phase 2 — TASK-046 — completed 2026-11-16 (PR #TBD)
+## Phase 2 — TASK-046 — completed 2026-11-16 (PR #19)
 
 - [x] **`TASK-046` (`safety`):** **Attribute Single-Run Weeks To Their Binding Row** — `CURRENT_ATHLETE` has 16-24 one-run weeks per season (post-`ADR-022`); which row binds was unknown. Diagnostic only, no constraint changed.
 
