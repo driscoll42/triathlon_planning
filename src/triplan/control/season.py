@@ -98,7 +98,7 @@ def generate_closed_loop_season_schedule(
     weeks_to_race: Optional[int] = None,
     reentry_weeks: Optional[int] = None,
     collect: Optional[List["WeekRecord"]] = None,
-    diagnose_single_run: bool = True,
+    diagnose_single_run: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates a full periodized multi-month triathlon season plan (Olympic or 70.3)
@@ -112,6 +112,8 @@ def generate_closed_loop_season_schedule(
     ``collect``: optional list that receives one ``WeekRecord`` per week (schedule, limits, carry-in) for
     independent validation (``triplan.perf.season_validation``). The season-level infeasibility diagnosis
     (TASK-027) is attached as ``summary.attrs["infeasibility"]`` and printed.
+    ``diagnose_single_run``: attribute every single-run week to its binding row (TASK-046) via extra scratch
+    solves (~3x season wall time); off by default, enabled by the CLI season report.
     """
     if profile is None:
         try:
