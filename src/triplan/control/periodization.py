@@ -159,6 +159,68 @@ def relax_deload_anchors(library, role: str):
     return [replace(w, is_anchor=False) if getattr(w, "is_anchor", False) else w for w in library]
 
 
+# TASK-055 (ADR-028): alternating keystones in long-course race-block build / overload weeks.
+# Heavy lifts + the 180 min ride anchor + the 75 min run anchor + the run-share caps cannot share one calendar
+# (EXP-007 section 10), so the weekly keystone alternates: a long-run week (run anchor mandatory, ride anchor optional)
+# then a long-ride week (ride anchor mandatory, run anchor optional). Deload roles keep ADR-023 (anchors optional).
+KEYSTONE_DISTANCES = ("70.3", "ironman")
+KEYSTONE_ROLES = ("build", "overload")
+# Keystone long-run minutes per long-run week (index = how many run-keystone weeks came before); clamped to the last rung,
+# to the library rungs the day caps can host and to one library rung above the last long run actually scheduled.
+# A Tier-2 split shift toward running (Run TSS 40%, duration +8 points) was tried and dropped: it did not make a single
+# extra keystone feasible and cost Ironman build weeks up to 240 TSS against target (ADR-028).
+KEYSTONE_RUN_LADDER = {"70.3": (75.0, 90.0, 90.0, 105.0, 105.0, 120.0),
+                       "ironman": (75.0, 90.0, 105.0, 120.0, 120.0, 150.0)}
+
+
+def keystone_kind(distance: str, role: str, block: str, ordinal: int) -> Optional[str]:
+    """TASK-055: ``"run"`` / ``"ride"`` keystone for the ``ordinal``-th (0-based) race-block build / overload week of a
+    70.3 / Ironman season, alternating run, ride, run, ...; ``None`` for every other week (sprint / olympic, re-entry
+    block, base and deload roles are untouched)."""
+    if block != "race" or role not in KEYSTONE_ROLES or normalize_distance(distance) not in KEYSTONE_DISTANCES:
+        return None
+    return "run" if ordinal % 2 == 0 else "ride"
+
+
+def keystone_run_rungs(library, daily_time_caps) -> list:
+    """TASK-055: the long-run durations (library rows flagged ``long_run``) the day caps can host, ascending."""
+    cap = max((float(c) for c in daily_time_caps), default=0.0)
+    return sorted({float(w.duration) for w in library
+                   if w.sport == "Run" and (getattr(w, "flags", None) or {}).get("long_run", 0) and float(w.duration) <= cap})
+
+
+def keystone_run_minutes(distance: str, run_ordinal: int, last_longest_run: float, library, daily_time_caps) -> float:
+    """TASK-055: duration of the long-run keystone: the ladder rung for this distance and week, capped to the library's
+    long-run rungs (``long_run`` flag) a day cap can host, and to at most one library rung above ``last_longest_run``
+    (a progression in the spirit of the ADR-022 ``prev longest + 10`` cap, never a jump)."""
+    rungs = keystone_run_rungs(library, daily_time_caps)
+    if not rungs:
+        return 0.0
+    ladder = KEYSTONE_RUN_LADDER[normalize_distance(distance)]
+    want = ladder[min(run_ordinal, len(ladder) - 1)]
+    above = [r for r in rungs if r > last_longest_run]
+    ceiling = above[0] if above else rungs[-1]
+    ok = [r for r in rungs if r <= min(want, ceiling)]
+    return ok[-1] if ok else rungs[0]
+
+
+def apply_keystone_week(library, kind: str, run_minutes: float):
+    """TASK-055: keystone anchors of one week. ``run``: only the long-run keystone (``RUN_AE2_LONG`` or the long-course run
+    of ``run_minutes``) is an anchor, the ride anchor becomes optional. ``ride``: only the ride anchor stays mandatory,
+    the run anchor becomes optional. Every workout stays a candidate; only the Tier-1 obligation moves."""
+    out = []
+    for w in library:
+        anchor = bool(getattr(w, "is_anchor", False))
+        if kind == "run" and w.sport == "Run" and (getattr(w, "flags", None) or {}).get("long_run", 0):
+            anchor = abs(float(w.duration) - run_minutes) < 1e-6
+        elif kind == "run" and w.sport == "Bike":
+            anchor = False
+        elif kind == "ride" and w.sport == "Run":
+            anchor = False
+        out.append(w if anchor == bool(getattr(w, "is_anchor", False)) else replace(w, is_anchor=anchor))
+    return out
+
+
 @dataclass(frozen=True)
 class SeasonWeek:
     week_num: int

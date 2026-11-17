@@ -7,13 +7,15 @@
 None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
 ## P1 — Engineering Queue
-Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (334 pass; `-m slow` adds the 8-season `EXP-007` matrix).
+Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (342 pass; `-m slow` adds the 8-season `EXP-007` matrix).
 
 ### Phase 2 — Unified MILP Engine
-- [ ] `TASK-055` (`safety`): reference 70.3 / IM never schedule a >= 75 min run even outside re-entry: heavy lifts + the two weekend anchors (180 min ride, 75 min run) + run-share ratios crowd it out (`TASK-049` ablation); owner decision on which keystone yields.
 - [ ] `TASK-058` (`workouts`): walk-jog (run/walk) re-entry workouts: the schema has no walk component and a reduced impact load is an invented number; build them on the `TASK-023` impact model (`EXP-008`).
 - [ ] `TASK-059` (`safety`): a `Brick` run leg is invisible to `run_minutes` / `run_strain` / ACWR / run-share rows, so no Brick can enter the default library until its run leg is modelled (`EXP-008`).
 - [ ] `TASK-060` (`perf`): candidate-set growth is a solve-time tax (+31 default rows tripled season wall time before pruning; lift x cardio combos dominate); add dominance / symmetry pruning of near-identical rows (`EXP-008`).
+- [ ] `TASK-061` (`safety`): the receding-horizon run-strain progression guard (`max(1.25 x last week, 150)`) tightens the cap to ~172 after recovery / low-run weeks and blocks the `ADR-028` long-run keystone (week-5 diagnosis); owner decision on guard shape.
+- [ ] `TASK-062` (`safety`): a 90+ min keystone run is never hosted even with the ADR-022 cap, ACWR and strain guard lifted one at a time; identify the binding row stack (32% share needs 281 run min) and decide the run-load build-up policy.
+- [ ] `TASK-063` (`mpc`): distance-aware long-ride keystone (180 -> 210-360 min `BIKE_LC_OUT_*`) for the `ADR-028` long-ride weeks, bounded by the 48h ANS cap (`TASK-050`).
 
 ### Phase 3 — Physiology Calibration
 - [ ] `TASK-021` (`physiology`): unify ANS cost, strain, strength TSS; exact Banister decay.
