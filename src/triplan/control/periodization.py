@@ -101,6 +101,16 @@ def apply_reentry_relief(cfg, level: int) -> str:
             f"Bike/Run min {before[2]}/{before[3]}->{after[2]}/{after[3]}, max rest days {before[4]}->{after[4]})")
 
 
+# TASK-041 (ADR-025): race-block build weeks whose TSS target sits below the structural floor of the full-week structure.
+FLOOR_RAISE_ROLES = ("base", "build", "overload")
+FLOOR_PROBE_TARGET = 1.0     # a ~0 TSS goal makes the lexicographic solve return the cheapest plan meeting Tier-0 + Tier-1
+
+
+def raised_target(matrix_target: float, floor: Optional[float]) -> float:
+    """TASK-041: the week's TSS target once the structural floor is honoured: ``max(matrix target, floor)``."""
+    return float(matrix_target) if floor is None else float(max(matrix_target, round(floor)))
+
+
 def relax_deload_acwr_floor(carry, role: str):
     """TASK-038: no running-ACWR *floor* in deload roles; returns the carry-in to solve the week with.
 
