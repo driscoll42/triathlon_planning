@@ -7,7 +7,7 @@
 None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
 ## P1 — Engineering Queue
-Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (323 pass + 8 slow).
+Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (323 pass; `-m slow` adds the 8-season `EXP-007` matrix).
 
 ### Phase 2 — Unified MILP Engine
 - [ ] `TASK-055` (`safety`): reference 70.3 / IM never schedule a >= 75 min run even outside re-entry: heavy lifts + the two weekend anchors (180 min ride, 75 min run) + run-share ratios crowd it out (`TASK-049` ablation); owner decision on which keystone yields.
