@@ -7,11 +7,10 @@
 None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
 ## P1 — Engineering Queue
-Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (317 pass; `-m slow` adds the 8-season `EXP-007` matrix).
+Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (323 pass; `-m slow` adds the 8-season `EXP-007` matrix).
 
 ### Phase 2 — Unified MILP Engine
-- [ ] `TASK-045` (`safety`): `starting_longest_run_min` profile field (week-1 long-run cap seed) + owner review of the 45 min re-entry ceiling (`ADR-022`).
-- [ ] `TASK-049` (`safety`): the unconstrained reference profile never leaves re-entry mode (run CTL decays below the 15 exit): runs stay 33-60 min x 2-4 so the 90-150 min long runs are never chosen; give it a real run ramp (`TASK-045` seed) or a no-re-entry setting.
+- [ ] `TASK-055` (`safety`): reference 70.3 / IM never schedule a >= 75 min run even outside re-entry: heavy lifts + the two weekend anchors (180 min ride, 75 min run) + run-share ratios crowd it out (`TASK-049` ablation); owner decision on which keystone yields.
 - [ ] `TASK-058` (`workouts`): walk-jog (run/walk) re-entry workouts: the schema has no walk component and a reduced impact load is an invented number; build them on the `TASK-023` impact model (`EXP-008`).
 - [ ] `TASK-059` (`safety`): a `Brick` run leg is invisible to `run_minutes` / `run_strain` / ACWR / run-share rows, so no Brick can enter the default library until its run leg is modelled (`EXP-008`).
 - [ ] `TASK-060` (`perf`): candidate-set growth is a solve-time tax (+31 default rows tripled season wall time before pruning; lift x cardio combos dominate); add dominance / symmetry pruning of near-identical rows (`EXP-008`).

@@ -63,7 +63,8 @@ def reference_profile(base: Optional[Any] = None) -> Any:
         two_session_windows=[True] * 7,
         facility_access={"Swim": [True] * 7, "Bike": [True] * 7, "Run": [True] * 7, "Strength": [True] * 7},
         reentry_weeks=0, reentry_phase=False,
-        starting_ctl=45.0, starting_atl=40.0, starting_run_ctl=16.0, starting_run_atl=14.0,
+        starting_ctl=45.0, starting_atl=40.0, starting_run_ctl=22.0, starting_run_atl=20.0,
+        starting_longest_run_min=90.0,   # TASK-049: trained runner, not in re-entry (reentry_phase=False is honoured by carry)
         initial_metabolic_state=45.0, initial_connective_tissue_state=45.0,
         initial_running_acute_mech=35.0, initial_running_chronic_mech=35.0,
         base_weekly_tss=300.0, peak_weekly_tss=560.0,

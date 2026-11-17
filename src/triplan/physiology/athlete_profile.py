@@ -120,7 +120,11 @@ class AthleteProfile:
     # (run CTL < reentry_run_ctl_exit) also <= reentry_long_run_max_min. 0 step / None ceiling = off.
     long_run_step_min: float = 10.0
     long_run_floor_min: float = 30.0         # shortest library run; makes the first week schedulable
-    reentry_long_run_max_min: Optional[float] = None  # CURRENT_ATHLETE sets 45 (owner review item)
+    reentry_long_run_max_min: Optional[float] = None  # CURRENT_ATHLETE sets 45 (owner-confirmed 2026-11-16, ADR-022)
+    # TASK-045: longest single run (min) recently completed; seeds ``prev_longest_run_min`` for week 1 of a season.
+    # A value <= long_run_floor_min carries no evidence beyond the floor (week-1 cap = the floor, the pre-TASK-045
+    # behaviour); above it, week 1 allows seed + long_run_step_min (still under any re-entry ceiling).
+    starting_longest_run_min: float = 30.0
     # DECISION-023 (2026-11-15): during re-entry, 0 heavy lifts/week are allowed and the conservative axial
     # (65) / neuro (75) caps stay. Flip reentry_phase to False to restore phase defaults (ADR-012).
     reentry_phase: bool = True
@@ -316,6 +320,8 @@ class AthleteProfile:
                 e.append(f"{name} must be in (0, {ceiling:g}] (GEMINI.md section 2 global ceiling), got {v}")
         if self.long_run_step_min <= 0 or self.long_run_floor_min <= 0:
             e.append("long_run_step_min and long_run_floor_min must be > 0")
+        if self.starting_longest_run_min < 0:
+            e.append("starting_longest_run_min must be >= 0")
         if self.reentry_long_run_max_min is not None and self.reentry_long_run_max_min < self.long_run_floor_min:
             e.append("reentry_long_run_max_min must be >= long_run_floor_min")
         if self.max_weekly_ctl_ramp <= 0:

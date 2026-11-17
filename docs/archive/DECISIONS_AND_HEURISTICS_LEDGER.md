@@ -749,12 +749,17 @@ Every weekly MILP was an isolated week: Monday ignored Sunday (hard/easy adjacen
 
 ## 4. Empirical Evidence & Validation Lineage
 - **Validated By:** `EXP-007` (problem), `tests/test_long_run_cap.py`, 8-season matrix (see TASK-039 archive entry).
-- **Supersedes:** None. Refines `ADR-003` / `ADR-013` for < 4 runs; the 45 min re-entry ceiling is a conservative judgement (about 3 x 15 min continuous run/walk blocks; weekly re-entry minutes are separately capped by `ADR-012`) and is flagged for owner review.
+- **Supersedes:** None. Refines `ADR-003` / `ADR-013` for < 4 runs; the 45 min re-entry ceiling is a conservative judgement (about 3 x 15 min continuous run/walk blocks; weekly re-entry minutes are separately capped by `ADR-012`) and was reviewed by the owner (see Notes).
 
 ## 5. Consequences & Trade-Offs
 - **Positive:** A 1-3 run week can no longer hold an arbitrarily long run; long runs ramp at most 10 min/week.
-- **Negative / Operational Cost:** Long-course (70.3/IM) long runs of 90+ min are reachable only through the 10 min/week ramp or with >= 4 runs; `TASK-040` library gaps interact. Week 1 of a season with a real running history is capped at the floor unless a starting longest run is supplied (queued).
+- **Negative / Operational Cost:** Long-course (70.3/IM) long runs of 90+ min are reachable only through the 10 min/week ramp or with >= 4 runs; `TASK-040` library gaps interact. Week 1 of a season with a real running history is capped at the floor unless `starting_longest_run_min` is supplied (TASK-045, see Notes).
 - **When to Revisit:** After re-entry (run CTL >= 15) if the ramp proves too slow for race-specific long runs, or when the athlete's run frequency rises to >= 4.
+
+## 6. Notes
+- **Owner-confirmed 2026-11-16 (TASK-045):** the 45 min re-entry ceiling (`reentry_long_run_max_min = 45`) is KEPT for `CURRENT_ATHLETE`.
+- **`starting_longest_run_min` (TASK-045):** profile field (default 30, validated >= 0) seeds `WeekCarryIn.prev_longest_run_min` in `control.carry.initial_carry_in`. A seed <= `long_run_floor_min` carries no evidence beyond the floor (week-1 cap = floor, unchanged behaviour); a larger seed gives week-1 cap `seed + step`, still bounded by the re-entry ceiling while run CTL < exit. `CURRENT_ATHLETE` stays at 30 (no parsed Garmin evidence to the contrary).
+- **Re-entry switch (TASK-049):** `control.carry.load_state_for_week` treats a profile with `reentry_phase = False` as never in re-entry, so the ACWR rho (1.25), the run-minutes guard and this ceiling are all off consistently (`LoadState.reentry` is the single source for the solver and the independent checker).
 
 ### `ADR-023` — Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge [`ACTIVE` | `optimizer`]
 

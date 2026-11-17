@@ -32,7 +32,10 @@ def acwr_eps_floor(library: Iterable[Any], rho: float) -> float:
 def load_state_for_week(state: AthletePhysiologicalState, profile: Optional[Any], prev_run_minutes: float,
                         library: Iterable[Any]) -> LoadState:
     """The EWMA constants and this week's limits (ADR-012: 1.20 while run CTL < 15, else 1.25)."""
-    reentry = profile is not None and state.run_ctl < profile.reentry_run_ctl_exit
+    # A profile with ``reentry_phase=False`` (e.g. the unconstrained reference athlete, TASK-049) is never in re-entry:
+    # its run CTL decaying below the exit must not flip the ACWR rho, run-minutes guard or ADR-022 ceiling.
+    reentry = (profile is not None and bool(getattr(profile, "reentry_phase", True))
+               and state.run_ctl < profile.reentry_run_ctl_exit)
     rho = GLOBAL_ACWR_MAX
     ramp: Optional[float] = None
     run_cap: Optional[float] = None
@@ -54,7 +57,11 @@ def load_state_for_week(state: AthletePhysiologicalState, profile: Optional[Any]
 def initial_carry_in(state: AthletePhysiologicalState, profile: Optional[Any], library: Iterable[Any],
                      last_test_week: Optional[Dict[str, int]] = None) -> WeekCarryIn:
     """Week-1 carry-in: no boundary loads, EWMA state seeded from the profile (incl. run CTL)."""
-    return WeekCarryIn(load=load_state_for_week(state, profile, 0.0, library),
+    seed = float(getattr(profile, "starting_longest_run_min", 0.0) or 0.0) if profile is not None else 0.0
+    floor = float(getattr(profile, "long_run_floor_min", 0.0) or 0.0) if profile is not None else 0.0
+    prev_longest = seed if seed > floor else 0.0   # TASK-045: seed <= floor = no evidence beyond the floor
+    return WeekCarryIn(prev_longest_run_min=prev_longest,
+                       load=load_state_for_week(state, profile, 0.0, library),
                        last_test_week=dict(last_test_week or {}))
 
 
