@@ -186,7 +186,7 @@
 - **Result (`EXP-007` addendum, 8 seasons):** 0 fallback, 0 violations; `CURRENT_ATHLETE` unchanged; reference 70.3 build weeks within 10% (worst -41 of 613); reference recovery undershoot -157 / -186 / -225 -> -18 / -2 / -41; Ironman build weeks 14/15/18/19 remain 10-20% short with `Rolling 48h ANS cost cap 700 binds ... (peak 690)` reported (ablation: only TSS cap or CTL ramp raised = no change; TSS 420 + strain 380 + ANS 1000 = 619 and 210 min rides). The "not in the workout library" message is gone. Distance-aware anchors not implemented (would add ~60 TSS to a weekend pair already at 260 of 295). Queued: `TASK-049` (reference profile stuck in re-entry, never picks 90+ min runs), `TASK-050` (ANS cap binds Ironman; owner decision + distance-aware anchors).
 - **Verification:** `tests/test_long_course_library.py` (18 tests incl. flag/zone split/formula equality per row, caps, profile round trip and validation, engine-row change, diagnosis, gating); `tests/test_workout_library.py` counts updated (568 rows, default set 38). Full suite 310 pass + 8 `slow` = 318 pass (373 s).
 
-## Phase 2 — TASK-041 — completed 2026-11-16 (PR #TBD)
+## Phase 2 — TASK-041 — completed 2026-11-16 (PR #18)
 
 - [x] **`TASK-041` (`optimizer`):** **Race-Block Build Weeks Above Target (`CURRENT_ATHLETE`)** — after `TASK-037` the race-block base / build / overload weeks still solved at 1.03-1.57x target (structure floor ~222-241 TSS vs targets 140-211). Owner decision: "raise targets to structure".
 
