@@ -46,6 +46,7 @@
 - **`ADR-023`** (`optimizer`): Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge
 - **`ADR-024`** (`workouts`): Long-Course Library Rows, Profile-Level 48h Caps Bounded By The Charter
 - **`ADR-025`** (`optimizer`): Race-block build weeks raise their TSS target to the structural floor
+- **`ADR-028`** (`mpc`): Alternating long-run / long-ride keystone weeks in long-course race-block builds
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`
