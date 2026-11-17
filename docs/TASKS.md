@@ -7,12 +7,12 @@
 None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
 ## P1 — Engineering Queue
-Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (315 pass; `-m slow` adds the 8-season `EXP-007` matrix).
+Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (316 pass; `-m slow` adds the 8-season `EXP-007` matrix).
 
 ### Phase 2 — Unified MILP Engine
 - [ ] `TASK-041` (`optimizer`): race-block build weeks of `CURRENT_ATHLETE` still solve 1.1-1.5x target (full structure floor ~222-241 vs targets 140-211).
 - [ ] `TASK-046` (`safety`): attribute each `CURRENT_ATHLETE` single-run week to its binding row (run-minutes guard / ACWR / strain 75) as a season-level message; walk-jog split decision (`TASK-023`).
-- [ ] `TASK-049` (`safety`): the unconstrained reference profile never leaves re-entry mode (run CTL decays below the 15 exit): runs stay 33-60 min x 2-4 so the 90-150 min long runs are never chosen; give it a real run ramp (`TASK-045` seed) or a no-re-entry setting.
+- [ ] `TASK-055` (`safety`): reference 70.3 / IM never schedule a >= 75 min run even outside re-entry: heavy lifts + the two weekend anchors (180 min ride, 75 min run) + run-share ratios crowd it out (`TASK-049` ablation); owner decision on which keystone yields.
 - [ ] `TASK-050` (`physiology`): Ironman build weeks stay 64-139 TSS under target because the rolling 48h ANS cap (700) binds at 690; low-intensity long sessions are ANS-expensive (`e^(0.65(z-1))`, with `TASK-021`). Owner decision: keep, or re-weight ANS for Z1/Z2 long sessions; plus distance-aware anchors (IM long-ride anchor).
 
 ### Phase 3 — Physiology Calibration

@@ -183,3 +183,21 @@ def test_reentry_phase_false_is_never_reentry_even_with_low_run_ctl():
     prof = replace(CURRENT_ATHLETE, reentry_phase=False)           # run CTL 1.0 < exit 15
     st = load_state_for_week(prof.to_athlete_state(), prof, 0.0, [])
     assert not st.reentry and st.acwr_max == prof.max_running_acwr and st.run_minutes_cap is None
+
+
+# ---- TASK-049: the unconstrained reference profile is a trained runner, never in re-entry -------------------------
+def test_reference_profile_is_never_in_reentry_and_seeds_a_long_run():
+    from triplan.control.carry import initial_carry_in, load_state_for_week
+    ref = sv.reference_profile()
+    assert ref.starting_longest_run_min == 90.0 and not ref.reentry_phase
+    state = ref.to_athlete_state()
+    assert state.run_ctl >= ref.reentry_run_ctl_exit
+    carry = initial_carry_in(state, ref, [])
+    assert not carry.load.reentry and carry.load.acwr_max == ref.max_running_acwr and carry.load.run_minutes_cap is None
+    assert carry.prev_longest_run_min == 90.0
+    for ctl in (12.0, 1.0):                       # decayed run CTL must not flip a non-re-entry profile back
+        st = replace(state, run_ctl=ctl)
+        ls = load_state_for_week(st, ref, 150.0, [])
+        assert not ls.reentry and ls.acwr_max == ref.max_running_acwr and ls.run_minutes_cap is None
+    lim = SafetyLimits.from_config(ref.to_mesocycle_config())
+    assert resolve_long_run_cap(lim, carry) == 100.0   # ADR-022 re-entry ceiling does not apply
