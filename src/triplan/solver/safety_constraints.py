@@ -143,11 +143,13 @@ def resolve_long_run_cap(limits: SafetyLimits, carry_in: Any = None, prev_longes
 
 
 def run_strain(w: Any) -> float:
-    """Running mechanical strain of ``w`` (whole workout for a run, the cardio part of a lift + run combo)."""
+    """Running mechanical strain of ``w`` (whole workout for a run, cardio part of a lift+run combo, or Brick run leg)."""
     if getattr(w, "sport", "") == "Run":
         return float(getattr(w, "mechanical_strain", 0.0))
     if getattr(w, "cardio_sport", "") == "Run":
         return float(getattr(w, "cardio_mech_strain", 0.0))
+    if getattr(w, "sport", "") == "Brick":
+        return float(getattr(w, "brick_run_strain", 0.0))
     return 0.0
 
 
@@ -156,12 +158,14 @@ def _flags(w: Any) -> Dict[str, int]:
 
 
 def run_minutes(w: Any) -> float:
-    """Running minutes of ``w``: its whole duration for a run, only the cardio part of a lift + easy-run
-    combo (DECISION-021), 0 otherwise. The run-share cap is over running time, not session time."""
+    """Running minutes of ``w``: whole duration for a run, cardio part of a lift+easy-run combo (DECISION-021),
+    or the run leg of a Brick (TASK-059); 0 otherwise."""
     if getattr(w, "sport", "") == "Run":
         return float(getattr(w, "duration", 0.0))
     if getattr(w, "cardio_sport", "") == "Run":
         return float(getattr(w, "cardio_minutes", 0.0))
+    if getattr(w, "sport", "") == "Brick":
+        return float(getattr(w, "brick_run_minutes", 0.0))
     return 0.0
 
 
@@ -189,9 +193,19 @@ def classify_workouts(workouts: Sequence[Any]) -> WorkoutSets:
         return bool(getattr(w, "is_heavy_strength", False)) or f.get("heavy_dl", 0) == 1 or f.get("heavy_sq", 0) == 1
 
     return WorkoutSets(
-        runs=ids(lambda w: w.sport == "Run" or getattr(w, "cardio_sport", "") == "Run"),  # incl. lift+run combos
-        heavy_or_long_runs=ids(lambda w: w.sport == "Run" and (
-            getattr(w, "is_heavy_run", False) or _flags(w).get("heavy_run", 0) == 1 or _flags(w).get("long_run", 0) == 1)),
+        runs=ids(lambda w: w.sport == "Run" or getattr(w, "cardio_sport", "") == "Run"
+                 or (w.sport == "Brick" and run_minutes(w) > 0)),  # incl. lift+run combos & Bike->Run bricks
+        heavy_or_long_runs=ids(lambda w: (
+            w.sport == "Run" and (
+                getattr(w, "is_heavy_run", False) or _flags(w).get("heavy_run", 0) == 1
+                or _flags(w).get("long_run", 0) == 1
+            )
+        ) or (
+            w.sport == "Brick" and (
+                getattr(w, "brick_run_hard", False) or run_minutes(w) >= 60.0
+                or _flags(w).get("heavy_run", 0) == 1 or _flags(w).get("long_run", 0) == 1
+            )
+        )),
         deadlifts=ids(lambda w: w.sport == "Strength" and (
             _flags(w).get("heavy_dl", 0) == 1
             or (getattr(w, "is_heavy_strength", False) and not any(k in _flags(w) for k in ("heavy_dl", "heavy_sq"))))),

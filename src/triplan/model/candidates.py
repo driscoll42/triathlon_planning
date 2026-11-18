@@ -54,6 +54,9 @@ class CandidateWorkout:
     cardio_minutes: float = 0.0        # minutes of the cardio component (<= 20, Z1/Z2 only)
     cardio_mech_strain: float = 0.0    # mechanical strain of the cardio component alone
     cardio_zone_durations: Tuple[float, float] = (0.0, 0.0)  # (Z1, Z2) minutes of the cardio component
+    brick_run_minutes: float = 0.0     # running-leg minutes of a Brick workout (0 for non-run bricks)
+    brick_run_strain: float = 0.0      # running-leg mechanical strain of a Brick workout
+    brick_run_hard: bool = False       # True when the Brick run leg triggers heavy/long-run rules
     provenance: str = ""               # library source tag ('8020_library', 'agent_authored', 'hand_coded_*', '')
 
 

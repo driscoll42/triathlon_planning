@@ -5,6 +5,8 @@ fails as soon as the defect disappears, so the marker must be removed when the f
 """
 import pytest
 
+from triplan.solver.safety_constraints import run_minutes
+
 VALID_STATUSES = {"OPTIMAL", "TIME_LIMIT_FEASIBLE"}
 
 MILP_SCENARIOS = [
@@ -28,7 +30,7 @@ def _plans(stress_results, name):
 
 
 def _runs(plan):
-    return [w for d in range(7) for w in plan["schedule"][d] if w.sport == "Run"]
+    return [run_minutes(w) for d in range(7) for w in plan["schedule"][d] if run_minutes(w) > 0]
 
 
 @pytest.mark.parametrize("name", MILP_SCENARIOS)
@@ -62,8 +64,8 @@ def test_single_run_share_cap(stress_results, name):
         runs = _runs(p)
         if len(runs) < 2:
             continue
-        total = sum(w.duration for w in runs)
-        share = max(w.duration for w in runs) / total
+        total = sum(runs)
+        share = max(runs) / total
         limit = cap if len(runs) >= 4 else pigeon[len(runs)]
         assert share <= limit + 1e-6, f"{name} rank {p['rank']}: single run {share:.3f} > {limit} ({len(runs)} runs)"
         assert p["run_share"]["applied_cap"] == pytest.approx(limit)
@@ -97,7 +99,8 @@ def test_no_heavy_deadlift_within_24h_of_heavy_or_long_run(stress_results, name)
     for p in plans:
         sched = p["schedule"]
         dl_days = {d for d in range(7) for w in sched[d] if (getattr(w, "flags", None) or {}).get("heavy_dl")}
-        run_days = {d for d in range(7) for w in sched[d] if w.sport == "Run" and w.is_heavy_run}
+        run_days = {d for d in range(7) for w in sched[d]
+                    if (w.sport == "Run" and w.is_heavy_run) or (w.sport == "Brick" and getattr(w, "brick_run_hard", False))}
         clashes = {(a, b) for a in dl_days for b in run_days if abs(a - b) <= 1}
         assert not clashes, f"{name} rank {p['rank']}: DL/heavy-run day pairs {sorted(clashes)}"
 
@@ -123,7 +126,15 @@ def test_sport_frequency_bounds(stress_results, name):
         relaxed = {r["category"].split(":", 1)[1]: r["amount"] for r in p["relaxations"]
                    if r["category"].startswith("reduce_frequency:")}
         for sport, (lo, hi) in bounds.items():
-            days = sum(1 for d in range(7) if any(w.sport == sport for w in p["schedule"][d]))
+            days = sum(
+                1 for d in range(7)
+                if any(
+                    w.sport == sport
+                    or getattr(w, "cardio_sport", "") == sport
+                    or (w.sport == "Brick" and sport in ("Bike", "Run") and getattr(w, "brick_run_minutes", 0.0) > 0)
+                    for w in p["schedule"][d]
+                )
+            )
             assert days <= hi, f"{name}: {sport} on {days} days > max {hi}"
             assert days + relaxed.get(sport, 0) >= lo, f"{name}: {sport} {days} < {lo} without a reported relaxation"
 

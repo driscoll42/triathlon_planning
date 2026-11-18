@@ -2,7 +2,8 @@
 import pytest
 
 from triplan.library.build import (BIKE_ZONE_IF, GAP_ENDURANCE_SPECS, GAP_FILL_CODES, GAP_STRENGTH_SPECS, RUN_ZONE_IF,
-                                   endurance_flags, endurance_loads, gap_fill_rows, power_tss, swim_time_tss)
+                                   SHORT_BRICK_SPECS, endurance_flags, endurance_loads, gap_fill_rows, power_tss,
+                                   swim_time_tss)
 from triplan.library.candidates import build_default_candidate_library
 from triplan.library.loader import load_candidates, load_library
 from triplan.library.schema import validate_table
@@ -115,7 +116,7 @@ def test_strength_rows_are_non_heavy_cap_safe_and_split_neutral(rows):
 
 def test_default_library_gained_exactly_the_gap_fill_rows():
     lib = load_library()
-    assert lib["lib_default"].sum() == 38 + len(GAP_FILL_CODES)
+    assert lib["lib_default"].sum() == 38 + len(GAP_FILL_CODES) + len(SHORT_BRICK_SPECS)
     assert lib["lib_hybrid"].sum() == 22                                   # hybrid set untouched
     codes = {w.code for w in load_candidates(library="default")}
     assert set(GAP_FILL_CODES) <= codes

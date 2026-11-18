@@ -53,6 +53,7 @@ BOOL_FLAGS = [
     "is_hard_endurance",   # key endurance session (>= 15 min Z3+ or >= 5 min Z4+)
     "is_heavy_run",        # threshold/interval run or run >= 70 min (48h separation, HEUR-004)
     "is_long_run",         # run >= 60 min (HEUR-004 deadlift lockout, single-run share)
+    "is_brick_run_hard",   # brick run leg >= 15 min Z3+, >= 5 min Z4+, or >= 70 min (48h separation, HEUR-004)
     "is_heavy_strength",   # heavy lower-body barbell session
     "is_anchor",           # mandatory keystone session (Tier-1 slack when it cannot fit)
     "has_strides",         # alactic strides <= 20 s (zero ANS penalty for Z5, SPEC.md)
@@ -76,6 +77,7 @@ WORKOUT_COLUMNS = [
     *ZONE_COLUMNS, *ZONE_DISTANCE_COLUMNS,
     "tss", "intensity_factor", "normalized_power",
     "mechanical_strain", "ans_cost", "durability_score", "neuromuscular_load", "axial_load",
+    "brick_run_min", "brick_run_strain",
     *BOOL_FLAGS,
     "split_group", "bb_sets", "db_sets",
     "sets_anterior_chain", "sets_posterior_chain", "sets_push", "sets_pull",
@@ -120,9 +122,12 @@ class Workout(BaseModel):
     durability_score: float = Field(ge=0)  # hybrid rows use 0..85, others 0..10; unified in TASK-023
     neuromuscular_load: float = Field(ge=0)
     axial_load: float = Field(ge=0)
+    brick_run_min: float = Field(default=0.0, ge=0)
+    brick_run_strain: float = Field(default=0.0, ge=0)
     is_hard_endurance: bool
     is_heavy_run: bool
     is_long_run: bool
+    is_brick_run_hard: bool = False
     is_heavy_strength: bool
     is_anchor: bool
     has_strides: bool
@@ -190,8 +195,22 @@ class Workout(BaseModel):
             raise ValueError(f"{self.code}: strength flag on a {s} workout")
         if s != Sport.BIKE.value and (self.is_indoor_bike or self.is_outdoor_bike or self.hi_torque_bike):
             raise ValueError(f"{self.code}: bike flag on a {s} workout")
-        if s != Sport.SWIM.value and (self.pool or self.swim_threshold):
+        if s not in (Sport.SWIM.value, Sport.BRICK.value) and self.pool:
             raise ValueError(f"{self.code}: swim flag on a {s} workout")
+        if s != Sport.SWIM.value and self.swim_threshold:
+            raise ValueError(f"{self.code}: swim flag on a {s} workout")
+        if s != Sport.BRICK.value:
+            if self.brick_run_min > 0 or self.brick_run_strain > 0 or self.is_brick_run_hard:
+                raise ValueError(f"{self.code}: brick-run field on a {s} workout")
+        else:
+            if self.brick_run_min > self.duration_min + 1e-6:
+                raise ValueError(f"{self.code}: brick_run_min {self.brick_run_min} > duration {self.duration_min}")
+            if self.brick_run_strain > self.mechanical_strain + 1e-6:
+                raise ValueError(
+                    f"{self.code}: brick_run_strain {self.brick_run_strain} > mechanical_strain {self.mechanical_strain}"
+                )
+            if self.brick_run_min == 0 and (self.brick_run_strain > 0 or self.is_brick_run_hard):
+                raise ValueError(f"{self.code}: zero brick_run_min cannot carry strain or hard flag")
         if s == Sport.BIKE.value and self.is_indoor_bike == self.is_outdoor_bike:
             raise ValueError(f"{self.code}: bike must be exactly one of indoor/outdoor")
         if s == Sport.SWIM.value and not self.pool:
@@ -226,6 +245,8 @@ WORKOUT_TABLE_SCHEMA = pa.DataFrameSchema(
         "durability_score": pa.Column(float, pa.Check.ge(0)),  # dual scale until TASK-023
         "neuromuscular_load": pa.Column(float, pa.Check.ge(0)),
         "axial_load": pa.Column(float, pa.Check.ge(0)),
+        "brick_run_min": pa.Column(float, pa.Check.ge(0)),
+        "brick_run_strain": pa.Column(float, pa.Check.ge(0)),
         **{f: pa.Column(bool) for f in BOOL_FLAGS},
         "split_group": pa.Column(str, pa.Check.isin([g.value for g in SplitGroup])),
         "bb_sets": pa.Column(int, pa.Check.ge(0)),

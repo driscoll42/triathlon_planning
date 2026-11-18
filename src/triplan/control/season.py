@@ -348,10 +348,19 @@ def generate_closed_loop_season_schedule(
             for d in range(7):
                 wkts = plan["schedule"][d]
                 d_aerobic = sum(w.aerobic_tss for w in wkts)
-                d_mech = sum(run_strain(w) for w in wkts)   # run leg of a lift + run combo included
+                d_mech = sum(run_strain(w) for w in wkts)   # run leg of a lift + run combo or Brick included
                 d_bike = sum(w.aerobic_tss for w in wkts if w.sport == "Bike")
                 d_run = sum(w.aerobic_tss for w in wkts if w.sport == "Run")
                 d_swim = sum(w.aerobic_tss for w in wkts if w.sport == "Swim")
+                for w in wkts:
+                    if w.sport == "Brick":
+                        rm = run_minutes_of(w)
+                        if rm > 0 and w.duration > 0:
+                            frac = min(1.0, rm / w.duration)
+                            d_run += w.aerobic_tss * frac
+                            d_bike += w.aerobic_tss * (1.0 - frac)
+                        else:
+                            d_bike += w.aerobic_tss
                 athlete_state.step_day(d_aerobic, d_mech, d_bike, d_run, d_swim)
                 max_acwr = max(max_acwr, athlete_state.running_mechanical_acwr)
                 max_excess = max(max_excess, athlete_state.running_acute_mech - acwr_cap * athlete_state.running_chronic_mech)

@@ -112,18 +112,32 @@ def _meso_rows(ctx: BuildContext) -> None:
         p_z = zpcts.get(z, 0.0)
         m.goal_row(G["zone"][z], ctx.per_week(tab.zone[:, z - 1] - p_z * tab.duration), 0.0)
 
+    is_br_brick = (tab.sport_arr == "Brick") & (tab.brick_run_minutes > 0)
     splits = cfg.get("target_sport_duration_splits", default={})
     for s in ctx.sports:
         r_s = splits.get(s, 0.0)
-        ind = (tab.sport_arr == s).astype(float)
-        m.goal_row(G["sdur"][s], ctx.per_week((ind - r_s) * tab.duration), 0.0)
+        if s == "Run":
+            sport_dur = np.where(tab.sport_arr == s, tab.duration,
+                                 np.where(is_br_brick, tab.brick_run_minutes, 0.0))
+        elif s == "Bike":
+            sport_dur = np.where(tab.sport_arr == s, tab.duration,
+                                 np.where(is_br_brick, np.maximum(0.0, tab.duration - tab.brick_run_minutes), 0.0))
+        else:
+            sport_dur = np.where(tab.sport_arr == s, tab.duration, 0.0)
+        m.goal_row(G["sdur"][s], ctx.per_week(sport_dur - r_s * tab.duration), 0.0)
 
     br = cfg.get("target_bike_run_tss_splits", default={})
-    br_ids = np.flatnonzero(tab.mask("Bike", "Run"))
+    br_ids = np.flatnonzero(tab.mask("Bike", "Run") | is_br_brick)
+    run_frac = np.where(is_br_brick, tab.brick_run_minutes / np.maximum(tab.duration, 1e-9), 0.0)
     for s in ("Bike", "Run"):
         r_tss = br.get(s, 0.5)
-        ind = (tab.sport_arr == s).astype(float)
-        m.goal_row(G["stss"][s], ctx.per_week((ind - r_tss) * tab.aerobic_tss, br_ids), 0.0)
+        if s == "Run":
+            sport_tss = np.where(tab.sport_arr == s, tab.aerobic_tss,
+                                 np.where(is_br_brick, tab.aerobic_tss * run_frac, 0.0))
+        else:
+            sport_tss = np.where(tab.sport_arr == s, tab.aerobic_tss,
+                                 np.where(is_br_brick, tab.aerobic_tss * (1.0 - run_frac), 0.0))
+        m.goal_row(G["stss"][s], ctx.per_week(sport_tss - r_tss * tab.aerobic_tss, br_ids), 0.0)
 
 
 def _hybrid_rows(ctx: BuildContext) -> None:

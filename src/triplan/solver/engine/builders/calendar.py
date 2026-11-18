@@ -26,7 +26,11 @@ def make_allowed(table: WorkoutTable, cfg: WeekConfig, opt: EngineOptions) -> Ca
             return False
         sport = table.sport[i]
         if rule == "meso":
-            sports = ["Bike", "Run"] if sport == "Brick" else [sport]
+            if sport == "Brick":
+                sports = (["Bike", "Run"] if (table.brick_run_minutes[i] > 0 or not table.flags[i].get("pool", 0))
+                          else ["Swim", "Bike"])
+            else:
+                sports = [sport]
             if table.cardio_sport[i]:  # lift + easy cardio combo needs the cardio sport's facility too
                 sports = sports + [table.cardio_sport[i]]
             if not all((access or {}).get(s, [True] * 7)[d] for s in sports):

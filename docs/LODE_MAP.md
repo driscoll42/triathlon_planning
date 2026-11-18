@@ -48,6 +48,7 @@
 - **`ADR-025`** (`optimizer`): Race-block build weeks raise their TSS target to the structural floor
 - **`ADR-028`** (`mpc`): Alternating long-run / long-ride keystone weeks in long-course race-block builds
 - **`ADR-029`** (`workouts`): Include 80/20 Endurance Library Options in Default and Hybrid MILP Pools
+- **`ADR-030`** (`safety`): Model Brick Run Leg Across Safety and Load-Dynamics Constraints
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`, `HEUR-008`

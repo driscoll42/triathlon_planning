@@ -332,10 +332,11 @@ def durability(sport: str, duration: float, high: float, code: str) -> float:
 def _blank_row() -> Dict[str, object]:
     row: Dict[str, object] = {c: None for c in WORKOUT_COLUMNS}
     for c in ("zx_min", "zy_min", *ZONE_DISTANCE_COLUMNS, "normalized_power", "intensity_factor", "bb_sets", "db_sets",
-              "sets_anterior_chain", "sets_posterior_chain", "sets_push", "sets_pull"):
+              "sets_anterior_chain", "sets_posterior_chain", "sets_push", "sets_pull",
+              "brick_run_min", "brick_run_strain"):
         row[c] = 0
-    for c in ("is_hard_endurance", "is_heavy_run", "is_long_run", "is_heavy_strength", "is_anchor", "has_strides",
-              "is_indoor_bike", "is_outdoor_bike", "is_test", "pool", "swim_threshold", "hi_torque_bike",
+    for c in ("is_hard_endurance", "is_heavy_run", "is_long_run", "is_brick_run_hard", "is_heavy_strength", "is_anchor",
+              "has_strides", "is_indoor_bike", "is_outdoor_bike", "is_test", "pool", "swim_threshold", "hi_torque_bike",
               "heavy_sq", "heavy_dl", "heavy_press", "lib_default", "lib_hybrid", "needs_review"):
         row[c] = False
     row.update(split_group="ANY", preference_penalty=0.1, category="", distance_unit="", prescription="time",
@@ -488,6 +489,86 @@ def endurance_loads(sport: str, tss: float, if_: float, duration: float, z: List
         neuro, axial = round(0.55 * mech, 1), round(0.35 * mech, 1)
     return {"mechanical_strain": mech, "ans_cost": round(ans_cost(z, strides), 1),
             "durability_score": durability(sport, duration, high, ""), "neuromuscular_load": neuro, "axial_load": axial}
+
+
+def brick_run_loads(z_run: List[float], run_cp: float = 200.0) -> Dict[str, object]:
+    """Running-leg minutes, mechanical strain, and hard-run flag for a Brick workout (TASK-059)."""
+    dur_run = float(sum(z_run))
+    if dur_run <= 0:
+        return {"brick_run_min": 0.0, "brick_run_strain": 0.0, "is_brick_run_hard": False}
+    _, if_run, tss_run = power_tss(z_run, RUN_ZONE_IF, run_cp)
+    strain = mechanical_strain("Run", tss_run, if_run, dur_run)
+    hard = (z_run[2] + z_run[3] + z_run[4] >= 15.0) or (z_run[3] + z_run[4] >= 5.0) or dur_run >= 70.0
+    return {"brick_run_min": round(dur_run, 2), "brick_run_strain": strain, "is_brick_run_hard": bool(hard)}
+
+
+# Explicit run-leg zone minutes (Z1..Z5) for the 9 legacy Brick rows in data/workout_library.csv (TASK-059).
+EXISTING_BRICK_RUN_ZONES: Dict[str, List[float]] = {
+    "RUN_TB1_BRICK": [0.0, 10.0, 0.0, 5.0, 0.0],
+    "RUN_TB2_BRICK": [0.0, 20.0, 10.0, 0.0, 0.0],
+    "SW_T1_BRICK":   [0.0, 0.0, 0.0, 0.0, 0.0],
+    "BR1":           [0.0, 20.0, 0.0, 0.0, 0.0],
+    "BR2":           [0.0, 30.0, 0.0, 0.0, 0.0],
+    "BR3":           [6.0, 0.0, 14.0, 0.0, 0.0],
+    "BR4":           [9.0, 0.0, 21.0, 0.0, 0.0],
+    "BR5":           [12.0, 0.0, 28.0, 0.0, 0.0],
+    "BR6":           [15.0, 0.0, 35.0, 0.0, 0.0],
+}
+
+# Candidate short default bricks (45-60 min, TASK-059); gated by HEUR-008 before setting lib_default=True.
+SHORT_BRICK_SPECS: Dict[str, Dict[str, object]] = {
+    "BRICK_AE_45_30B_15R": dict(
+        bike_z=(10.0, 20.0, 0.0, 0.0, 0.0),
+        run_z=(5.0, 10.0, 0.0, 0.0, 0.0),
+        lib_default=True,
+        description="Bike 30 min (10m Z1, 20m Z2) -> T2 (<2 min) -> Run 15 min (5m Z1, 10m Z2) easy transition brick.",
+        adaptations="Neuromuscular T2 bike-to-run transition efficiency at low aerobic strain",
+    ),
+    "BRICK_AE_60_45B_15R": dict(
+        bike_z=(10.0, 35.0, 0.0, 0.0, 0.0),
+        run_z=(0.0, 15.0, 0.0, 0.0, 0.0),
+        lib_default=True,
+        description="Bike 45 min (10m Z1, 35m Z2) -> T2 (<2 min) -> Run 15 min Z2 aerobic transition brick.",
+        adaptations="60 min aerobic bike-to-run durability brick for weekday or base sessions",
+    ),
+    "BRICK_TH_60_40B_20R": dict(
+        bike_z=(10.0, 30.0, 0.0, 0.0, 0.0),
+        run_z=(0.0, 5.0, 15.0, 0.0, 0.0),
+        lib_default=True,
+        description="Bike 40 min (10m Z1, 30m Z2) -> T2 (<2 min) -> Run 20 min (15m Z3 Tempo, 5m Z2) race-pace brick.",
+        adaptations="Race-pace neuromuscular transition off aerobic cycling within a 60 min cap",
+    ),
+}
+
+
+def short_brick_rows(profile=None, source: str = "scripts/migrations/m2026_11_18_brick_run_leg.py"
+                     ) -> List[Dict[str, object]]:
+    """Canonical rows for the TASK-059 short Bike->Run bricks."""
+    if profile is None:
+        from triplan.physiology.athlete_profile import CURRENT_ATHLETE as profile
+    rows: List[Dict[str, object]] = []
+    for code, spec in SHORT_BRICK_SPECS.items():
+        bz = [float(x) for x in spec["bike_z"]]
+        rz = [float(x) for x in spec["run_z"]]
+        z = [b + r for b, r in zip(bz, rz)]
+        duration = sum(z)
+        tss = zone_tss(z)
+        if_ = if_from_tss(tss, duration)
+        row = _blank_row()
+        row.update(
+            code=code, name=code, sport="Brick", category="Short Bike-Run Brick", provenance="agent_authored",
+            source=source, description=spec["description"], duration_min=duration, tss=tss, intensity_factor=if_,
+            z1_min=z[0], z2_min=z[1], z3_min=z[2], z4_min=z[3], z5_min=z[4],
+            lib_default=bool(spec["lib_default"]), needs_review=True,
+            target_adaptations=spec["adaptations"], preference_penalty=0.1,
+            notes="Short default brick (TASK-059); derived with zone_tss / endurance_loads / brick_run_loads.",
+        )
+        flags = endurance_flags("Brick", str(spec["description"]), duration, z)
+        row.update(flags)
+        row.update(endurance_loads("Brick", tss, if_, duration, z, bool(flags.get("has_strides"))))
+        row.update(brick_run_loads(rz, profile.run_cp))
+        rows.append(row)
+    return rows
 
 
 def derive_8020_rows(frames: Dict[str, pd.DataFrame], source_files: Dict[str, str], profile=None) -> pd.DataFrame:
