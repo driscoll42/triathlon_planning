@@ -203,3 +203,68 @@ def test_symmetry_breaking_does_not_change_the_optimum(monkeypatch, target_run):
         assert plans and eng.symmetry_row is flag
         res[flag] = plans[0]["objective_value"] + 1e6 * plans[0]["tier1_penalty"]
     assert res[True] == pytest.approx(res[False], abs=1e-6)
+
+
+# ----------------------------------------------------------------------------- TASK-060 pruning & combo caps
+
+def test_dominance_and_8020_pruning_deduplicate_cre1_against_bike_ae1_20():
+    from dataclasses import replace
+    from triplan.library.candidates import build_default_candidate_library
+    from triplan.solver.pruning import prune_8020_candidates
+
+    lib = build_default_candidate_library()
+    by_code = {w.code: w for w in lib}
+    assert "BIKE_AE1_20" in by_code and "CRe1" in by_code
+    # Exact dominance across provenance prefers curated non-8020 row on tie
+    kept_dom, rep = prune_dominated_candidates([by_code["CRe1"], by_code["BIKE_AE1_20"]], {"Bike": (0, 1)})
+    assert [w.code for w in kept_dom] == ["BIKE_AE1_20"] and rep.pruned_codes == ["CRe1"]
+    # 8020 pre-filter drops CRe1 / CRe3 near-duplicates of BIKE_AE1_20 / BIKE_AE1_30
+    kept_8020 = {w.code for w in prune_8020_candidates(lib)}
+    assert {"BIKE_AE1_20", "BIKE_AE1_30"} <= kept_8020
+    assert not ({"CRe1", "CRe3"} & kept_8020)
+
+
+def test_unschedulable_combos_and_zero_req_heavy_lifts_are_pruned():
+    from dataclasses import replace
+    from triplan.library.candidates import build_default_candidate_library
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE
+
+    lib = build_default_candidate_library()
+    # Re-entry / deload week: required_heavy_strength_sessions == 0 -> all heavy lifts & their combos pruned
+    cfg_reentry = CURRENT_ATHLETE.to_mesocycle_config("base", 160.0)
+    assert cfg_reentry.required_heavy_strength_sessions == 0
+    eng_re = UnifiedWeekEngine(lib, cfg_reentry, meso_options())
+    assert not any(w.is_heavy_strength for w in eng_re.workouts)
+    assert not any(w.code.startswith("STR_HV") for w in eng_re.workouts)
+
+    # Active build week (req_heavy_strength == 1): STR_HV1_SQUAT fits daily caps (61.8 <= 65),
+    # but STR_HV1_SQUAT+EZ_Bike20 (axial=66.8 > 65, neuro=76.7 > 75) is unschedulable and pruned.
+    cfg_build = replace(cfg_reentry, required_heavy_strength_sessions=1)
+    eng_b = UnifiedWeekEngine(lib, cfg_build, meso_options())
+    codes_b = {w.code for w in eng_b.workouts}
+    assert "STR_HV1_SQUAT" in codes_b and "STR_HV3_SQUAT_SL+EZ_Bike20" in codes_b
+    assert "STR_HV1_SQUAT+EZ_Bike20" not in codes_b
+    assert "STR_HV2_DEADLIFT+EZ_Bike20" not in codes_b
+
+
+def test_unused_non_heavy_lift_and_endurance_row_cap_combo_growth():
+    from dataclasses import replace
+    from triplan.library.candidates import build_default_candidate_library
+    from triplan.physiology.athlete_profile import CURRENT_ATHLETE
+
+    lib = build_default_candidate_library()
+    by_code = {w.code: w for w in lib}
+    extra_lift = replace(by_code["STR_SM1_CORE"], id=9901, code="STR_MAINT_EXTRA", name="Extra Maint Lift",
+                         duration=42.0, preference_penalty=0.95, durability_score=0.5)
+    extra_endur = replace(by_code["CRe1"], id=9902, code="CRe1_EXTRA", name="Extra 20m Easy Spin")
+    cfg_w = CURRENT_ATHLETE.to_mesocycle_config("Recovery Deload (-20%)", 140.0)
+
+    eng_base = UnifiedWeekEngine(lib, cfg_w, meso_options())
+    eng_plus = UnifiedWeekEngine(lib + [extra_lift, extra_endur], cfg_w, meso_options())
+    assert len(eng_plus.workouts) - len(eng_base.workouts) <= 1
+    assert not any(c.startswith("STR_MAINT_EXTRA+") for c in eng_plus.combo_codes)
+    assert "CRe1_EXTRA" not in {w.code for w in eng_plus.workouts}
+    p_base = eng_base.solve(1, 5.0)[0]
+    p_plus = eng_plus.solve(1, 5.0)[0]
+    assert p_plus["objective"] == pytest.approx(p_base["objective"], abs=1e-6)
+

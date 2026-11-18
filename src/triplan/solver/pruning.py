@@ -69,7 +69,7 @@ def prune_candidate_library(workouts: List[CandidateWorkout], target_tss: float 
 # max-normalised durability cost is unchanged.
 
 _COST_ONLY_FIELDS = ("preference_penalty", "durability_score")
-_IDENTITY_FIELDS = ("id", "code", "name")
+_IDENTITY_FIELDS = ("id", "code", "name", "provenance")
 _STANDARD_SPORTS = ("Swim", "Bike", "Run", "Strength")
 
 
@@ -122,8 +122,15 @@ def prune_dominated_candidates(workouts: Sequence[Any], sport_freq_bounds: Optio
         cap = max(1, min(max_copies_default, int(bounds.get(sport, (0, max_copies_default))[1])))
         if len(idxs) <= cap:
             continue
-        ranked = sorted(idxs, key=lambda i: (float(getattr(workouts[i], "preference_penalty", 0.1)),
-                                             -float(getattr(workouts[i], "durability_score", 2.0)), i))
+        ranked = sorted(
+            idxs,
+            key=lambda i: (
+                float(getattr(workouts[i], "preference_penalty", 0.1)),
+                -float(getattr(workouts[i], "durability_score", 2.0)),
+                getattr(workouts[i], "provenance", "") == "8020_library",
+                i,
+            ),
+        )
         # keep the ``cap`` best: lowest penalty, then highest durability. Everything after them has
         # penalty >= and durability <= every kept one only when sorted that way, so check explicitly.
         kept = ranked[:cap]
@@ -149,12 +156,26 @@ def prune_dominated_candidates(workouts: Sequence[Any], sport_freq_bounds: Optio
 DEFAULT_8020_BUCKET_CAPS: Dict[str, int] = {"easy": 6, "tempo": 4, "hi": 4}
 
 
-def filter_feasible_candidates(workouts: Sequence[Any], allowed_fn, limits: Any) -> List[Any]:
-    """Losslessly drop non-anchor, non-test workouts with zero schedulable days under Tier-0 unary gates."""
+def _is_heavy_strength(w: Any) -> bool:
+    flg = getattr(w, "flags", None) or {}
+    return bool(getattr(w, "is_heavy_strength", False) or flg.get("heavy_dl", 0) == 1 or flg.get("heavy_sq", 0) == 1)
+
+
+def filter_feasible_candidates(
+    workouts: Sequence[Any],
+    allowed_fn,
+    limits: Any,
+    req_heavy_strength: Optional[int] = None,
+) -> List[Any]:
+    """Losslessly drop non-anchor, non-required-test workouts with zero schedulable days under Tier-0 unary gates."""
+    drop_heavy = req_heavy_strength is not None and int(req_heavy_strength) == 0
     kept: List[Any] = []
     for i, w in enumerate(workouts):
-        if _is_protected(w):
+        flg = getattr(w, "flags", None) or {}
+        if bool(getattr(w, "is_anchor", False) or flg.get("required_test", 0)):
             kept.append(w)
+            continue
+        if drop_heavy and _is_heavy_strength(w):
             continue
         ax = float(getattr(w, "axial_load", 0.0) or 0.0)
         if ax > limits.max_daily_axial + 1e-9:
@@ -193,15 +214,32 @@ def prune_8020_candidates(workouts: Sequence[Any],
     """Stratified representative pruning of ``8020_library`` workouts across duration and intensity buckets.
 
     Curated core rows (non-``8020_library``), anchors, tests, and stride-bearing sessions are never pruned.
-    Within each ``(sport, intensity_bucket)`` of ``8020_library`` rows, evenly spaced representatives across
-    feasible ``(duration, aerobic_tss)`` (including shortest and longest) are retained up to ``bucket_caps``.
+    Near-duplicate ``8020_library`` rows within (duration <= 2.0 min, aerobic_tss <= 3.0 TSS) of an existing
+    core row in the same ``(sport, intensity_bucket, is_indoor_bike)`` are dropped before bucket stratification.
+    Within each ``(sport, intensity_bucket)`` of remaining ``8020_library`` rows, evenly spaced representatives
+    across feasible ``(duration, aerobic_tss)`` (including shortest and longest) are retained up to ``bucket_caps``.
     """
     caps = bucket_caps or DEFAULT_8020_BUCKET_CAPS
+    core_by_key: Dict[Tuple[str, str, bool], List[Any]] = {}
+    for w in workouts:
+        if getattr(w, "provenance", "") != "8020_library":
+            key = (getattr(w, "sport", ""), _intensity_bucket(w), bool(getattr(w, "is_indoor_bike", False)))
+            core_by_key.setdefault(key, []).append(w)
+
     groups: Dict[Tuple[str, str], List[int]] = {}
     for idx, w in enumerate(workouts):
         if getattr(w, "provenance", "") != "8020_library" or _is_protected(w) or getattr(w, "has_strides", False):
             continue
-        groups.setdefault((getattr(w, "sport", ""), _intensity_bucket(w)), []).append(idx)
+        sport = getattr(w, "sport", "")
+        bucket = _intensity_bucket(w)
+        core_matches = core_by_key.get((sport, bucket, bool(getattr(w, "is_indoor_bike", False))), ())
+        w_dur = float(getattr(w, "duration", 0.0) or 0.0)
+        w_tss = float(getattr(w, "aerobic_tss", 0.0) or 0.0)
+        if any(abs(w_dur - float(getattr(c, "duration", 0.0) or 0.0)) <= 2.0 + 1e-9
+               and abs(w_tss - float(getattr(c, "aerobic_tss", 0.0) or 0.0)) <= 3.0 + 1e-9
+               for c in core_matches):
+            continue
+        groups.setdefault((sport, bucket), []).append(idx)
 
     keep_8020: set = set()
     for (_sport, bucket), idxs in groups.items():

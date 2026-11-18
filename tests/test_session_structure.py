@@ -308,7 +308,8 @@ def test_combo_generation_follows_decision_021():
 def test_combo_options_are_configurable_and_bounded():
     only_bike = make_lift_easy_combos(_strength_lib(), sports_after_other_lift=("Bike",))
     assert {c.cardio_sport for c in only_bike} == {"Bike"}
-    assert len(make_lift_easy_combos(_strength_lib(), minutes=(10.0, 20.0))) == 6
+    assert len(make_lift_easy_combos(_strength_lib(), minutes=(10.0, 20.0))) == 4
+    assert len(make_lift_easy_combos(_strength_lib(), minutes=(10.0, 20.0), max_combos_per_lift=None)) == 6
     with pytest.raises(ValueError):
         make_lift_easy_combos(_strength_lib(), minutes=(30.0,))
 
@@ -353,8 +354,11 @@ def test_combo_needs_the_cardio_sports_facility_and_is_switchable():
     lib = [wk(0, "LIGHT", "Strength", 40)]
     no_run = {"Swim": ALL, "Bike": ALL, "Run": [False] * 7, "Strength": ALL}
     eng = UnifiedWeekEngine(lib, cfg(facility_access=no_run), meso_options())
-    run_combo = next(i for i, w in enumerate(eng.workouts) if w.cardio_sport == "Run")
-    assert not any(eng.allowed(run_combo, d) for d in range(7))
+    assert not any(w.cardio_sport == "Run" for w in eng.workouts)
+    mon_run = {"Swim": ALL, "Bike": ALL, "Run": [True] + [False] * 6, "Strength": ALL}
+    eng_mon = UnifiedWeekEngine(lib, cfg(facility_access=mon_run), meso_options())
+    run_combo = next(i for i, w in enumerate(eng_mon.workouts) if w.cardio_sport == "Run")
+    assert [eng_mon.allowed(run_combo, d) for d in range(7)] == [True] + [False] * 6
     off = meso_options()
     off.lift_easy_combo = False
     assert len(UnifiedWeekEngine(lib, cfg(), off).workouts) == 1

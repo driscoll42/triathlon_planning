@@ -17,7 +17,7 @@ add to the lift's loads, so every Tier-0 cap sees the true combined load, and ``
 from __future__ import annotations
 
 import dataclasses
-from typing import Any, List, Sequence
+from typing import Any, List, Optional, Sequence, Set
 
 from triplan.library.build import BIKE_ZONE_IF, RUN_ZONE_IF, endurance_loads, power_tss
 
@@ -38,28 +38,73 @@ def cardio_piece(sport: str, minutes: float) -> dict:
     return {"tss": tss, "zones": (z1, z2), **loads}
 
 
+def _select_non_heavy_bases(workouts: Sequence[Any], max_non_heavy_bases: Optional[int]) -> Set[int]:
+    non_heavy = [
+        i for i, w in enumerate(workouts)
+        if getattr(w, "sport", "") == "Strength" and not getattr(w, "cardio_sport", "") and not is_heavy_lower(w)
+    ]
+    if max_non_heavy_bases is None or len(non_heavy) <= max_non_heavy_bases:
+        return set(non_heavy)
+    if max_non_heavy_bases <= 0:
+        return set()
+    ranked = sorted(
+        non_heavy,
+        key=lambda i: (
+            float(getattr(workouts[i], "preference_penalty", 0.1)),
+            -float(getattr(workouts[i], "durability_score", 0.0)),
+            i,
+        ),
+    )
+    chosen: List[int] = []
+    seen_durs: Set[float] = set()
+    for i in ranked:
+        dur = round(float(getattr(workouts[i], "duration", 0.0) or 0.0), 1)
+        if dur not in seen_durs:
+            chosen.append(i)
+            seen_durs.add(dur)
+            if len(chosen) >= max_non_heavy_bases:
+                return set(chosen)
+    for i in ranked:
+        if i not in chosen:
+            chosen.append(i)
+            if len(chosen) >= max_non_heavy_bases:
+                break
+    return set(chosen)
+
+
 def make_lift_easy_combos(workouts: Sequence[Any], *, max_minutes: float = 20.0,
                           sports_after_heavy_lower: Sequence[str] = ("Bike",),
                           sports_after_other_lift: Sequence[str] = ("Bike", "Run"),
-                          minutes: Sequence[float] = ()) -> List[Any]:
-    """New compound candidates for every plain strength workout in ``workouts`` (originals not included).
+                          minutes: Sequence[float] = (),
+                          max_non_heavy_bases: Optional[int] = 2,
+                          max_combos_per_lift: Optional[int] = 2) -> List[Any]:
+    """New compound candidates for plain strength workouts in ``workouts`` (originals not included).
 
     ``minutes`` defaults to ``(max_minutes,)``; every value must be in ``(0, max_minutes]``.
+    ``max_non_heavy_bases`` caps how many non-heavy strength templates spawn combos; ``max_combos_per_lift``
+    caps the generated combos per strength template.
     """
     minutes = tuple(minutes) or (float(max_minutes),)
     if any(m <= 0 or m > max_minutes + 1e-9 for m in minutes):
         raise ValueError(f"combo cardio minutes must lie in (0, {max_minutes}]: {minutes}")
     next_id = 1 + max((int(getattr(w, "id", 0)) for w in workouts), default=0)
+    allowed_non_heavy = _select_non_heavy_bases(workouts, max_non_heavy_bases)
     out: List[Any] = []
-    for w in workouts:
+    for idx, w in enumerate(workouts):
         if getattr(w, "sport", "") != "Strength" or getattr(w, "cardio_sport", ""):
             continue
-        sports = sports_after_heavy_lower if is_heavy_lower(w) else sports_after_other_lift
+        heavy = is_heavy_lower(w)
+        if not heavy and idx not in allowed_non_heavy:
+            continue
+        sports = sports_after_heavy_lower if heavy else sports_after_other_lift
         z7 = tuple(getattr(w, "zone7", ()) or ())
+        count_for_w = 0
         for sport in sports:
             if sport not in ("Bike", "Run"):
                 continue
             for m in minutes:
+                if max_combos_per_lift is not None and count_for_w >= max_combos_per_lift:
+                    break
                 c = cardio_piece(sport, float(m))
                 z5 = list(w.zone_durations)
                 z5[0] += c["zones"][0]
@@ -90,4 +135,5 @@ def make_lift_easy_combos(workouts: Sequence[Any], *, max_minutes: float = 20.0,
                     changes["zone7"] = tuple(z7c)
                 out.append(dataclasses.replace(w, **changes))
                 next_id += 1
+                count_for_w += 1
     return out

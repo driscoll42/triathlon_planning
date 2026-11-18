@@ -271,6 +271,9 @@ def check_season(result: Sequence[WeekRecord], profile: Any = None) -> List[Viol
 # ---------------------------------------------------------------------------
 # Metrics, runner, report
 # ---------------------------------------------------------------------------
+MAX_CANDIDATES_BUDGET = 120
+
+
 def season_metrics(records: Sequence[WeekRecord]) -> Dict[str, Any]:
     ok = [r for r in records if r.solved and r.status in OK_STATUSES]
     max48 = {"tss": 0.0, "ans": 0.0, "strain": 0.0}
@@ -307,6 +310,8 @@ def season_metrics(records: Sequence[WeekRecord]) -> Dict[str, Any]:
         "low_pct_mean": 100 * (sum(low_all) / len(low_all)) if low_all else 0.0,
         "low_pct_min": 100 * min(low_all) if low_all else 0.0,
         "high_pct_max": 100 * max(hi_all) if hi_all else 0.0,
+        "max_candidates": max((r.n_candidates for r in ok), default=0),
+        "mean_candidates": round(sum(r.n_candidates for r in ok) / len(ok), 1) if ok else 0.0,
     }
 
 
@@ -372,6 +377,7 @@ def summary_table(results: Sequence[Dict[str, Any]]) -> pd.DataFrame:
             "48h strain": round(r["max48_strain"], 1), "axial": round(r["max_axial"], 1),
             "neuro": round(r["max_neuro"], 1), "run share": round(r["max_run_share"], 3), "<4 runs wk": r["pigeonhole_weeks"],
             "low%": round(r["low_pct_min"], 1), "high%": round(r["high_pct_max"], 1),
+            "cands": r.get("max_candidates", 0),
             "wall s": round(r["wall_s"], 0),
         })
     return pd.DataFrame(rows)
