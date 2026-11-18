@@ -863,6 +863,73 @@ def sync_all_docs(conn: sqlite3.Connection) -> None:
         dh_lines.extend([f"### `{r['id']}` — {r['title']} [`{r['effective_status']}` | `{r['domain']}`]", "", r["body_md"].strip(), ""])
     (arch_dir / "DECISIONS_AND_HEURISTICS_LEDGER.md").write_text("\n".join(dh_lines) + "\n", encoding="utf-8")
 
+    # 4. Render Domain Lode Footers (between LODE_AUTOGEN_START / LODE_AUTOGEN_END)
+    domains_dir = DOCS_DIR / "domains"
+    if domains_dir.exists():
+        all_domain_rows = conn.execute("SELECT * FROM v_active_knowledge").fetchall()
+        rows_by_dom: Dict[str, List[sqlite3.Row]] = {}
+        for r in all_domain_rows:
+            rows_by_dom.setdefault(r["domain"], []).append(r)
+
+        start_marker = "<!-- LODE_AUTOGEN_START -->"
+        end_marker = "<!-- LODE_AUTOGEN_END -->"
+        for dom in domains_map:
+            dom_file = domains_dir / f"{dom}.md"
+            if not dom_file.exists():
+                continue
+            dom_rows = sorted(rows_by_dom.get(dom, []), key=lambda r: natural_sort_key(r["id"]))
+            active_adrs = [r for r in dom_rows if r["node_type"] == "adr" and r["effective_status"] == "ACTIVE"]
+            active_heurs = [r for r in dom_rows if r["node_type"] == "heuristic" and r["effective_status"] == "ACTIVE"]
+            active_prds = [r for r in dom_rows if r["node_type"] == "prd" and r["effective_status"] == "ACTIVE"]
+            exps = [r for r in dom_rows if r["node_type"] == "experiment"]
+            superseded = [r for r in dom_rows if r["effective_status"] == "SUPERSEDED"]
+
+            block_lines = [
+                start_marker,
+                "<!-- Auto-rendered by lodectx.py sync-docs; edit narrative sections above, not this block. -->",
+                "",
+                f"## Registered Lineage (`{dom}`)",
+            ]
+            if active_prds:
+                block_lines.append("")
+                block_lines.append("### Active PRDs")
+                for r in active_prds:
+                    block_lines.append(f"- **`{r['id']}` — {r['title']}:** {r['one_liner']}")
+            if active_adrs:
+                block_lines.append("")
+                block_lines.append("### Active Architectural Decisions (`ADR`)")
+                for r in active_adrs:
+                    block_lines.append(f"- **`{r['id']}` — {r['title']}:** {r['one_liner']}")
+            if active_heurs:
+                block_lines.append("")
+                block_lines.append("### Active Operational Heuristics (`HEUR`)")
+                for r in active_heurs:
+                    block_lines.append(f"- **`{r['id']}` — {r['title']}:** {r['one_liner']}")
+            if exps:
+                block_lines.append("")
+                block_lines.append("### Empirical Experiments (`EXP`)")
+                for r in exps:
+                    block_lines.append(
+                        f"- **`{r['id']}` [`{r['effective_status']}` | `{r['methodology_tier']}`] — {r['title']}:** {r['one_liner']}"
+                    )
+            if superseded:
+                sup_str = ", ".join(f"`{r['id']}`" for r in superseded)
+                block_lines.append("")
+                block_lines.append(f"> **Superseded (`{dom}`):** {sup_str} (`python scripts/lodectx.py trace <ID>`).")
+            if not (active_prds or active_adrs or active_heurs or exps or superseded):
+                block_lines.append("")
+                block_lines.append("- *(No domain-specific lineage nodes registered yet.)*")
+            block_lines.append(end_marker)
+            footer = "\n".join(block_lines)
+
+            text = dom_file.read_text(encoding="utf-8")
+            pattern = re.compile(re.escape(start_marker) + r".*?" + re.escape(end_marker), re.DOTALL)
+            if pattern.search(text):
+                new_text = pattern.sub(lambda _m: footer, text, count=1)
+            else:
+                new_text = text.rstrip() + "\n\n" + footer + "\n"
+            dom_file.write_text(new_text, encoding="utf-8")
+
 
 def cmd_sync_docs(_args: argparse.Namespace) -> None:
     init_db()
@@ -870,7 +937,7 @@ def cmd_sync_docs(_args: argparse.Namespace) -> None:
     rebuild_fts(conn)
     sync_all_docs(conn)
     conn.close()
-    print("[OK] Synchronized docs/LODE_MAP.md, docs/experiments/INDEX.md, and docs/archive/DECISIONS_AND_HEURISTICS_LEDGER.md")
+    print("[OK] Synchronized docs/LODE_MAP.md, docs/experiments/INDEX.md, docs/archive/DECISIONS_AND_HEURISTICS_LEDGER.md, and docs/domains/*.md")
 
 
 def cmd_stats(_args: argparse.Namespace) -> None:

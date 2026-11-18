@@ -1,70 +1,66 @@
 # Domain Lode: `mpc`
 
 ## 1. Scope & Responsibility
-3-Tier Closed-Loop Model Predictive Control (MPC), receding-horizon schedule updates, daily morning biometrics readiness scaling, calendar slot stability invariant, real-time compliance monitoring ("moderate-intensity rut" detection), mesocycle step-cycles, and fast-decay tapering.
+Three-tier Closed-Loop Model Predictive Control (`ADR-005`), generated 3:1 mesocycle season matrices and CP test lockouts (`TASK-026`, `ADR-011`), cross-week state carry-in (`ADR-019`), long-course alternating keystones (`ADR-028`), deload/re-entry/structural-floor target policies (`ADR-021`, `ADR-023`, `ADR-025`), and season-level infeasibility & single-run attribution diagnostics (`TASK-027`, `TASK-046`).
 
 ## 2. Key Modules & Entrypoints
-- [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): [`ClosedLoopMPCController`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/mpc.py), [`MesoCycleTargetsAndConstraints`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/model/candidates.py), [`AthletePhysiologicalState`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/state.py), and [`AthleteBiometrics`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py).
-- [`src/triplan/cli.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/cli.py): Driver script executing 16-week closed-loop season simulation under stochastic readiness perturbations.
+- [`src/triplan/control/mpc.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/mpc.py): `ClosedLoopMPCController`, Tier-1 daily readiness scaling (`apply_tier1_daily_readiness()`), Tier-2 e1RM Kalman filtering, compliance / moderate-intensity rut detection, and weekly execution recalibration.
+- [`src/triplan/control/periodization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/periodization.py): `build_season_matrix()` (3:1 cycles + optional re-entry block), `SeasonWeek` (`config_phase`), `is_cp_test_allowed()` / `filter_test_workouts()`, `drop_unhostable_long_sessions()`, `apply_deload_relief()` / `relax_deload_anchors()` / `relax_deload_acwr_floor()`, `apply_reentry_relief()`, `raised_target()` (`FLOOR_PROBE_TARGET`), and `apply_keystone_week()` (`KEYSTONE_RUN_CODES`, `keystone_kind`, `keystone_run_rungs`).
+- [`src/triplan/control/carry.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/carry.py): `initial_carry_in()`, `load_state_for_week()`, and `next_week_carry_in()` bridging Saturday/Sunday loads, EWMA ACWR, CTL/ATL, and `prev_longest_run_min` across weeks (`ADR-019`, `ADR-022`, `TASK-045`, `TASK-049`).
+- [`src/triplan/control/season.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/season.py): `generate_closed_loop_season_schedule()`, `WeekRecord`, and `format_plan_to_dataframe()`.
+- [`src/triplan/control/feasibility.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/feasibility.py): `time_budget_diagnosis()`, `season_infeasibility_report()`, and `attribute_single_run_week()` (`TASK-046`).
+- [`src/triplan/physiology/state.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/state.py): `AthletePhysiologicalState` (Banister CTL/ATL/TSB, $M(t)/C(t)$ ODI, EWMA running ACWR, `step_day()`).
+- [`src/triplan/cli.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/cli.py): End-to-end CLI driver writing season summaries to `training_plans/`.
 
-## 3. Core Architectural Rules & Control Theory Mechanics
+## 3. Closed-Loop Season & Weekly Control Workflow
 
-### A. Tier 1: Daily Micro-Adjustments & Morning Readiness Scalar ($R_t$)
-Every morning prior to training, the controller ingests morning HRV RMSSD (against the athlete's 7-day rolling baseline), sleep duration/quality score, and subjective muscle soreness / Visual Analog Pain scale (or Anderson 6-item overtraining questionnaire) to compute the dimensionless readiness scalar:
+```mermaid
+flowchart TD
+    A["build_season_matrix() + initial_carry_in()"] --> B["Week k Config: Test Lockouts + Unhostable Drop + Keystone (ADR-028)"]
+    B --> C{"Week Role?"}
+    C -->|"Recovery / Taper / Race"| D["apply_deload_relief + relax_anchors + relax_acwr_floor (ADR-023)"]
+    C -->|"Re-entry Base/Build/Overload"| E["Solve -> if TSS > 1.15x target: apply_reentry_relief L1/L2 (ADR-021)"]
+    C -->|"Race-block Base/Build/Overload"| F["Solve -> if TSS > 1.15x target: probe floor & raised_target (ADR-025)"]
+    D & E & F --> G["UnifiedWeekEngine Solve (with WeekCarryIn, ADR-019)"]
+    G --> H["next_week_carry_in() + MPC step_day() (Brick TSS split) + ODI Check"]
+    H -->|"Next Week k+1"| B
+    H -->|"Season End"| I["season_infeasibility_report() + optional attribute_single_run_week()"]
+```
+
+### A. Tier 1: Daily Micro-Adjustments & Calendar Slot Stability
+Tier 1 never reshuffles scheduled days mid-week; it scales intensity and duration in-place from morning HRV RMSSD, sleep score, and subjective soreness/pain:
 $$R_t = 0.50 \cdot \left(\frac{\text{RMSSD}_t}{\text{RMSSD}_{7\text{d\_mean}}}\right) + 0.30 \cdot \text{SleepRatio}_t + 0.20 \cdot \text{SorenessRatio}_t \quad \in [0.70, 1.10]$$
+(Hybrid readiness scalar $\alpha_d \in [0.50, 1.20]$ weights HRV 0.40, Sleep 0.35, Soreness 0.25.)
+- **Red Alert ($R_t < 0.80$ or Pain $> 3/10$, or $\alpha_d < 0.50$):** Converts hard endurance / heavy strength to Zone 1 Active Recovery (0.50x duration) or complete rest.
+- **Amber Caution ($0.80 \le R_t < 0.95$, or $\alpha_d < 0.65$):** Reduces interval/strength set volume while preserving the calendar slot.
+- **Green / Supercompensation ($R_t \ge 0.95$):** Executes as planned (or $+3\%\text{ to }+5\%$ nudge above $1.05$ within 48h caps).
+- **Intensity Creep ("Moderate-Intensity Rut") Detection:** If an easy Z1/Z2 session executes at $IF_{\text{real}} > 0.78$ or $HR > LT_1$, it is reclassified as $hard_d = 1$ and its ANS cost feeds the 48h window. *(Note: automated live Garmin/TP actuals ingestion and intra-week re-solve remain queued in `TASK-024` / `TASK-025`.)*
 
-- **Calendar Slot Stability Invariant:** To protect the athlete's work schedule and facility bookings, Tier 1 never reshuffles scheduled workouts mid-week. It scales intensity and duration in-place:
-  - **Red Alert ($R_t < 0.80$ or Pain > 3/10):** Scheduled Zone 4/5 or heavy resistance workouts are automatically converted to Zone 1 Active Recovery (AE1, duration scaled by $0.50\times$) or transformed into a complete rest day if $R_t < 0.70$.
-  - **Amber Caution ($0.80 \le R_t < 0.95$):** Retains workout structure, reduces high-intensity interval volume by 25%, and scales Zone 4/5 power/pace targets by $R_t$.
-  - **Green Nominal ($0.95 \le R_t \le 1.05$):** Workout executes exactly as prescribed.
-  - **Supercompensation Peak ($R_t > 1.05$):** Interval targets may be nudged upward $+3\%\text{ to }+5\%$, provided rolling 48-hour stress caps are respected.
+### B. Tier 2: Cross-Week Carry-In & In-Model Load Dynamics (`ADR-019`)
+Instead of post-hoc weekly strain throttling, `control/carry.py` passes `WeekCarryIn` from week $k$ to week $k+1$:
+1. **Boundary Continuity:** Saturday/Sunday flags (hard day, heavy/long run, deadlift, strength) and loads (TSS, ANS, strain) become fixed constants for Monday's (`d=0`) adjacency and rolling 48h rows.
+2. **In-Model Linearized Running ACWR & Ramp:** Daily EWMA acute/chronic loads ($A_d - \rho C_d \le \varepsilon$, $\rho = 1.20$ while `LoadState.reentry` is active i.e. `reentry_phase=True` and run CTL `< 15`, else `1.25`, or `1.15` for Masters), `max_weekly_ctl_ramp` (`7.0`, `5.0` Masters), and the re-entry run-minutes guard (`max(60, prev + 15)`) live directly inside `builders/load_dynamics.py`.
+3. **Longest-Run Memory & Brick Splitting:** `WeekCarryIn.prev_longest_run_min` (seeded by `AthleteProfile.starting_longest_run_min`, `TASK-045`) tracks the `ADR-022` minute cap across run-free weeks. In `control/season.py`, `step_day` splits Bike→Run `Brick` TSS proportionally between Bike and Run PMCs (`ADR-030`).
+4. **e1RM Kalman Filter:** Updates underlying barbell 1RM estimates using $\sigma_w = 0.5\text{ kg}$, $\sigma_v = 3.5\text{ kg}$ to track strength progression without overreacting to single-day noise.
 
-### B. Tier 2: Weekly Receding-Horizon Re-Optimization (Sunday 23:59 Solve)
-Every Sunday night at 23:59, the controller closes the weekly feedback loop using actual completed loads from Monday through Sunday:
-1. **State Vector Updates:** Computes single-sport and composite CTL, ATL, and TSB; updates metabolic and connective tissue convolution states $M(t), C(t)$, and $ODI(t)$; updates running chassis EWMA mechanical ACWR.
-2. **Dynamic Strain Clamping:** If $\text{ACWR} > 1.30$ or $\text{ODI} > 1.35$, the controller lowers the upcoming week's running mechanical strain ceiling to bring tissues back into the safe adaptation zone.
-3. **Joe Friel Missed-Workout Rule:** Skipped workouts are never crammed into subsequent days if doing so would breach the 48-hour multi-stress caps or ACWR ceiling. Instead, the deficit is absorbed during the Sunday receding-horizon re-solve.
-4. **Receding Horizon Re-Solve:** Executes the HiGHS MILP scheduler across the upcoming 7-to-14-day rolling window to generate the top-$K$ optimal plans.
-
-### C. Tier 3: Mesocycle Periodization & Step-Cycle Progression
-Season matrices are generated, not hard-coded (`control/periodization.py`, `TASK-026`): `build_season_matrix(distance, weeks_to_race, profile.mesocycle_build_weeks, profile.mesocycle_recovery_weeks, profile.reentry_weeks)` returns `SeasonWeek` rows (3:1 cycles, recovery = 70% of the prior build week, taper + race week). `reentry_weeks` (24 for `CURRENT_ATHLETE`, 0 disables) prepends a strength + bike + run block with no swim, 0 heavy lifts (`ADR-012` DECISION-023) and a 1.20 run-ACWR ceiling. Recovery/taper/race weeks keep `recovery_week_strength_sessions` maintenance lifts. Re-entry base/build/overload weeks whose full-structure solve overshoots the target by > 15% are re-solved with scaled-down key/stride/Bike-Run minimums (`apply_reentry_relief`, `ADR-021`). Recovery/taper/race weeks solve with key min 0, Bike/Run/Swim minimums halved, anchors optional and no running-ACWR-floor charge (`apply_deload_relief`, `relax_deload_anchors`, `relax_deload_acwr_floor`, `ADR-023`). In 70.3 / Ironman race-block build / overload weeks the weekly keystone alternates (`keystone_kind`, `apply_keystone_week`, `ADR-028`, `TASK-055`): long-run week (only the long-run anchor mandatory, distance-aware 75-150 min via `keystone_run_minutes`, stepped down one rung when unhostable) then long-ride week (only the 180 min ride anchor mandatory); sprint / olympic, re-entry, base and deload weeks untouched. 90+ min runs are not yet hosted (`TASK-061` / `TASK-062`). `ADR-011` test lockouts are applied by pre-filtering test workouts from the candidate library each week (none in week 1; bike locked <= 4 wk, run <= 6 wk; otherwise only in recovery weeks, >= 8 wk apart; first bike test in week 5).
-Across macrocycle blocks, Tier 3 adjusts the target vector across structured 3:1 step cycles (3 building weeks, 1 recovery week) and executes a fast-decay exponential taper:
-
-| Mesocycle Phase / Step Week | Weekly $\text{TSS}_{target}$ Progression | Intensity Distribution (POL / PYR) | Durability Weight ($W_{durab}$) | Heavy Strength ($F_{str\_req}$) | Nutritional Carbohydrate Target |
-| :--- | :--- | :--- | :---: | :---: | :--- |
-| **Base 1–2 (Load Wk 1–2)** | +4 to +6 CTL/wk (+5%–8% TSS) | **Polarized:** 25% / 55% / 4% / 10% / 6% | 10.0 (Low) | 2 sessions/wk (MS) | 5–7 g/kg/day (Optional 1x carb-fasted AE2) |
-| **Build 1 (Step Wk 1)** | 100% Baseline Build TSS (+6 CTL/wk) | **Pyramidal (70.3/IM):** 25% / 55% / 14% / 5% / 1% | 25.0 (High) | 1 session/wk (SM) | 7–10 g/kg/day (30–60 g/h in >2h sessions) |
-| **Build 2 (Step Wk 2)** | 108%–110% Build TSS (+6 to +8 CTL/wk) | **Pyramidal Peak:** 22% / 53% / 18% / 6% / 1% | 35.0 (Maximal) | 1 session/wk (SM) | 7–12 g/kg/day (Up to 90–105 g/h dual-source) |
-| **Recovery Week (Step Wk 3)** | 60%–70% Build TSS (-30% to -40% drop) | **Restoration:** 45% / 55% / 0% / 0% / 0% | 0.0 (Off) | 0 sessions/wk | 3–5 g/kg/day (High Omega-3 & antioxidant) |
-| **Peak / Taper (14 Days Out)** | **Fast-Decay Exponential:** -41%–60% Swim/Bike, -21%–40% Run | **Race Sharpening:** 30% / 50% / 10% / 7% / 3% (Maintain intensity touches, frequency $\ge 80\%$) | 5.0 (Rehearsal) | 0 sessions/wk | 5–7 g/kg/day (200–300g carb 1–4h pre-race) |
-
-- **Fast-Decay Taper Parameters:** 14-day duration, exponential volume decay (Bosquet/Mujika meta-analysis), preserving training frequency ($\ge 80\%$) and race-pace intensity touches to prevent neuromuscular deconditioning, targeting race-day $\text{TSB} \in [+10, +20]$ with $\le 7\%-10\%$ CTL decay.
-
-### D. Real-Time Compliance Engine & "Moderate-Intensity Rut" Detection
-Post-workout ingestion calculates three fractional execution error metrics:
-$$\epsilon_{dur} = \frac{|D_{real} - D_{plan}|}{D_{plan}}, \quad \epsilon_{tss} = \frac{|\text{TSS}_{real} - \text{TSS}_{plan}|}{\text{TSS}_{plan}}, \quad \epsilon_{int} = \frac{|\text{IF}_{real} - \text{IF}_{plan}|}{\text{IF}_{plan}}$$
-- **Intensity Creep Detection:** If an athlete executes a prescribed Zone 1/2 easy session with intensity creep ($IF_{real} > 0.78$ or $HR > LT1$), the session is dynamically reclassified as a Hard Day ($hard_d = 1$).
-- **Dynamic Throttle:** Realized exponential ANS cost is injected into the 48-hour rolling stress window, automatically down-regulating the following day's prescription to prevent sympathetic overtraining.
-
-### E. Hybrid Athlete Closed-Loop MPC Dynamics
-The controller in `ClosedLoopMPCController` auto-regulates both endurance and strength:
-1. **Tier 1 Biometric Auto-Regulation:** Computes Garmin morning readiness scalar:
-   $$\alpha_d = 0.40 \cdot \left(\frac{\text{HRV}_d}{\text{HRV}_{7\text{d}}}\right) + 0.35 \cdot \left(\frac{\text{SleepScore}_d}{100}\right) + 0.25 \cdot \left(\frac{10 - \text{Soreness}_d}{10}\right) \quad \in [0.50, 1.20]$$
-   - $\alpha_d < 0.65$: Downgrade strength session (remove 1–2 working sets, cap intensity at RPE 6–7); reduce run interval volume by 30%.
-   - $\alpha_d < 0.50$: Hard override converts day to Active Recovery (AE1) or complete rest.
-2. **Tier 2 Dynamic e1RM Kalman Filtering:** Tracks true underlying 1RM strength under noisy daily performance:
-   $$e1RM_t = \text{load} \cdot \left(1 + \frac{\text{reps}}{30}\right)$$
-   $$K_t = \frac{P_{t|t-1}}{P_{t|t-1} + \sigma_v^2}, \quad \hat{x}_{t|t} = \hat{x}_{t|t-1} + K_t(y_t - \hat{x}_{t|t-1}), \quad P_{t|t} = (1 - K_t) P_{t|t-1}$$
-   where process noise $\sigma_w = 0.5\text{ kg}$ and observation noise $\sigma_v = 3.5\text{ kg}$.
-3. **Tier 3 Mesocycle Wave Undulation:** Synchronizes resistance loading with endurance 3:1 step cycles:
-   - *Week 1 (Volume Accumulation):* 70% 1RM, higher sets/reps, moderate axial strain.
-   - *Week 2 (Hypertrophy / Load):* 75%–80% 1RM, target TSS $105\%$.
-   - *Week 3 (Intensity Peak):* 85%–90% 1RM, heavy compound triples/singles, maximum durability emphasis.
-   - *Week 4 (Deload):* 60% 1RM, volume reduced by 40%–50%, zero heavy axial deadlifts or squats.
+### C. Tier 3: Generated Season Matrices, Keystones & Target Policies
+1. **Generated 3:1 Matrices (`control/periodization.py`):** `build_season_matrix` generates sprint (12w), olympic (16w), 70.3 (20w), and ironman (24w) seasons from `mesocycle_build_weeks` / `mesocycle_recovery_weeks` (recovery = 70% of prior build week, followed by taper + race week), optionally prepended by `reentry_weeks` (24w for `CURRENT_ATHLETE`: no swim, 0 heavy lifts, `reentry=True`).
+2. **CP Test Lockouts (`ADR-011`):** `filter_test_workouts()` removes test workouts in week 1, taper/race weeks, re-entry lockouts (bike `<= 4w`, run `<= 6w`), non-recovery weeks, or within `cp_test_min_gap_weeks` (`8w`) of the prior same-sport test.
+3. **Alternating Keystones in 70.3 / IM Builds (`ADR-028`, `TASK-055`):** Even race-block build/overload weeks require only the distance-aware long-run anchor (75–150 min ladder via `KEYSTONE_RUN_CODES`, stepping down a rung if unhostable); odd weeks require only the 180 min long-ride anchor (`BIKE_DUR_OUT_DEF`).
+4. **Phase-Specific Target & Structure Policies:**
+   - **Deloads (`ADR-023`):** Recovery/taper/race weeks relax key min to 0, halve Swim/Bike/Run minimums, make anchors optional, waive the ACWR `0.80` floor charge, and retain `recovery_week_strength_sessions` maintenance lifts.
+   - **Re-entry Build Overshoot (`ADR-021`):** Re-entry base/build/overload weeks solving $> 1.15\times$ target step down through `apply_reentry_relief` level 1 (halved structure minimums, rest `<= 4`) and level 2 (key/stride min 0).
+   - **Race-Block Build Overshoot (`ADR-025`):** Race-block base/build/overload weeks solving $> 1.15\times$ target preserve full structure by probing the structural floor (`FLOOR_PROBE_TARGET`), raising the week target to `max(matrix target, floor)`, and re-solving (`Target_TSS` and `StructFloor` recorded in summary).
+5. **Diagnostics (`control/feasibility.py`):** Attaches `summary.attrs["infeasibility"]` explaining time-budget limits, Tier-1 relaxations, raised targets, and (when `diagnose_single_run=True`) per-week single-run binding causes (`attribute_single_run_week`).
 
 <!-- LODE_AUTOGEN_START -->
-<!-- Auto-rendered by lodectx.py sync-docs -->
-<!-- LODE_AUTOGEN_END -->
+<!-- Auto-rendered by lodectx.py sync-docs; edit narrative sections above, not this block. -->
 
-### Cross-week carry-in and in-model ACWR (`ADR-019`, `TASK-018`)
-`control/season.py` hands a `WeekCarryIn` (`solver/engine/carry_in.py`, built by `control/carry.py`) from week k to week k+1: Sunday/Saturday `DayLoad`s (hard, heavy/long run, deadlift, strength flags; TSS/strain/ANS) become constants of the day-0 adjacency, 48h and strength rows, and the EWMA state `(A0, C0, CTL0, run CTL)` becomes constants of `engine/builders/load_dynamics.py`: per-day `A_d - rho C_d <= eps` (rho 1.20 while run CTL < 15, else 1.25), the Tier-1 0.80 floor waiver `relax_acwr_floor`, the weekly CTL ramp (`max_weekly_ctl_ramp`) and the absolute run-minutes guard `max(60, prev + 15)`. `eps` is the one-smallest-run bump from a detrained state, so the raw ratio can exceed rho at low chronic load (ADR-019). The season loop keeps only the ODI recalibration.
+## Registered Lineage (`mpc`)
+
+### Active Architectural Decisions (`ADR`)
+- **`ADR-005` — Implement Three-Tier Closed-Loop Model Predictive Control with Daily Readiness Scaling:** Structure scheduling across Tier-1 daily morning readiness, Tier-2 weekly receding horizon, and Tier-3 mesocycle step cycles.
+- **`ADR-012` — Lock Athlete Decision Record for Nov 2026 Re-Entry and Olympic Season:** Athlete inputs DECISION-001..020 are settled; src/athlete_profile.py is the source of truth. Re-verify on 2027-05-15 (time budget, pool access).
+- **`ADR-019` — Carry-in state and in-model linearized running ACWR, CTL ramp and run-minutes rows:** Week k+1 is solved with week k's boundary days and EWMA state as constants; running ACWR (A - rho*C <= eps), CTL ramp and re-entry run minutes are in-model rows.
+- **`ADR-028` — Alternating long-run / long-ride keystone weeks in long-course race-block builds:** 70.3/IM race-block build/overload weeks alternate a long-run and a long-ride mandatory anchor; deload roles keep ADR-023; Tier-0 never moves.
+<!-- LODE_AUTOGEN_END -->
