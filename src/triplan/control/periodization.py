@@ -14,7 +14,7 @@ Rules encoded here:
 """
 
 from dataclasses import dataclass, replace
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 # Default race-block length (weeks) per distance, when the caller does not give ``weeks_to_race``.
 DEFAULT_RACE_WEEKS = {"sprint": 12, "olympic": 16, "70.3": 20, "ironman": 24}
@@ -235,6 +235,24 @@ def apply_keystone_week(library, kind: str, run_minutes: float):
             anchor = False
         out.append(w if anchor == bool(getattr(w, "is_anchor", False)) else replace(w, is_anchor=anchor))
     return out
+
+
+PROGRESSION_GUARD_WINDOW = 3  # spans 1 recovery week + 1 alternating ride-keystone week (TASK-061)
+
+
+def progression_guard_bounds(
+    solved_rows: Sequence[Dict[str, Any]],
+    max_ramp: float,
+    window: int = PROGRESSION_GUARD_WINDOW,
+    min_strain_floor: float = 150.0,
+) -> Optional[Tuple[float, float]]:
+    """Return ``(max_target_tss, max_weekly_run_mech_strain)`` from the best of the last ``window`` solved weeks."""
+    recent = [r for r in solved_rows if r.get("Solved_TSS", 0.0) > 0][-max(1, int(window)):]
+    if not recent:
+        return None
+    ref_tss = max(float(r["Solved_TSS"]) for r in recent)
+    ref_mech = max(float(r.get("Total_Mech_Strain", 0.0)) for r in recent)
+    return round(ref_tss * max_ramp, 0), round(max(ref_mech * max_ramp, min_strain_floor), 1)
 
 
 @dataclass(frozen=True)

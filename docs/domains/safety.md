@@ -27,7 +27,7 @@ Rules in `safety` are automatically injected into briefings across all domains (
 Running mechanical strain uses coupled EWMAs ($\lambda_a = 2/8 = 0.25$, $\lambda_c = 2/29 \approx 0.069$):
 - **In-Model Enforcement (`builders/load_dynamics.py`):** Every day enforces $A_d - \rho C_d \le \varepsilon$ where $\rho = 1.20$ during active re-entry (`reentry_phase=True` and run CTL $< 15$), $\rho = 1.25$ post-re-entry, and $\rho = 1.15$ for Masters ($\varepsilon$ accommodates a single minimal-run bump from a detrained chronic baseline). A named Tier-1 waiver covers the $0.80$ lower floor when needed (waived automatically in deloads per `ADR-023`).
 - **Absolute-Minutes Re-Entry Guard (`ADR-012`):** While `LoadState.reentry` is active, weekly run minutes are bounded by $\max(60,\ \text{prev\_week\_run\_min} + 15)$.
-- **ODI & Strain Ramping (`HEUR-002`):** Orthopedic Dissociation Index $ODI = M(t)/C(t) \le 1.35$; if breached, `mpc.py` clamps the upcoming week's running strain ceiling.
+- **ODI & Rolling 3-Week Progression Guard (`HEUR-002`, `ADR-031`):** Orthopedic Dissociation Index $ODI = M(t)/C(t) \le 1.35$; if breached, `mpc.py` / `season.py` throttles the upcoming week's running strain ceiling. Before solving each week, `progression_guard_bounds()` (`control/periodization.py`) bounds `target_weekly_tss` and `max_weekly_run_mech_strain` to `1.25x` (`1.15x` Masters) of the max solved TSS / mechanical strain over the last `PROGRESSION_GUARD_WINDOW = 3` solved weeks (with a `150.0` floor, never loosening above the profile ceiling), preventing a 1-week deload or `ADR-028` ride keystone from ratcheting down the next long-run keystone.
 
 ### D. Rolling 48-Hour Multi-Stress Ceilings (`ADR-024`)
 Across every adjacent day pair $(d, d+1)$ including the cross-week Sun→Mon boundary (`WeekCarryIn`):
@@ -56,6 +56,7 @@ Across every adjacent day pair $(d, d+1)$ including the cross-week Sun→Mon bou
 - **`ADR-003` — Enforce Single-Run Volume Ceiling at 32 Percent of Weekly Running Duration:** Cap single run duration at <=32% of total weekly running volume in solver constraints to prevent bone stress injuries.
 - **`ADR-022` — Absolute long-run cap in minutes for weeks with fewer than 4 runs:** Weeks with <4 runs cap the longest run at max(30, prev longest+10) min (and 45 min in re-entry); >=4 runs keep the ADR-003 32% ratio.
 - **`ADR-030` — Model Brick Run Leg Across Safety and Load-Dynamics Constraints:** Brick workouts carry explicit schema columns (brick_run_min, brick_run_strain, is_brick_run_hard) enforced across safety, ACWR/CTL, frequency, and meso goals.
+- **`ADR-031` — Three-week rolling window for receding-horizon progression guard:** Tier-2 progression guard bounds target TSS and weekly run strain using the max of the last 3 solved weeks, preserving keystones after deload/ride weeks.
 
 ### Active Operational Heuristics (`HEUR`)
 - **`HEUR-002` — Prevent Orthopedic Dissociation Index Spikes in Build Cycles:** Never ramp weekly running mechanical strain by >10% week-over-week even when aerobic fitness allows higher volume.
