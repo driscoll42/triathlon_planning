@@ -113,8 +113,7 @@ def add_window_gating(ctx: BuildContext) -> None:
 def add_combo_exclusivity(ctx: BuildContext) -> None:
     tab = ctx.table
     for sport in ("Bike", "Run"):
-        combos = tab.combo_ids(sport)
-        if not combos:
+        if not tab.extra_members(sport):
             continue
         ids = tab.members(sport)
         for d in ctx.days:
@@ -131,7 +130,7 @@ def add_session_structure(ctx: BuildContext) -> None:
         add_hard_days_hard(ctx)
     if opt.window_gating:
         add_window_gating(ctx)
-    if opt.lift_easy_combo:
+    if (opt.lift_easy_combo or any(ctx.table.brick_ids(s) for s in ("Bike", "Run"))) and opt.session_model != "single_per_day":
         add_combo_exclusivity(ctx)
 
 

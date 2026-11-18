@@ -15,7 +15,7 @@ def test_default_and_hybrid_libraries_include_8020_options():
     hybrid_lib = build_hybrid_candidate_library()
     assert any(w.provenance == "8020_library" for w in default_lib)
     assert any(w.provenance == "8020_library" for w in hybrid_lib)
-    assert len(build_default_candidate_library(include_8020=False)) == 52
+    assert len(build_default_candidate_library(include_8020=False)) == 55  # 52 + 3 TASK-059 short bricks
     assert len(build_hybrid_candidate_library(include_8020=False)) == 22
 
 

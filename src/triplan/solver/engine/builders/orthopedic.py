@@ -57,5 +57,5 @@ def add_tier1(ctx: BuildContext) -> None:
         sport_day=lambda s, d: ctx.y.get((s, d)),
         rest_day=lambda d: ctx.rest[d],
         rest_bounds_default=ctx.opt.rest_bounds_default,
-        extra_members=ctx.table.combo_ids,
+        extra_members=ctx.table.extra_members,
     )

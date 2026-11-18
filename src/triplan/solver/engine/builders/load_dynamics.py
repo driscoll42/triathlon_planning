@@ -121,7 +121,7 @@ def _ctl_ramp_row(ctx: BuildContext) -> None:
     if ls.ctl_ramp_max is None:
         return
     b = ALPHA_CTL
-    ids = np.flatnonzero(tab.mask("Bike", "Run", "Swim"))
+    ids = np.flatnonzero(tab.mask("Bike", "Run", "Swim", "Brick"))
     if len(ids) == 0:
         return
     cols = np.concatenate([ctx.X[ids, d] for d in ctx.days])

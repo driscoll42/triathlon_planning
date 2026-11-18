@@ -239,7 +239,7 @@ def check_week(rec: WeekRecord, prev: Optional[WeekRecord] = None) -> List[Viola
             b = ALPHA_CTL
             ctl = ls.total_ctl
             for d in range(7):
-                t = sum(w.aerobic_tss for w in _day(rec, d) if w.sport in ("Bike", "Run", "Swim"))
+                t = sum(w.aerobic_tss for w in _day(rec, d) if w.sport in ("Bike", "Run", "Swim", "Brick"))
                 ctl = (1 - b) * ctl + b * t
             if ctl - ls.total_ctl > ls.ctl_ramp_max + 1e-6:
                 add("ctl_ramp", f"CTL ramp {ctl - ls.total_ctl:.2f} > {ls.ctl_ramp_max:.1f}", ctl - ls.total_ctl,

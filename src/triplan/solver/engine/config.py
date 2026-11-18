@@ -134,12 +134,20 @@ class WorkoutTable:
         self.cardio_sport: List[str] = [str(getattr(x, "cardio_sport", "") or "") for x in w]
         self.cardio_minutes = np.array([float(getattr(x, "cardio_minutes", 0.0)) for x in w], dtype=np.float64)
         self.cardio_mech = np.array([float(getattr(x, "cardio_mech_strain", 0.0)) for x in w], dtype=np.float64)
+        # TASK-059 Brick run-leg attributes
+        self.brick_run_minutes = np.array([float(getattr(x, "brick_run_minutes", 0.0)) for x in w], dtype=np.float64)
+        self.brick_run_strain = np.array([float(getattr(x, "brick_run_strain", 0.0)) for x in w], dtype=np.float64)
+        self.brick_run_hard = np.array([bool(getattr(x, "brick_run_hard", False)) for x in w], dtype=bool)
         is_run = np.array([s == "Run" for s in self.sport], dtype=bool)
-        # run component: the whole workout for a run, only the cardio part of a lift+run combo
+        is_combo_run = np.array([c == "Run" for c in self.cardio_sport], dtype=bool)
+        is_brick = np.array([s == "Brick" for s in self.sport], dtype=bool)
+        # run component: whole workout for a run, cardio part of a lift+run combo, or run leg of a Brick
         self.run_minutes = np.where(is_run, self.duration,
-                                    np.where(np.array([c == "Run" for c in self.cardio_sport]), self.cardio_minutes, 0.0))
+                                    np.where(is_combo_run, self.cardio_minutes,
+                                             np.where(is_brick, self.brick_run_minutes, 0.0)))
         self.run_strain = np.where(is_run, self.mechanical_strain,
-                                   np.where(np.array([c == "Run" for c in self.cardio_sport]), self.cardio_mech, 0.0))
+                                   np.where(is_combo_run, self.cardio_mech,
+                                            np.where(is_brick, self.brick_run_strain, 0.0)))
 
     @staticmethod
     def _zone_minutes(x: Any) -> List[float]:
@@ -159,9 +167,19 @@ class WorkoutTable:
         """Lift + easy ``sport`` combos (sport stays "Strength"; they also count toward ``sport``)."""
         return [i for i, c in enumerate(self.cardio_sport) if c == sport]
 
+    def brick_ids(self, sport: str) -> List[int]:
+        """Bike->Run Brick workouts (``brick_run_minutes > 0``) that contribute a ``sport`` session."""
+        if sport not in ("Bike", "Run"):
+            return []
+        return [i for i, s in enumerate(self.sport) if s == "Brick" and self.brick_run_minutes[i] > 0]
+
+    def extra_members(self, sport: str) -> List[int]:
+        """Non-standalone workouts (lift+easy combos and Bike->Run bricks) counting toward ``sport``."""
+        return self.combo_ids(sport) + self.brick_ids(sport)
+
     def members(self, sport: str) -> List[int]:
-        """Workouts that put ``sport`` work on the day: its own workouts plus combos with that cardio."""
-        return self.ids(sport) + self.combo_ids(sport)
+        """Workouts that put ``sport`` work on the day: standalone + combos + Bike->Run bricks."""
+        return self.ids(sport) + self.extra_members(sport)
 
     def mask(self, *sports: str) -> np.ndarray:
         return np.isin(self.sport_arr, list(sports))

@@ -110,6 +110,8 @@ def to_candidates(df: pd.DataFrame, base_id: int = 0) -> list:
             preference_penalty=float(r["preference_penalty"]), split_group=r["split_group"],
             bb_sets=int(r["bb_sets"]), db_sets=int(r["db_sets"]),
             neuromuscular_load=float(r["neuromuscular_load"]), axial_load=float(r["axial_load"]),
+            brick_run_minutes=float(r["brick_run_min"]), brick_run_strain=float(r["brick_run_strain"]),
+            brick_run_hard=bool(r["is_brick_run_hard"]),
             sets_by_muscle=muscles, flags=_flags(r), provenance=str(r.get("provenance") or ""),
         ))
     return out
