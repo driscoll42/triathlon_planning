@@ -39,6 +39,7 @@ class WeekRecord:
     carry: Any = None           # WeekCarryIn consumed by this week's MILP
     relaxations: List[Dict[str, Any]] = field(default_factory=list)
     diagnostics: List[str] = field(default_factory=list)
+    n_candidates: int = 0
 
 
 def format_plan_to_dataframe(plan: Dict[str, Any], week_num: int = 1, phase_name: str = "Base") -> pd.DataFrame:
@@ -335,7 +336,8 @@ def generate_closed_loop_season_schedule(
                 target_tss=target_tss, status=plan.get("status"), solved=solved_ok,
                 schedule={d: list(plan["schedule"][d]) for d in range(7)}, limits=scheduler.limits,
                 cfg=scheduler.cfg, carry=carry, relaxations=list(plan.get("relaxations", [])),
-                diagnostics=list(plan.get("diagnostics", []))))
+                diagnostics=list(plan.get("diagnostics", [])),
+                n_candidates=len(scheduler.engine.workouts)))
         if plan:
             for day_wkts in plan["schedule"].values():
                 for w in day_wkts:
@@ -399,6 +401,7 @@ def generate_closed_loop_season_schedule(
                 "Recalibration": " + ".join(x for x in (recal_action, pert_info, heavy_note, keystone_note, structure_note) if x),
                 "Solve_Status": plan.get("status"),
                 "MIP_Gap": plan.get("mip_gap"),
+                "Candidates": len(scheduler.engine.workouts),
                 "Relaxations": "; ".join(r["message"] for r in plan.get("relaxations", [])),
                 "Diagnostics": "; ".join(plan.get("diagnostics", [])),
             })

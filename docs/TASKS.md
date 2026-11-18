@@ -4,32 +4,38 @@
 > **Directive:** the three MILP solvers are one engine (`solver/engine/`, `ADR-017`). Add rules as builder modules, never a 4th engine.
 
 ## P0 — User Decisions (`[!]`)
+
 None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027-05-15** (time budget, pool access).
 
 ## P1 — Engineering Queue
+
 Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (342 pass; `-m slow` adds the 8-season `EXP-007` matrix).
 
-### Phase 2 — Unified MILP Engine
-- [ ] `TASK-060` (`perf`): candidate-set growth is a solve-time tax (+31 default rows tripled season wall time before pruning; lift x cardio combos dominate); add dominance / symmetry pruning of near-identical rows (`EXP-008`).
-- [ ] `TASK-059` (`safety`): a `Brick` run leg is invisible to `run_minutes` / `run_strain` / ACWR / run-share rows, so no Brick can enter the default library until its run leg is modelled (`EXP-008`).
-- [ ] `TASK-061` (`safety`): the receding-horizon run-strain progression guard (`max(1.25 x last week, 150)`) tightens the cap to ~172 after recovery / low-run weeks and blocks the `ADR-028` long-run keystone (week-5 diagnosis); owner decision on guard shape.
-- [ ] `TASK-062` (`safety`): a 90+ min keystone run is never hosted even with the ADR-022 cap, ACWR and strain guard lifted one at a time; identify the binding row stack (32% share needs 281 run min) and decide the run-load build-up policy.
-- [ ] `TASK-063` (`mpc`): distance-aware long-ride keystone (180 -> 210-360 min `BIKE_LC_OUT_*`) for the `ADR-028` long-ride weeks, bounded by the 48h ANS cap (`TASK-050`).
+### Phase 2 — Unified MILP Engine (`~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/phase2_master_plan.md`)
+
+- [ ] `TASK-059` (`safety`): model `Brick` run leg & short default bricks (`EXP-008`) — `~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/plan_TASK_059_brick_run_leg.md`
+- [ ] `TASK-061` (`safety`): 3-wk rolling window in run-strain guard for `ADR-028` keystones — `~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/plan_TASK_061_run_strain_guard.md`
+- [ ] `TASK-062` (`safety`): 90+ min keystone run attribution & support-run policy (`ADR-022`, `ADR-028`) — `~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/plan_TASK_062_keystone_run_90plus.md`
+- [ ] `TASK-063` (`mpc`): distance-aware long-ride keystone (180->210-360m `BIKE_LC_OUT_*`, `TASK-050`) — `~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/plan_TASK_063_long_ride_keystone.md`
 
 ### Phase 3 — Physiology Calibration
+
 - [ ] `TASK-021` (`physiology`): unify ANS cost, strain, strength TSS; exact Banister decay.
-- [ ] `TASK-050` (`physiology`): Ironman build weeks stay 64-139 TSS under target because the rolling 48h ANS cap (700) binds at 690; low-intensity long sessions are ANS-expensive (`e^(0.65(z-1))`, with `TASK-021`). Owner decision: keep, or re-weight ANS for Z1/Z2 long sessions; plus distance-aware anchors (IM long-ride anchor). **Deferred by owner to `TASK-021` (ANS weighting of Z1/Z2 long sessions; keep the 700 cap).**
+- [ ] `TASK-050` (`physiology`): IM build weeks bound by 48h ANS cap (700) on long Z1/Z2 sessions; distance-aware anchors. **Deferred to `TASK-021` (keep 700 cap).**
 - [ ] `TASK-022` (`safety`): fix or replace ODI (dimensional mismatch, wrong-sign controller).
 - [ ] `TASK-023` (`mpc`): interval-parsed TTE durability, variety goal, `Phase` enum, walk-jog re-entry.
+  - [ ] Use ~/.gemini/antigravity-cli/brain/d15e4a01-51fd-44e4-8d43-485d767b8207/implementation_plan.md for TASK-023 and TASK-058
 - [ ] `TASK-058` (`workouts`): walk-jog (run/walk) re-entry workouts: the schema has no walk component and a reduced impact load is an invented number; build them on the `TASK-023` impact model (`EXP-008`).
 
 ### Phase 4 — Telemetry & Closed Loop
+
 - [ ] `TASK-024` (`integrations`): multi-device `.fit` activity parser + 300s ride dedup (`SPEC.md`, `ADR-010`).
 - [ ] `TASK-025` (`mpc`): actuals store, unified readiness α_d (absorbs `TASK-003`), intra-week re-solve.
 - [ ] `TASK-003` (`mpc`): *merged into `TASK-025`*.
 - [ ] `TASK-002` (`workouts`): swim structured-workout ingestion + TP export; 1–3s jitter in all sync scripts.
 
 ## P2 — Queued Experiments (`docs/experiments/`)
+
 - [ ] `EXP-003` (`perf`): solver correctness, sparse build and pruning scaling. **Run first**; retests `EXP-001`.
 - [ ] `EXP-001` (`perf`): `NEEDS_RETEST` via `EXP-003`. 15-seed race vs single solve.
 - [ ] `EXP-004` (`optimizer`): goal-weight sensitivity + session-structure constraints (81-point sweep).

@@ -76,8 +76,11 @@ class UnifiedWeekEngine:
         self._diag_workouts = list(workouts)
         self._diag_sets = classify_workouts(self._diag_workouts)
         self._diag_allowed = calendar.make_allowed(WorkoutTable(self._diag_workouts), self.cfg, options)
+        req_heavy = self.cfg.get("required_heavy_strength_sessions", default=None) if options.tier1 else None
         if options.safety or options.allowed_rule != "none":
-            workouts = filter_feasible_candidates(workouts, self._diag_allowed, self.limits)
+            workouts = filter_feasible_candidates(
+                workouts, self._diag_allowed, self.limits, req_heavy_strength=req_heavy
+            )
         if options.prune_8020_pool:
             workouts = prune_8020_candidates(workouts, options.max_8020_per_bucket)
         self.combo_codes: List[str] = []
@@ -87,7 +90,17 @@ class UnifiedWeekEngine:
                 max_minutes=float(self.cfg.get("combo_cardio_max_minutes", default=20.0)),
                 sports_after_heavy_lower=list(self.cfg.get("combo_cardio_sports_after_heavy_lower", default=["Bike"])),
                 sports_after_other_lift=list(self.cfg.get("combo_cardio_sports_after_other_lift",
-                                                          default=["Bike", "Run"])))
+                                                          default=["Bike", "Run"])),
+                max_non_heavy_bases=self.cfg.get("combo_max_non_heavy_bases",
+                                                 default=options.max_non_heavy_combo_bases),
+                max_combos_per_lift=self.cfg.get("combo_max_per_lift",
+                                                 default=options.max_combos_per_lift),
+            )
+            if combos and (options.safety or options.allowed_rule != "none"):
+                combo_allowed = calendar.make_allowed(WorkoutTable(combos), self.cfg, options)
+                combos = filter_feasible_candidates(
+                    combos, combo_allowed, self.limits, req_heavy_strength=req_heavy
+                )
             self.combo_codes = [c.code for c in combos]
             workouts = workouts + combos
         if options.prune_dominated:

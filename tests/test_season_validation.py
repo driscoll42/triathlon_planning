@@ -168,6 +168,7 @@ def test_short_reference_season_clean():
     res = _short_season("reference", "sprint", weeks_to_race=4)
     assert res["weeks"] == 4 and res["fallback"] == 0
     assert res["violations"] == [], res["violations"]
+    assert 0 < res["max_candidates"] <= sv.MAX_CANDIDATES_BUDGET == 120
     assert res["max48_tss"] <= 295.0 + 1e-6 and res["high_pct_max"] <= 20.0 + 1e-6 and res["low_pct_min"] >= 78.0 - 1e-6
     assert res["infeasibility"] is not None                       # attached (possibly only relaxation roll-up)
 
@@ -176,6 +177,7 @@ def test_short_current_athlete_season_clean_and_diagnosed():
     res = _short_season("current", "ironman", weeks_to_race=4, reentry_weeks=4)
     assert res["weeks"] == 8 and res["fallback"] == 0
     assert res["violations"] == [], res["violations"]
+    assert 0 < res["max_candidates"] <= sv.MAX_CANDIDATES_BUDGET == 120
     assert any("long ride 180+ min cannot fit" in m for m in res["infeasibility"]), res["infeasibility"]
 
 
@@ -186,6 +188,7 @@ def test_full_matrix_season(profile_name, distance):
     res = sv.run_one(profile_name, distance)
     assert res["fallback"] == 0
     assert res["violations"] == [], res["violations"][:5]
+    assert 0 < res["max_candidates"] <= sv.MAX_CANDIDATES_BUDGET == 120
     # TASK-038: recovery / taper / race weeks no longer overshoot their targets by more than 25 TSS
     for kind in ("recovery", "taper/race"):
         assert res["tss_by_type"][kind]["max_over"] <= 25.0 + 1e-6, (kind, res["tss_by_type"][kind])

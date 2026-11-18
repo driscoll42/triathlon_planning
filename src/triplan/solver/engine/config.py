@@ -271,6 +271,8 @@ class EngineOptions:
     hard_days_hard: bool = True        # heavy lower strength only on hard-endurance days (when 2 windows)
     window_gating: bool = True         # double[d] <= two_windows[d]
     lift_easy_combo: bool = True       # DECISION-021 compound candidates
+    max_non_heavy_combo_bases: Optional[int] = 2
+    max_combos_per_lift: Optional[int] = 2
     canonical_8020: bool = True        # Z1+Z2 >= 78% and Z3+ZY+Z4+Z5 <= 20% hard, 80% soft, Zone X soft
     plan_format: str = "meso"
     infeasible_hint: bool = True
