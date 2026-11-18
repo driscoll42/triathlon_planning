@@ -13,7 +13,6 @@ Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library +
 
 ### Phase 2 — Unified MILP Engine (`~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/phase2_master_plan.md`)
 
-- [~] `TASK-060` (`perf`): near-duplicate pruning & combo caps (`EXP-008`) — `~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/plan_TASK_060_pruning_and_combos.md`
 - [ ] `TASK-059` (`safety`): model `Brick` run leg & short default bricks (`EXP-008`) — `~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/plan_TASK_059_brick_run_leg.md`
 - [ ] `TASK-061` (`safety`): 3-wk rolling window in run-strain guard for `ADR-028` keystones — `~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/plan_TASK_061_run_strain_guard.md`
 - [ ] `TASK-062` (`safety`): 90+ min keystone run attribution & support-run policy (`ADR-022`, `ADR-028`) — `~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/plan_TASK_062_keystone_run_90plus.md`
