@@ -251,6 +251,8 @@ class EngineOptions:
     cut_min_diff: int = 1
     symmetry_breaking: bool = True
     prune_dominated: bool = True
+    prune_8020_pool: bool = True
+    max_8020_per_bucket: Optional[Dict[str, int]] = None
     rest_bounds_default: Tuple[int, int] = (1, 7)
     empty_row_policy: str = "raise"
     safety: bool = True
@@ -299,7 +301,7 @@ def legacy_options(spec: LegacySpec) -> EngineOptions:
     """``optimize_weekly_schedule`` semantics: one workout/day, exact count, no Tier-0/1 layers."""
     return EngineOptions(
         session_model="single_per_day", allowed_rule="none", cost_profile="none", goal_profile="legacy",
-        cut_mode="none", symmetry_breaking=False, prune_dominated=False, safety=False, tier1=False, meso_adjacency_rows=False, weekly_run_strain_cap=False,
+        cut_mode="none", symmetry_breaking=False, prune_dominated=False, prune_8020_pool=False, safety=False, tier1=False, meso_adjacency_rows=False, weekly_run_strain_cap=False,
         prefilter_grey_zone=False, quality_classification=False, one_hard_per_day=False, key_sessions=False,
         hard_days_hard=False, window_gating=False, lift_easy_combo=False, canonical_8020=False,
         plan_format="raw", infeasible_hint=False, quiet_option="log_to_console", mip_rel_gap=None,

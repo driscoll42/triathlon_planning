@@ -35,7 +35,8 @@ from triplan.solver.engine.config import EngineOptions, WEEKENDS, WeekConfig, Wo
 from triplan.solver.engine.context import BuildContext
 from triplan.solver.engine.model import INF, WeekModel, add_row_to_highs
 from triplan.solver.highs_runtime import apply_threads
-from triplan.solver.pruning import DominanceReport, prune_dominated_candidates
+from triplan.solver.pruning import (DominanceReport, filter_feasible_candidates, prune_8020_candidates,
+                                  prune_dominated_candidates)
 from triplan.solver.safety_constraints import (
     LexState,
     SafetyLimits,
@@ -62,14 +63,23 @@ class UnifiedWeekEngine:
         self.dominance: Optional[DominanceReport] = None
         workouts = list(workouts)
         self.cfg = WeekConfig(config)
-        # TASK-019 pre-filtering invariant: grey-zone drop -> q_i hard classification -> DECISION-021 combos
-        # -> dominance pruning, all before the WorkoutTable / model exist.
+        # TASK-019 pre-filtering invariant: grey-zone drop -> q_i hard classification -> lossless feasibility filter ->
+        # stratified 80/20 pool pruning -> DECISION-021 combos -> dominance pruning, all before WorkoutTable / model.
         self.quality_params = sq.SessionQualityParams.from_config(self.cfg)
         self.grey_zone_dropped: List[str] = []
         if options.prefilter_grey_zone:
             workouts, self.grey_zone_dropped = sq.prefilter_grey_zone(workouts, self.quality_params)
         if options.quality_classification:
             workouts = sq.reclassify_hard(workouts, self.quality_params)
+        self.limits = SafetyLimits.from_config(config)
+        self.limits.long_run_abs_cap_min = resolve_long_run_cap(self.limits, carry_in)   # ADR-022
+        self._diag_workouts = list(workouts)
+        self._diag_sets = classify_workouts(self._diag_workouts)
+        self._diag_allowed = calendar.make_allowed(WorkoutTable(self._diag_workouts), self.cfg, options)
+        if options.safety or options.allowed_rule != "none":
+            workouts = filter_feasible_candidates(workouts, self._diag_allowed, self.limits)
+        if options.prune_8020_pool:
+            workouts = prune_8020_candidates(workouts, options.max_8020_per_bucket)
         self.combo_codes: List[str] = []
         if options.lift_easy_combo and bool(self.cfg.get("allow_lift_cardio_combo", default=True)):
             combos = make_lift_easy_combos(
@@ -86,8 +96,6 @@ class UnifiedWeekEngine:
         self.workouts = workouts
         self.table = WorkoutTable(self.workouts)
         self.key = sq.key_mask(self.workouts, self.quality_params)
-        self.limits = SafetyLimits.from_config(config)
-        self.limits.long_run_abs_cap_min = resolve_long_run_cap(self.limits, carry_in)   # ADR-022
         self.sets = classify_workouts(self.workouts)
         self.allowed = calendar.make_allowed(self.table, self.cfg, options)
         self.notes: List[str] = list(notes or [])
@@ -100,7 +108,8 @@ class UnifiedWeekEngine:
     def explain_feasibility(self) -> List[str]:
         if not self.opt.safety:
             return list(self.notes)
-        return self.notes + explain_feasibility(self.workouts, self.config, self.limits, self.allowed, self.sets)
+        return self.notes + explain_feasibility(
+            self._diag_workouts, self.config, self.limits, self._diag_allowed, self._diag_sets)
 
     # ------------------------------------------------------------------ build
     def build_model(self) -> BuildContext:

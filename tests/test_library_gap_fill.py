@@ -131,5 +131,5 @@ def test_existing_rows_unchanged_by_the_migration():
 
 def test_every_default_run_has_a_30_minute_or_shorter_easy_option():
     runs = [w for w in build_default_candidate_library() if w.sport == "Run" and not w.is_hard_endurance]
-    assert sorted(w.duration for w in runs if w.duration <= 30)[:3] == [15.0, 20.0, 25.0]
+    assert {15.0, 20.0, 25.0} <= {w.duration for w in runs if w.duration <= 30}
     assert any(w.has_strides and w.duration <= 30 for w in runs)

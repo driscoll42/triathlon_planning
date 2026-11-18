@@ -203,8 +203,10 @@ def test_row_model_rejects_cross_sport_flags():
 # ----------------------------------------------------------------------------- loader
 
 def test_loader_sets_and_legacy_frame(lib):
-    assert len(load_candidates(library="default")) == 38 + 14   # TASK-051 gap-fill
-    assert len(load_candidates(library="hybrid")) == 22
+    assert len(load_candidates(library="default", include_8020=False)) == 38 + 14   # TASK-051 gap-fill core
+    assert len(load_candidates(library="hybrid", include_8020=False)) == 22
+    assert len(load_candidates(library="default")) == 38 + 14 + 479                 # core + 80/20 options
+    assert len(load_candidates(library="hybrid")) == 22 + 479
     no_tests = select(lib, library="default", include_tests=False)
     assert not no_tests["is_test"].any()
     legacy = legacy_frame(select(lib, provenance=["8020_library"]))

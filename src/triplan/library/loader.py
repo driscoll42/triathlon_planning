@@ -110,15 +110,27 @@ def to_candidates(df: pd.DataFrame, base_id: int = 0) -> list:
             preference_penalty=float(r["preference_penalty"]), split_group=r["split_group"],
             bb_sets=int(r["bb_sets"]), db_sets=int(r["db_sets"]),
             neuromuscular_load=float(r["neuromuscular_load"]), axial_load=float(r["axial_load"]),
-            sets_by_muscle=muscles, flags=_flags(r),
+            sets_by_muscle=muscles, flags=_flags(r), provenance=str(r.get("provenance") or ""),
         ))
     return out
 
 
 def load_candidates(*, library: Optional[str] = None, provenance: Optional[Iterable[str]] = None,
                     sports: Optional[Iterable[str]] = None, include_tests: bool = True,
-                    path: Optional[str] = None) -> list:
-    return to_candidates(select(load_library(path), library=library, provenance=provenance,
+                    include_8020: bool = True, path: Optional[str] = None) -> list:
+    """Load CandidateWorkout objects from the canonical library.
+
+    When ``library`` is ``"default"`` or ``"hybrid"`` and ``provenance`` is not given,
+    ``include_8020=True`` (default) also includes ``provenance == "8020_library"`` options
+    alongside the curated ``lib_default`` / ``lib_hybrid`` core.
+    """
+    lib_df = load_library(path)
+    if library in ("default", "hybrid") and provenance is None and include_8020:
+        core = select(lib_df, library=library, sports=sports, include_tests=include_tests)
+        extra = select(lib_df, provenance=["8020_library"], sports=sports, include_tests=include_tests)
+        combined = pd.concat([core, extra], ignore_index=True).drop_duplicates(subset=["code"], keep="first")
+        return to_candidates(combined)
+    return to_candidates(select(lib_df, library=library, provenance=provenance,
                                 sports=sports, include_tests=include_tests))
 
 

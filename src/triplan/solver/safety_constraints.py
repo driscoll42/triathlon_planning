@@ -327,15 +327,17 @@ def _add_run_share_cap(hooks: ModelHooks, workouts, limits: SafetyLimits, S: Wor
     hooks.add_row({v: 1.0, z[4]: -4.0}, 0.0, inf)
 
     durs = {i: run_minutes(workouts[i]) for i in S.runs}
+    # Auxiliary total-run-minutes variable keeps each run-share row at 3 nonzeros instead of |pairs| + 1.
+    r_tot = hooks.add_var(0.0, inf, False)
+    r_row = {hooks.x(j, dp): durs[j] for j, dp in pairs}
+    r_row[r_tot] = -1.0
+    hooks.add_row(r_row, 0.0, 0.0)
     for n in (4, 3, 2):
         rho = limits.run_share_cap(n)
         if rho >= 1.0:
             continue
         for i, d in pairs:
-            r = {hooks.x(j, dp): -rho * durs[j] for j, dp in pairs}
-            r[hooks.x(i, d)] = r[hooks.x(i, d)] + durs[i]
-            r[z[n]] = durs[i]
-            hooks.add_row(r, -inf, durs[i])
+            hooks.add_row({hooks.x(i, d): durs[i], r_tot: -rho, z[n]: durs[i]}, -inf, durs[i])
 
     # ADR-022: with < 4 runs the ratio is vacuous, so cap every single run in absolute minutes instead.
     # z4 = 1 iff >= 4 runs, so for a run longer than L the row  x_id - z4 <= 0  forbids it unless the week has
@@ -662,6 +664,12 @@ def lexicographic_solve(h: "highspy.Highs", tier1_costs: Dict[int, float], state
     h.changeColsCost(n, np.array(idx, dtype=np.int32), np.array(tier2, dtype=np.float64))
     h.setOptionValue("mip_abs_gap", 1e-6)
     h.setOptionValue("mip_rel_gap", 0.01 if tier2_gap is None else tier2_gap)
+    # Phase-A's solution satisfies every Phase-B row (including the newly locked Tier-1 bound); pass it as MIP start.
+    if res_a.col_value is not None:
+        sol = highspy.HighsSolution()
+        sol.col_value = list(res_a.col_value)
+        sol.value_valid = True
+        h.setSolution(sol)
     state.locked = True
     state.tier1_penalty = best
     res_b = run_and_check(h)

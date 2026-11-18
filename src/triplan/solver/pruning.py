@@ -140,3 +140,86 @@ def prune_dominated_candidates(workouts: Sequence[Any], sport_freq_bounds: Optio
     if drop:
         logger.info("dominance pruning removed %d of %d workouts: %s", len(drop), len(workouts), report.pruned_codes)
     return kept_list, report
+
+
+# =============================================================================
+# Athlete-feasible pre-filter & stratified 80/20 pruning
+# =============================================================================
+
+DEFAULT_8020_BUCKET_CAPS: Dict[str, int] = {"easy": 6, "tempo": 4, "hi": 4}
+
+
+def filter_feasible_candidates(workouts: Sequence[Any], allowed_fn, limits: Any) -> List[Any]:
+    """Losslessly drop non-anchor, non-test workouts with zero schedulable days under Tier-0 unary gates."""
+    kept: List[Any] = []
+    for i, w in enumerate(workouts):
+        if _is_protected(w):
+            kept.append(w)
+            continue
+        ax = float(getattr(w, "axial_load", 0.0) or 0.0)
+        if ax > limits.max_daily_axial + 1e-9:
+            continue
+        nu = float(getattr(w, "neuromuscular_load", 0.0) or 0.0)
+        dur = float(getattr(w, "duration", 0.0) or 0.0)
+        wcap = limits.weekday_single_workout_cap
+        ok = False
+        for d in range(7):
+            if d < 5 and wcap is not None and dur > wcap + 1e-9:
+                continue
+            if nu > limits.max_daily_neuro * float(limits.readiness_alpha[d]) + 1e-9:
+                continue
+            if allowed_fn(i, d):
+                ok = True
+                break
+        if ok:
+            kept.append(w)
+    return kept
+
+
+def _intensity_bucket(w: Any) -> str:
+    if not getattr(w, "is_hard_endurance", False):
+        return "easy"
+    z7 = getattr(w, "zone7", None)
+    if z7 and len(z7) >= 7:
+        z3, z45 = float(z7[3]), float(z7[4] + z7[5] + z7[6])
+    else:
+        zd = getattr(w, "zone_durations", (0.0, 0.0, 0.0, 0.0, 0.0))
+        z3, z45 = float(zd[2]), float(zd[3] + zd[4])
+    return "tempo" if z3 >= z45 else "hi"
+
+
+def prune_8020_candidates(workouts: Sequence[Any],
+                          bucket_caps: Optional[Dict[str, int]] = None) -> List[Any]:
+    """Stratified representative pruning of ``8020_library`` workouts across duration and intensity buckets.
+
+    Curated core rows (non-``8020_library``), anchors, tests, and stride-bearing sessions are never pruned.
+    Within each ``(sport, intensity_bucket)`` of ``8020_library`` rows, evenly spaced representatives across
+    feasible ``(duration, aerobic_tss)`` (including shortest and longest) are retained up to ``bucket_caps``.
+    """
+    caps = bucket_caps or DEFAULT_8020_BUCKET_CAPS
+    groups: Dict[Tuple[str, str], List[int]] = {}
+    for idx, w in enumerate(workouts):
+        if getattr(w, "provenance", "") != "8020_library" or _is_protected(w) or getattr(w, "has_strides", False):
+            continue
+        groups.setdefault((getattr(w, "sport", ""), _intensity_bucket(w)), []).append(idx)
+
+    keep_8020: set = set()
+    for (_sport, bucket), idxs in groups.items():
+        cap = int(caps.get(bucket, 4))
+        if len(idxs) <= cap:
+            keep_8020.update(idxs)
+            continue
+        ordered = sorted(idxs, key=lambda i: (round(float(workouts[i].duration), 1),
+                                              round(float(workouts[i].aerobic_tss), 1),
+                                              str(getattr(workouts[i], "code", ""))))
+        if cap == 1:
+            keep_8020.add(ordered[0])
+        else:
+            picks = {ordered[int(round(k * (len(ordered) - 1) / (cap - 1)))] for k in range(cap)}
+            keep_8020.update(picks)
+
+    return [w for i, w in enumerate(workouts)
+            if getattr(w, "provenance", "") != "8020_library"
+            or _is_protected(w)
+            or getattr(w, "has_strides", False)
+            or i in keep_8020]
