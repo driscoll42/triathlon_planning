@@ -1,101 +1,78 @@
 # Domain Lode: `optimizer`
 
 ## 1. Scope & Responsibility
-Mixed-Integer Linear Programming (MILP) scheduling models, the HiGHS C++ solver interface ([`highspy`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py)), exact algebraic linearization of non-linear physiological ratios, auxiliary variable linking, dimensionless multi-objective optimization, candidate workout pruning, and selection-based Top-K cuts.
+Unified Mixed-Integer Linear Programming (MILP) weekly scheduling engine (`ADR-017`), HiGHS C++ solver interface (`highspy`, `ADR-002`), pre-solve candidate pruning (`TASK-060`, `ADR-029`), exact algebraic ratio linearization, three-tier lexicographic constraint hierarchy (`ADR-013`), selection-based Top-K plan extraction and week-reversal symmetry breaking (`ADR-018`).
 
 ## 2. Key Modules & Entrypoints
-Since `TASK-015` there is ONE engine (`ADR-017`): `UnifiedWeekEngine` builds a buffered sparse `WeekModel` from modular constraint builders, bulk-builds HiGHS (one `addCols`, one `addRows`), solves lexicographically (Tier-1 slack, then Tier-2), and extracts Top-K plans. Semantics are selected by `EngineOptions` presets (`meso_options`, `hybrid_options`, `legacy_options`); option names are documented in `engine/config.py`. Add new rules as builder modules (seams: `TASK-018` landed carry-in/ACWR/CTL-ramp as `builders/load_dynamics.py` after `add_tier1`, `ADR-019`, `TASK-019` in `intensity_structure`, `TASK-020` landed selection cuts in `UnifiedWeekEngine._add_cut`, `pruning.py` and `builders/symmetry.py`, `ADR-018`), never as a fourth engine.
-- [`src/triplan/solver/engine/`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/engine/engine.py): `model.py` (`WeekModel`: numpy column/CSR row buffers, duplicate summing, dimensionless `add_soft_goal`), `config.py` (`WorkoutTable`/`WeekConfig` accessors, `EngineOptions` presets), `engine.py` (`UnifiedWeekEngine`, `solve_week`), `builders/{calendar,orthopedic,intensity_structure,strength,goals,symmetry}.py`, with candidate dominance pruning in `solver/pruning.py`.
-- [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): [`TriathlonMILPScheduler`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py), thin facade (`meso_options`).
-- [`src/triplan/solver/hybrid.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/hybrid.py): `HybridAthleteMILPOptimizer`, thin facade (`hybrid_options`).
-- [`src/triplan/solver/safety_constraints.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/safety_constraints.py): the shared Tier-0/Tier-1 layer that `builders/orthopedic.py` delegates to.
-- [`src/triplan/solver/highs_optimization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_optimization.py): `optimize_weekly_schedule` is a DataFrame adapter over the engine (`legacy_options`); candidate pruning (`filter_viable_workouts`). The selection-only `optimize_weekly_workouts`, the multi-seed race and the parallel olympic workers were deleted in `TASK-020` (`ADR-018`).
-- [`src/triplan/perf/stress.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/perf/stress.py): Scenario benchmark testbed verifying solver convergence across the 11 stress scenarios.
+- [`src/triplan/solver/engine/`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/engine/engine.py) — **The single unified MILP engine (`ADR-017`):**
+  - `model.py`: `WeekModel` (NumPy column buffers, CSR row buffers, duplicate summing, zero dropping, single bulk `addCols` + `addRows`, dimensionless `add_soft_goal` with symmetric or asymmetric weights, `ModelHooks` adapter).
+  - `config.py`: `WorkoutTable`, `WeekConfig`, and `EngineOptions` presets (`meso_options`, `hybrid_options`, `legacy_options`).
+  - `context.py`: `BuildContext` and `Tier1Registry` shared across builders.
+  - `session_quality.py`: Sport-specific `q_i` quality minutes, grey-zone pre-filtering, and hard/key masks (`ADR-020`).
+  - `carry_in.py`: `DayLoad`, `LoadState`, and `WeekCarryIn` boundary structs (`ADR-019`).
+  - `engine.py`: `UnifiedWeekEngine` and `solve_week()` orchestrating pre-filtering, builder assembly, lexicographic solve, selection/layout Top-K cuts, and AM/PM slotting.
+  - `builders/`: `calendar.py`, `goals.py`, `orthopedic.py`, `load_dynamics.py`, `session_structure.py`, `intensity_structure.py`, `strength.py`, `symmetry.py`.
+- [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): `TriathlonMILPScheduler` thin facade (`meso_options`).
+- [`src/triplan/solver/hybrid.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/hybrid.py): `HybridAthleteMILPOptimizer` thin facade (`hybrid_options`).
+- [`src/triplan/solver/highs_optimization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_optimization.py): `optimize_weekly_schedule()` DataFrame adapter (`legacy_options`) and `filter_viable_workouts()`.
+- [`src/triplan/solver/safety_constraints.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/safety_constraints.py): Shared Tier-0/Tier-1 constraint layer, `lexicographic_solve()` (with Phase-B MIP start), and `explain_feasibility()` plain-English diagnostics.
+- [`src/triplan/solver/pruning.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/pruning.py): `filter_feasible_candidates()`, `prune_8020_candidates()`, and `prune_dominated_candidates()`.
+- [`src/triplan/solver/highs_runtime.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/highs_runtime.py): Process-wide HiGHS thread control (`apply_threads`) and status-checked `run_and_check()`.
 
-## 3. Core Architectural Rules & Mathematical Formulations
+## 3. End-to-End Weekly Solve Pipeline (`UnifiedWeekEngine`)
 
-### A. Sets, Indices, & Decision Variables
-- **Sets:** Discrete candidate workouts $W$ (indexed by $w$), 7-day planning horizon $D = \{0..6\}$ (Monday=0 .. Sunday=6), weekday subset $D_{wd} = \{0..4\}$, weekend subset $D_{we} = \{5, 6\}$, sports $S = \{\text{Swim, Bike, Run, Strength, Brick}\}$, intensity zones $Z = \{1..5\}$.
-- **Primary Binary Assignment:** $x_{w,d} \in \{0, 1\}$, where $x_{w,d} = 1$ if workout $w$ is scheduled on day $d$.
-- **Auxiliary Binary Structural Variables:**
-  - $y_{s,d} \in \{0, 1\}$: Equals 1 if sport $s$ occurs on day $d$.
-  - $double_d \in \{0, 1\}$: Equals 1 if day $d$ contains two sessions (e.g. AM Endurance + PM Strength).
-  - $rest_d \in \{0, 1\}$: Equals 1 if day $d$ contains zero sessions.
-  - $hard_d \in \{0, 1\}$: Equals 1 if day $d$ contains a high-intensity endurance or heavy resistance session.
-  - $brick_d \in \{0, 1\}$: Equals 1 if day $d$ pairs both a Bike and a Run session.
-- **Continuous Non-Negative Slack & Surplus Variables:** $s^+_{tss}, s^-_{tss}, s^+_{z}, s^-_{z}, s^+_{s}, s^-_{s}, s^+_{split}, s^-_{split} \ge 0$.
+All three historical solver entrypoints (`TriathlonMILPScheduler`, `HybridAthleteMILPOptimizer`, and `optimize_weekly_schedule`) execute the exact same pipeline configured by `EngineOptions` (new rules are always added as builder modules, never a 4th engine):
 
-### B. Exact Algebraic Linearization of Non-Linear Ratio Constraints
-Fractional ratios whose denominators depend on decision variables $x_{w,d}$ are non-linear. Multiplying through by the strictly positive linear denominator yields an exact linear formulation solvable by HiGHS without approximation error:
+1. **Pre-Filtering & Candidate Preparation (before `WorkoutTable`):**
+   - **Grey-Zone Drop (`session_quality.py`):** Workouts with incidental-adjusted quality $0 < q_i < q_{\text{hard}}$ (`5.0` Z4-equivalent min) are dropped (`prefilter_grey_zone`).
+   - **Hard/Key Classification (`ADR-020`):** `is_hard_endurance` is computed from `q_i >= 5.0` rather than IF; key sessions include hard sessions, anchors, and long endurance (`Run >= 70 min`, `Bike >= 120 min`).
+   - **Lossless Feasibility Filter (`filter_feasible_candidates`):** Drops non-anchor, non-required-test candidates that cannot fit *any* day's time cap, facility gate, or daily axial/neuro cap (and drops heavy strength when `required_heavy_strength_sessions == 0`; `TASK-060`). Full pre-filter inputs are retained for `explain_feasibility()`.
+   - **Stratified 80/20 Pool Pruning (`prune_8020_candidates`, `ADR-029`, `TASK-060`):** Drops `8020_library` near-duplicates within `(<= 2.0 min, <= 3.0 TSS)` of a core workout in the same `(sport, intensity_bucket, is_indoor_bike)`, then selects evenly spaced representatives across `(duration, aerobic_tss)` up to `easy=6, tempo=4, hi=4` per sport. Curated core rows, anchors, tests, and stride-bearing workouts are never dropped.
+   - **Lift + Easy Cardio Combos (`library/compound.py`, `DECISION-021`, `TASK-060`):** Synthesizes lift + `<= 20 min` Z1/Z2 Bike (or Run for non-heavy lifts) compound candidates capped at `max_non_heavy_bases=2` and `max_combos_per_lift=2`, then filters combos through `filter_feasible_candidates` before matrix assembly.
+   - **Exact-Clone Dominance Pruning (`prune_dominated_candidates`, `ADR-018`):** Drops only exact structural clones beyond a sport's weekly maximum (preferring lower `preference_penalty`, higher `durability_score`, and curated provenance over `8020_library`). Duration/TSS/ANS/strain are never used as dominance orders because Tier-2 goals are two-sided.
+2. **Modular Model Assembly (`build_model()`):**
+   - Builders run in fixed order: `calendar` (assignment binaries $x_{w,d}$, uniqueness, day/partition/brick/session links, facility & time caps) → `goals` (declare dimensionless Tier-2 soft deviations) → `orthopedic` (Tier-0 caps + Tier-1 named slacks) → `load_dynamics` (`ADR-019` carry-in boundary rows, in-model running ACWR, CTL ramp, re-entry run-minutes guard) → `session_structure` (one-hard/day, key sessions, Hard-Days-Hard stacking, AM/PM window gating, combo/Brick exclusivity) → `intensity_structure` (`add_canonical_8020`) → `strength` (barbell share `>= 60%`, 4-pattern sets `>= 10`, split coherence $z_{\text{split}}$) → `symmetry` (week-reversal ordering row when palindromic).
+3. **Two-Phase Lexicographic Solve (`ADR-013`, `ADR-029`):**
+   - **Phase A (Tier-1):** Minimizes lexicographically weighted (`LEX_BASE = 8` by `tier1_relaxation_order`) integer/binary Tier-1 slacks (anchors, sport frequencies, strides, rest days, heavy strength, key sessions, heavy-strength unstacking, ACWR 0.80 floor waiver). Tier-0 caps are never relaxed.
+   - **Phase B (Tier-2):** Locks the Phase-A slack values, warm-starts HiGHS from Phase A's solution (`h.setSolution`, `ADR-029`), and minimizes the dimensionless Tier-2 objective to `mip_rel_gap` (`1%` default).
+4. **Top-K Extraction & Diagnostics (`ADR-018`):**
+   - Default `cut_mode='selection'` appends $\sum_{i \in S^{(k)}} s_i \le |S^{(k)}| - m$ ($s_i = \sum_d x_{i,d}$, $m = 1$) so each plan selects a genuinely distinct set of workouts (rather than merely permuting days). `cut_mode='layout'` remains optional; `'none'` runs a single solve.
+   - If Phase A is infeasible, `explain_feasibility()` reports the conflicting Tier-0 caps in plain English.
 
-1. **Sport Duration Allocations:** To achieve sport duration fraction $P_s$ of realized weekly duration:
-   $$\sum_{w \in W, d \in D} (D_{w,s} - P_s \cdot D_w) \cdot x_{w,d} - s^+_s + s^-_s = 0 \quad \forall s \in S$$
-2. **Time-in-Zone (TiZ) Allocations (Polarized vs. Pyramidal):** To enforce zone fractions $P_z$ across total weekly training time:
-   $$\sum_{w \in W, d \in D} (D_{w,z} - P_z \cdot D_w) \cdot x_{w,d} - s^+_z + s^-_z = 0 \quad \forall z \in Z$$
-   The net linear coefficient for each variable $x_{w,d}$ is the precomputed scalar $(D_{w,z} - P_z \cdot D_w)$.
-3. **Single-Session Run Volume Ceiling ($\le 32\%$ of Weekly Run Duration):**
-   $$\forall w \in W_{run}, \forall d \in D: \quad (1 - P_{run\_cap}) \cdot D_w \cdot x_{w,d} - P_{run\_cap} \sum_{(w',d') \ne (w,d), w' \in W_{run}} D_{w'} \cdot x_{w',d'} \le 0$$
-   This eliminates excessive long-run orthopedic spikes while scaling naturally with total weekly running volume.
+## 4. Key Mathematical Formulations & Invariants
 
-### C. Auxiliary Variable Linking & Structural Constraints
-- **Sport Occurrence Linking:** $\sum_{w \in W_s} x_{w,d} = y_{s,d} \quad \forall s \in S, d \in D$. At most one session per sport per day is permitted.
-- **Session Count Linking:** $\sum_{w \in W} x_{w,d} = 1 - rest_d + double_d \quad \forall d \in D$. Days can have 0 workouts ($rest_d=1$), 1 workout, or at most 2 workouts ($double_d=1$).
-- **Brick Transition Linking:** $brick_d \le y_{bike,d}$, $brick_d \le y_{run,d}$, and $brick_d \ge y_{bike,d} + y_{run,d} - 1$.
-- **Hard Day Linking:** $x_{w,d} \le hard_d \quad \forall w \in W_{high} \cup W_{heavy\_str}, d \in D$.
-- **Hard/Easy Adjacency Invariant:** $hard_d + hard_{d+1} \le 1 \quad \forall d \in \{0..5\}$. Consecutive breakthrough or heavy resistance days are strictly prohibited.
-- **Heavy Run & Post-Strength Separation:**
-  - Consecutive heavy runs: $heavy\_run_d + heavy\_run_{d+1} \le 1 \quad (\ge 48\text{h separation})$.
-  - Post-strength lockout: $heavy\_strength_d + heavy\_run_d \le 1$ and $heavy\_strength_d + heavy\_run_{d+1} \le 1$.
+### A. Decision Variables & Exact Ratio Linearization
+- **Primary Binary Assignment:** $x_{w,d} \in \{0, 1\}$ for candidate $w \in W$ and day $d \in \{0..6\}$ (Mon=0 .. Sun=6).
+- **Auxiliary Variables:** $y_{s,d}$ (sport occurrence), $double_d$, $rest_d$, $hard_d$, $brick_d$, and $z_{\text{split}} \in \{0,1\}$ (HLM vs Upper/Lower split coherence).
+- **Linearized Ratios:** Non-linear ratios (sport duration splits, TiZ targets, barbell set share $\ge 60\%$, and `ADR-003` single-run share $\le 32\%$ using sparse $r_{\text{tot}}$ in `_add_run_share_cap` per `ADR-029`) are multiplied through by their linear denominators so the entire problem stays exact MILP.
+- **Brick Run-Leg Accounting (`ADR-030`):** Bike→Run bricks (`brick_run_min > 0`) contribute their run leg to run minutes, run mechanical strain, heavy/long-run adjacency, Bike+Run frequency counts, and `Brick`/cardio same-day exclusivity (`SW_T1_BRICK` with `brick_run_min == 0` stays non-run).
 
-### D. Calendar, Facility, & Rolling 48-Hour Boundaries
-- **Weekday Single-Session Cap:** Weekday sessions are capped at 60 minutes ($D_w \cdot x_{w,d} \le 60 \quad \forall d \in D_{wd}$). On designated double-session days, a secondary slot allows up to 105 min total across 2 sessions.
-- **Weekend Expansion:** Saturday and Sunday expand to 180–240 minute windows for long outdoor rides, runs, and bricks.
-- **Facility Availability Gating:** $x_{w,d} \le A_{facility(w), d}$. Pool-gated workouts are locked to open days (e.g. Sat/Sun only). Outdoor cycling is restricted strictly to weekends; weekday cycling defaults to indoor smart trainers.
-- **Rolling 48-Hour Stress Windows:** Across all adjacent day pairs $(d, d+1)$:
-  - Rolling Aerobic TSS $\le 295.0$
-  - Rolling ANS Cost $\le 650.0$
-  - Rolling Mechanical Strain $\le 260.0$
-
-### E. Dimensionless Multi-Objective Function & Calibrated Priority Weights
-Because decision metrics span incompatible units (TSS points 400–700, minutes 500–900, durability scores 0–10), all terms are normalized by nominal constants ($TSS_{target}$, $D_{nominal}$) into dimensionless fractional deviations:
-$$J = W_{tss} \cdot \frac{s^+_{tss} + s^-_{tss}}{TSS_{target}} + W_{tiz} \sum_{z=1}^5 \frac{s^+_z + s^-_z}{D_{nominal}} + W_{sport\_dur} \sum_{s \in S} \frac{s^+_s + s^-_s}{D_{nominal}} + W_{tss\_split} \cdot \frac{s^+_{split} + s^-_{split}}{TSS_{target}} - W_{durab} \sum_{w,d} \text{durab}_w \cdot x_{w,d} + W_{pref} \sum_{w,d} c_{w,d} \cdot x_{w,d} + W_{double} \sum_{d} double_d$$
-
-- **Calibrated Weight Hierarchy:**
-  - $W_{tss} = 100.0$: Primary anchor ensuring weekly volume target compliance.
-  - $W_{tiz} = 80.0$: High priority enforcing Polarized or Pyramidal Time-in-Zone fidelity.
-  - $W_{sport\_dur} = 50.0$: Sport duration proportion balance.
-  - $W_{tss\_split} = 45.0$: Bike-to-Run TSS proportion balance (60/40 or 67/33).
-  - $W_{durab} = 25.0$: Specific Build phase reward for high durability stimulus workouts.
-  - $W_{pref} = 5.0$: Schedule friction penalty minimizing off-day athlete preferences.
-  - $W_{double} = 0.5$: Low-priority aversion penalty against unnecessary double days.
-
-### F. Top-K Diversity via Selection Cuts, Pruning and Symmetry Breaking (`ADR-018`)
-Top-$K$ plans are extracted sequentially from one deterministic model. With $s_i = \sum_d x_{i,d}$ (at most 1 by uniqueness) and $S^{(k)}$ the workouts chosen by plan $k$, the default `cut_mode='selection'` appends
-$$\sum_{i \in S^{(k)}} s_i \le |S^{(k)}| - m \qquad (m = \texttt{cut\_min\_diff},\ \text{default } 1)$$
-so successive plans differ in WHICH workouts are chosen, not merely their day layout (supersets of an earlier selection are excluded too). `cut_mode='layout'` keeps the exact $(i,d)$ no-good $\sum_{(i,d) \in P^{(k)}} x_{i,d} \le |P^{(k)}| - 1$ (day permutations count as distinct); `none` is a single solve. The hybrid `z_split` flip equality was removed (it capped hybrid Top-K at 2); `split_architecture` is still reported from $z_{split}$.
-- **Dominance pruning (`prune_dominated`, on):** only exact structural clones beyond a sport's weekly maximum are dropped (they differ at most in `preference_penalty` / `durability_score`, where the cheaper clone is kept). Duration/TSS/ANS/strain order is NOT a dominance order (two-sided goals); anchors and test workouts are never pruned.
-- **Symmetry breaking (`symmetry_breaking`, on):** day permutations are not symmetries (48h and adjacency rows couple consecutive days). Only the week reversal $d \mapsto 6-d$ can be; when caps, readiness $\alpha$ and `allowed(i,d)` are palindromic and there is no weekday cap or weekend brick, the row $\sum_d (d-3) \sum_i dur_i x_{i,d} \le 0$ is added. It never fires for the meso facade or `CURRENT_ATHLETE`.
-
-### G. Dual-Objective Hybrid Athlete Optimization (`HybridAthleteMILPOptimizer`)
-The hybrid extension balances running, cycling, swimming, and heavy resistance training:
-1. **Equipment Set Partitioning ($\ge 60\%$ Barbell):**
-   $$\sum_{d \in D} \sum_{i \in \mathcal{W}_{\text{STR}}} \left((1 - \beta_{\text{BB}}) V_i^{\text{BB}} - \beta_{\text{BB}} V_i^{\text{DB}}\right) x_{i,d} \ge 0 \quad (\beta_{\text{BB}} = 0.60)$$
-   Dumbbells capped at $75\text{ lb}$ are strictly allocated to unilateral assistance and accessory volume.
-2. **Movement Pattern Volume Guarantees:**
-   $$\sum_{d \in D} \sum_{i \in \mathcal{W}_{\text{STR}}} V_{i,m} \cdot x_{i,d} \ge 10.0 \quad \forall m \in \{\text{Anterior, Posterior, Push, Pull}\}$$
-3. **Axial & Neuromuscular Load Ceilings:**
-   $$\sum_i X_i x_{i,d} \le 120.0 \quad (\forall d), \quad \sum_{d,i} X_i x_{i,d} \le 320.0$$
-   $$\sum_i N_i x_{i,d} \le 130.0 \quad (\forall d), \quad \sum_{d,i} N_i x_{i,d} \le 360.0$$
-4. **Biomechanical Conflict Prevention Matrix:**
-   - Deadlift vs Threshold/Long Run: $x_{i,d} + x_{j,d} \le 1$ and $x_{i,d} + x_{j,d+1} \le 1$ ($\pm 24\text{h}$ lockout).
-   - Squat vs High-Torque Bike / Threshold Run: $x_{i,d} + x_{j,d} \le 1$.
-   - Heavy Press vs CSS Threshold Swim: $x_{i,d} + x_{j,d} \le 1$.
-5. **Split Archetype Coherence Indicator Cuts:** Binary indicator $z_{\text{split}} \in \{0,1\}$ prevents mixing Full-Body HLM with Upper/Lower splits within the same week:
-   $$x_{i,d} \le z_{\text{split}} \quad \forall i \in \mathcal{W}_{\text{FULL\_BODY}}, \quad x_{j,d} \le 1 - z_{\text{split}} \quad \forall j \in \mathcal{W}_{\text{UPPER\_LOWER}}$$
-
-### Session structure and 80/20 builders (TASK-019, `ADR-020`)
-Engine pipeline: grey-zone drop -> `q_i` hard classification -> lift+easy combo candidates -> dominance pruning -> `WorkoutTable`. Builders `session_structure` (one-hard/day, key sessions, Hard-Days-Hard, window gating, combo exclusivity) and `intensity_structure.add_canonical_8020` run after `add_tier1` / `load_dynamics`; each has an `EngineOptions` switch (all off in `legacy_options`). Plans carry `am_pm` slots. A new day-asymmetric rule must keep `is_week_reversal_symmetric` False.
+### B. Calendar, 48-Hour Caps & Dimensionless Tier-2 Objective
+- **Rolling 48h Hard Caps (Profile-Bounded by Charter `ADR-024`):** Aerobic TSS $\le 295.0$, Mechanical Strain $\le 260.0$, ANS Cost $\le 700.0$ (across every $(d, d+1)$ pair, including Sun→Mon via `WeekCarryIn`).
+- **Session & Facility Gating:** Weekday single-workout cap (`weekday_single_workout_cap`), daily time caps (`daily_time_caps`), pool-day gates, indoor/outdoor bike gating, and `two_session_windows` AM/PM gating (`am_pm` slot assignment in plans).
+- **Dimensionless Objective (`WeekModel.add_soft_goal`):** Normalized fractional deviations for weekly TSS ($W_{\text{tss}} = 100$), TiZ ($W_{\text{tiz}} = 80$), sport duration splits ($W_{\text{sport\_dur}} = 50$), Bike/Run TSS split ($W_{\text{tss\_split}} = 45$), durability stimulus ($W_{\text{durab}} = 25$), schedule friction ($W_{\text{pref}} = 5$), and double-day aversion ($W_{\text{double}} = 0.5$).
+- **Week-Level Target Policies (driven by `control/season.py`):**
+  - *Re-entry build/overload overshoot (`ADR-021`):* Scales structure minimums down in two relief levels if solved TSS exceeds `1.15x` target.
+  - *Deload / taper / race weeks (`ADR-023`):* Key minimum `0`, Bike/Run/Swim minimums halved, optional anchors, no ACWR `0.80` floor charge.
+  - *Race-block build/overload structural floor (`ADR-025`):* When solved TSS exceeds `1.15x` matrix target, probes structural floor (`TSS` goal $\approx 0$), raises week target to `max(matrix target, floor)`, and re-solves.
 
 <!-- LODE_AUTOGEN_START -->
-<!-- Auto-rendered by lodectx.py sync-docs -->
+<!-- Auto-rendered by lodectx.py sync-docs; edit narrative sections above, not this block. -->
+
+## Registered Lineage (`optimizer`)
+
+### Active PRDs
+- **`PRD-002` — Dual-Objective Hybrid Athlete MILP and MPC Optimization:** Optimize concurrent triathlon and heavy barbell/dumbbell strength training via HiGHS MILP and 3-Tier closed-loop MPC.
+
+### Active Architectural Decisions (`ADR`)
+- **`ADR-002` — Adopt HiGHS Mixed-Integer Linear Programming Solver via highspy:** Use HiGHS C++ MILP solver via highspy with binary assignment variables instead of unconstrained greedy search.
+- **`ADR-008` — Adopt Dual-Objective Hybrid Athlete Optimization with Equipment Partitioning and Biomechanical Conflict Matrix:** Enforce exact linear hybrid MILP with equipment set partitioning, axial load caps, and biomechanical conflict exclusions.
+- **`ADR-013` — Enforce Three-Tier Lexicographic Constraint Hierarchy with Shared Tier-0 Safety Layer:** Tier-0 safety caps are hard in every engine (src/safety_constraints.py); targets relax only via named, reported Tier-1 slacks solved lexicographically.
+- **`ADR-017` — Unified WeekModel engine with modular constraint builders:** All week MILPs are built by solver/engine (WeekModel + builders, bulk HiGHS build); facades stay thin; new rules are new builder modules, not a 4th engine.
+- **`ADR-018` — Single deterministic solve with selection cuts, dominance pruning and symmetry breaking replaces the multi-seed race:** One deterministic engine solve per week; Top-K via workout-selection cuts; exact-clone pruning and week-reversal symmetry rows; no seed race, no random generator.
+- **`ADR-021` — Re-entry weeks scale the structure minimums down when the full-week structure floor exceeds the TSS target:** Re-entry build weeks re-solve with halved, then zero, key/stride minimums only while solved TSS exceeds 1.15x target; Tier-0 caps never change.
+- **`ADR-023` — Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge:** Recovery/taper/race weeks solve with key min 0, halved Bike/Run/Swim min, anchors optional and no ACWR-floor Tier-1 charge; Tier-0 caps unchanged.
+- **`ADR-025` — Race-block build weeks raise their TSS target to the structural floor:** Race-block base/build/overload weeks solve at target = max(matrix target, structural floor); no structure relief there; deload/re-entry relief unchanged.
+
+> **Superseded (`optimizer`):** `PRD-001` (`python scripts/lodectx.py trace <ID>`).
 <!-- LODE_AUTOGEN_END -->

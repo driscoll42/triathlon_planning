@@ -1,109 +1,61 @@
 # Domain Lode: `physiology`
 
 ## 1. Scope & Responsibility
-Dual-load physiological modeling (metabolic/aerobic TSS vs peripheral orthopedic mechanical strain), exponential Autonomic Nervous System (ANS) recovery costing, asynchronous multi-tissue remodeling dynamics, physiological durability (fatigue resistance), and concurrent endurance–resistance signaling interference (AMPK–mTORC1).
+Dual-load modeling (metabolic aerobic TSS vs peripheral mechanical strain, `ADR-004`), exponential ANS recovery costing, asynchronous multi-tissue remodeling dynamics ($M(t), C(t), ODI$), single-source-of-truth critical power & 80/20 7-zone physiology (`ADR-009`, `TASK-013`), CP retesting lockouts (`ADR-011`), quality-minute classification (`q_i`), and AMPK–mTORC1 concurrent training rules (`ADR-020`).
 
 ## 2. Key Modules & Entrypoints
-- [`src/triplan/physiology/athlete_profile.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/athlete_profile.py): [`AthleteProfile`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/athlete_profile.py), baseline thresholds (Bike FTP, Run FTP/CP, Swim CSS), chronic/acute starting states, and `Masters Mode` (`age >= 45`).
-- [`src/triplan/model/classes.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/model/classes.py): [`triVariables`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/model/classes.py), intensity zone boundaries, power/speed multipliers, and sport target splits.
-- [`src/triplan/solver/scheduler.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/scheduler.py): [`AthletePhysiologicalState`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/state.py), convolutional tissue remodeling states ($M(t), C(t), ODI$), Banister PMC accumulators, EWMA mechanical ACWR, and exponential ANS costing.
+- [`src/triplan/physiology/athlete_profile.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/athlete_profile.py): Frozen `AthleteProfile` loaded from [`config/athlete_profile.yaml`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/config/athlete_profile.yaml) (`CURRENT_ATHLETE`), canonical `bike_cp`/`run_cp`/`swim_css` (read-only `bike_ftp`/`run_ftp` aliases), validation, and `to_mesocycle_config()` / `to_hybrid_config()` (`TASK-035`).
+- [`src/triplan/physiology/state.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/state.py): `AthletePhysiologicalState`, `ALPHA_ACUTE`/`ALPHA_CHRONIC`/`ALPHA_ATL`/`ALPHA_CTL`, convolutional tissue remodeling ($M(t), C(t), ODI$), Banister PMC accumulators, EWMA running ACWR, and `step_day()`.
+- [`src/triplan/solver/engine/session_quality.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/engine/session_quality.py): Sport-specific quality minutes `q_i`, incidental grey-zone filtering, hard/key session masks, and canonical 80/20 Time-in-Zone helpers (`ADR-020`).
+- [`src/triplan/library/compound.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/library/compound.py): `DECISION-021` lift + easy cardio compound candidate builder.
+- [`src/triplan/model/classes.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/model/classes.py): `triVariables` zone ratios and sport target defaults (thresholds removed in `TASK-013`).
 
 ## 3. Core Architectural Rules & Physiological Laws
 
-### A. Asynchronous Tissue Remodeling Timelines
-Human organ systems and connective tissues remodel along disparate biological timelines governed by local vascularity, cellular turnover rates, and mechanotransduction pathways. The platform models adaptation across four distinct first-order exponential subsystems:
-1. **Autonomic Nervous System (ANS) & Glycogen Resynthesis ($\tau_1 = 3.0\text{ days}$, range 2–7d):** Parasympathetic vagal reactivation (HRV RMSSD) and skeletal/hepatic glycogen re-esterification via GLUT4 translocation resolve over 24–72 hours, extending to 7 days following severe eccentric muscle trauma.
-2. **Cardiovascular System, Mitochondrial Density, & Plasma Volume ($\tau_2 = 35.0\text{ days}$, range 28–42d):** Hypervolemia, left ventricular eccentric hypertrophy, neo-angiogenesis, and PGC-1α mitochondrial biogenesis adapt across 4–6 week mesocycles. In the Coggan Performance Management Chart (PMC), this is standardized to the 42-day Chronic Training Load (CTL) constant.
-3. **Muscular & Neuromuscular Force Development ($\tau_3 = 42.0\text{ days}$, range 21–56d):** High-threshold motor unit recruitment, firing rate synchronization, rate of force development (RFD), and Type I/IIa myofibrillar remodeling require 3–8 weeks of progressive heavy resistance overload.
-4. **Tendon Collagen Synthesis & Bone Mineral Matrix Remodeling ($\tau_4 = 120.0\text{ days}$, range 90–180d; $\tau_4 = 210.0\text{ days}$ for Masters $\ge 45$):** Load-bearing tendons (Achilles, patellar, plantar fascia) and cortical bone (tibia, metatarsals) rely on slow interstitial diffusion. Tensile cross-linking and osteoblast bone mineralization require 3–6 months to achieve structural maturity.
+### A. Asynchronous Tissue Remodeling & Orthopedic Dissociation Index (`ADR-004`)
+Human tissues adapt along distinct first-order exponential timelines:
+1. **ANS & Glycogen Resynthesis ($\tau_1 = 3.0\text{ d}$):** Vagal reactivation (`HRV RMSSD`) and GLUT4 glycogen restoration.
+2. **Cardiovascular / Mitochondrial ($\tau_2 = 35.0\text{ d}$):** Plasma volume and PGC-1$\alpha$ biogenesis (PMC CTL standardized to 42d).
+3. **Muscular / Neuromuscular ($\tau_3 = 42.0\text{ d}$):** High-threshold motor unit recruitment and myofibrillar remodeling.
+4. **Tendon Collagen & Cortical Bone ($\tau_4 = 120.0\text{ d}$, or $210.0\text{ d}$ for Masters $\ge 45$):** Slow avascular interstitial diffusion.
 
-### B. Engine-Chassis Decoupling & Orthopedic Dissociation Index (ODI)
-Because central aerobic fitness ($\tau=35\text{d}$) adapts more than three times faster than avascular connective tissue ($\tau=120\text{d}$), an athlete's aerobic engine can rapidly outpace their structural chassis. The platform tracks parallel first-order exponential impulse-response accumulators across days $t$:
-$$M(t) = M(t-1) \cdot e^{-1/\tau_m} + \text{aerobic\_tss}_t \cdot (1 - e^{-1/\tau_m})$$
-$$C(t) = C(t-1) \cdot e^{-1/\tau_c} + \text{mechanical\_strain}_t \cdot (1 - e^{-1/\tau_c})$$
-$$\text{ODI}(t) = \frac{M(t)}{C(t)}$$
+Parallel impulse-response accumulators track metabolic fitness $M(t)$ ($\tau_m = 35\text{ d}$) vs connective chassis adaptation $C(t)$ ($\tau_c = 120\text{ d}$):
+$$M(t) = M(t-1)e^{-1/\tau_m} + \text{aerobic\_tss}_t(1 - e^{-1/\tau_m}), \quad C(t) = C(t-1)e^{-1/\tau_c} + \text{mechanical\_strain}_t(1 - e^{-1/\tau_c})$$
+$$\text{ODI}(t) = \frac{M(t)}{C(t)} \le 1.35$$
+When $\text{ODI} > 1.35$, the MPC tightens mechanical strain caps and shifts metabolic volume into non-impact swimming/cycling.
 
-- **Production Invariant:** The Orthopedic Dissociation Index must satisfy $\text{ODI}(t) \le 1.35$.
-- **Action Threshold:** If $\text{ODI} > 1.35$, the optimizer tightens the weekly mechanical strain ceiling and routes excess metabolic volume into non-impact swimming or cycling.
-- **Intra-Session Microscale Decoupling:** Pace-to-HR drift ($Pa:HR$) or Power-to-HR drift ($Pw:HR$) exceeding 5%–6% during a steady Zone 2 session, or leg-spring stiffness ($LSS$) degradation, flags acute elastic recoil failure and triggers an immediate single-session duration cap.
-
-### C. Dual-Load Formulation & Sport Strain Exponents
-Every candidate workout $w$ is characterized by a two-component workload vector:
-$$\mathbf{L}_w = \begin{bmatrix} \text{aerobic\_tss}_w \\ \text{mechanical\_strain}_w \end{bmatrix}$$
+### B. Dual-Load Formulation & Sport Strain Exponents
 $$\text{mechanical\_strain}_w = \text{duration}_w \cdot S_{sport(w)} \cdot (\text{IF}_w)^{\beta_{sport(w)}}$$
-- **Swimming ($S_{swim} = 0.05, \beta_{swim} = 1.2$):** Buoyant, weight-supported concentric upper-body propulsion.
-- **Cycling ($S_{bike} = 0.10, \beta_{bike} = 2.0$):** Weight-supported, closed-chain concentric pedaling with zero ground impact.
-- **Running ($S_{run} = 1.00, \beta_{run} = 2.5$):** Ballistic ground impacts of 2.5–3.0× body weight per footstrike with rapid eccentric stretch-shortening cycles.
-- **Heavy Resistance ($S_{str} = 1.50, \beta_{str} = 3.0$):** High axial skeletal compression, tendon shear, and myofibrillar tension.
-- **Single-Sport PMCs (Vance):** Bike and Run workloads are tracked on separate PMCs. Sustainable Bike CTL ranges 50–90+ TSS/day, whereas Run CTL is capped at 30–50 TSS/day for long-course safety.
+- **Swimming ($S=0.05, \beta=1.2$):** Weight-supported upper-body concentric propulsion.
+- **Cycling ($S=0.10, \beta=2.0$):** Closed-chain non-impact pedaling.
+- **Running ($S=1.00, \beta=2.5$):** Ballistic $2.5\text{–}3.0\times$ BW ground impact + eccentric SSC.
+- **Heavy Resistance ($S=1.50, \beta=3.0$):** High axial compression and tendon shear.
+- **Separate PMCs (Vance):** Bike and Run CTL/ATL/TSB are tracked independently; Bike→Run bricks split TSS proportionally between Bike and Run in `step_day()` (`ADR-030`).
 
-### D. Critical Power (CP), Anaerobic Work Capacity ($W'$), and Threshold Calibration
-Because the athlete engages in heavy barbell strength training (back squats, deadlifts), their Anaerobic Work Capacity ($W'$) is substantially larger than that of an endurance-only triathlete. Single-effort proxy tests relying on fixed statistical multipliers (such as the cycling ramp test at $0.75 \times \text{MAP}$ or un-cleared 20-minute TTs at $0.95 \times P_{20}$) draw heavily upon this enlarged anaerobic reserve, causing them to systematically overestimate sustainable aerobic threshold ($LT_2$). Single-effort tests with fixed multipliers are prohibited (`ADR-009`).
+### C. Single Source of Truth Thresholds, Two-Point CP & Retesting (`ADR-009`, `ADR-011`, `TASK-013`)
+- **Single Source of Truth:** Frozen `AthleteProfile` (`config/athlete_profile.yaml`) is the sole owner of `bike_cp`, `run_cp`, and `swim_css` (manual integers; Auto-CP/Auto-FTP disabled in Stryd and Garmin). `apply_cp_retest_result()` returns a new `AthleteProfile` via `dataclasses.replace()`.
+- **Two-Point CP Protocol:** Concurrent heavy barbell lifting inflates anaerobic work capacity ($W'$), making fixed-multiplier proxy tests ($0.75 \times \text{MAP}$ ramps or $0.95 \times P_{20}$ TTs) overestimate $LT_2$. Calibrate via Two-Point Linear CP ($P_3$ 180s + $P_{12}$ 720s: $CP = \frac{4 P_{12} - P_3}{3}$, $W' = 180(P_3 - CP)$) or Kolie Moore 35–45 min MLSS baseline.
+- **Aero Positional Rule & CSS:** Test Bike CP in aero position (upright hoods read 3%–7% / 10–20W higher). Swim CSS uses 400m/200m TTs: $CSS = \frac{200}{T_{400} - T_{200}}$.
+- **Retest Cadence & Lockouts (`ADR-011`):** Currently enforced in `control/periodization.py` via `filter_test_workouts()` (no tests in week 1, taper/race weeks, bike locked $\le 4\text{ wk}$ and run $\le 6\text{ wk}$ in re-entry, recovery weeks only, $\ge 8\text{ wk}$ gap). Automated telemetry-triggered retest prompts wait for `.fit` actuals ingestion (`TASK-024`).
 
-1. **Two-Point Linear Work-Time Critical Power Protocol (Running & Cycling):**
-   - $P_3$: Mean maximal power (Watts) over a 180-second ($t_1 = 180\text{s}$) all-out effort.
-   - $P_{12}$: Mean maximal power (Watts) over a 720-second ($t_2 = 720\text{s}$) all-out effort (after 30-min active/passive recovery).
-   - **Critical Power ($CP$, Watts):**
-     $$CP = \frac{t_2 P_{12} - t_1 P_3}{t_2 - t_1} = \frac{4 P_{12} - P_3}{3}$$
-   - **Anaerobic Work Capacity ($W'$, Joules):**
-     $$W' = 180 \cdot (P_3 - CP)$$
-2. **Kolie Moore Empirical Baseline (Cycling Alternative):**
-   A 35–45 minute progressive test at Maximum Lactate Steady State ($MLSS$). Test duration equals baseline Time-to-Exhaustion ($TTE$), with $\text{FTP} = 1.00 \times P_{\text{avg}}$.
-3. **Indoor / Aero Positional Rule (Cycling):**
-   Testing must be executed in the aero position if target workouts are in aero. Upright road-hoods power is 3%–7% (10–20W) higher; do not mix upright and aero targets without a positional scaling factor.
-4. **Critical Swim Speed (CSS):**
-   Derived from 400m/yd ($T_{400}$) and 200m/yd ($T_{200}$) time trials:
-   $$CSS = \frac{400 - 200}{T_{400} - T_{200}} = \frac{200}{T_{400} - T_{200}} \quad [\text{m/s}], \quad \text{Pace}_{100} = \frac{T_{400} - T_{200}}{2} \quad [\text{s}]$$
+### D. Session Quality `q_i`, Canonical 80/20 Engine Rules & AMPK–mTORC1 (`ADR-020`, `TASK-035`)
+- **Quality Minutes `q_i`:** Replaces IF-based hard classification. $q_i$ sums Z4-equivalent minutes (weights: Z1 `0`, Z2 `0`, ZX `1/6`, Z3 `1/3`, ZY `2/3`, Z4 `1`, Z5 `1`, excluding Z5 alactic strides). After incidental allowance (`2 + 1/h`), $0 < q_i < 5$ is grey-zone (pre-filtered), $q_i \ge 5$ is `is_hard_endurance`, and `key = hard OR anchor OR long` (`Run >= 70 min`, `Bike >= 120 min`).
+- **Canonical 80/20 Hard Bounds:** Across weekly endurance minutes (strength excluded), `Z1+Z2 >= 78%` (`intensity_low_min`) and `Z3+ZY+Z4+Z5 <= 20%` (`intensity_mod_high_max`) are hard constraints in both facades, with soft targets toward `80%` low (`intensity_low_target`) and `0` Zone X. `TASK-035` ensures `AthleteProfile` forwards these targets, `key_sessions_per_week`, and `am_pm_min_gap_h` directly into solver configs.
+- **AMPK–mTORC1 & Hard-Days-Hard Stacking:** Dual-session days require $\ge 6\text{ h}$ separation (`am_pm_min_gap_h`), stacking heavy lower lifting on hard endurance days (AM endurance + PM lift, or AM lift + PM Z1/Z2 recovery).
+- **`DECISION-021` Lift + Easy Cardio Combos:** Strength may be followed immediately in the same window by $\le 20\text{ min}$ strictly Z1/Z2 Bike (or Run only after non-heavy lifts), counting as one window and toward the cardio sport's volume/run limits.
 
-### E. Canonical 80/20 7-Zone System & Exponential ANS Costing
-Autonomic perturbation exhibits threshold behavior at $LT_1$: sub-$LT_1$ training permits rapid vagal reactivation, while intensity above $LT_1$ (Zone X drift) and especially $LT_2$ causes delayed parasympathetic recovery (24–72 hours). Commercial 5-zone systems (Stryd 5-Zone, MyProCoach 5-Zone) inappropriately place Zone 2 at 80%–90% CP, which breaches $LT_1$ and causes overtraining.
-
-The platform enforces the **80/20 7-Zone Power Scale** anchored to verified $CP$:
-
-| Zone | Physiological Role | Run Power (% Stryd CP) | Bike Power (% Bike CP) | Optimizer Bucket | ANS Cost Weight |
-|---|---|---|---|---|---|
-| **Zone 1** | Active Recovery / Low Aerobic | 50% – 76% | 50% – 70% | Low (`z1_z2_dur`) | **0.0** |
-| **Zone 2** | Aerobic Endurance (Ceiling = $LT_1$) | 76% – 88% | 70% – 83% | Low (`z1_z2_dur`) | **0.0** |
-| **Zone X** | Moderate Drift Grey Zone *(Penalize)* | 88% – 94% | 83% – 91% | Grey Drift (`zx_dur`) | **0.7** (Unplanned Penalty) |
-| **Zone 3** | Sub-Threshold / Tempo (Ceiling = $LT_2$) | 94% – 100% | 91% – 100% | Moderate/High (`z3_dur`) | **1.0** |
-| **Zone Y** | Threshold Over-Reach Gap *(Penalize)* | 100% – 103% | 100% – 102% | High (`z4_dur`) | **1.4** (Gap Penalty) |
-| **Zone 4** | Supra-Threshold / $\text{VO}_2\text{max}$ | 103% – 120% | 102% – 110% | High (`z4_dur`) | **1.8** |
-| **Zone 5** | Anaerobic / Repetition ($W'$ Depletion) | > 120% | > 110% | High (`z5_dur`) | **3.5** |
-
-- **Sanity Checkpoints:**
-  - Run $LT_1$ (88% CP): Must pass the Talk Test and keep HR $\le 89\%$ LTHR.
-  - Run/Bike $LT_2$ (96%–100% CP): HR must plateau near LTHR during a 15–20 minute interval.
-- **Alactic Strides Exemption:** Alactic strides ($\le 15-20\text{s}$) in Zone 5 rely exclusively on the ATP-PCr system without glycolytic metabolite accumulation and receive zero ANS penalty ($0.0$).
-
-### F. Physiological Durability (Fatigue Resistance — Maunder et al., 2021)
-Durability is defined as the time of onset and magnitude of deterioration in physiological characteristics during prolonged exercise. Thresholds degrade after 150–180 minutes of work (e.g. $LT2$ power drops ~10% / 21W, heart rate drifts +9 bpm, and running velocity at $LT1$ drops).
-- **Vance Cadence & Power Fade:** Long-course durability requires combined cadence and power fade $\le 13\%$ over a 70.3 bike leg and $\le 20\%$ over a 140.6 bike leg.
-- **Three Durability Stimulus Architectures:**
-  1. *Late-Session Threshold Intervals:* Zone 3/4 intervals placed in the final 45–60 min of a 2.5–4.0h ride after accumulating $>1,500-2,000\text{ kJ}$ ($>15-25\text{ kJ/kg}$) of mechanical work.
-  2. *Low-Cadence Torque Manipulation:* Sustained 55–65 rpm intervals in Zone 3/4 (Quadrant II loading) late in an endurance ride to train Type IIa recruitment under glycogen depletion.
-  3. *T2 Brick Conditioning:* Transitions from bike to run within $\le 3\text{ minutes}$ to condition neuromuscular motor unit recruitment off the bike.
-
-### G. Molecular Signaling Conflict: The AMPK–mTORC1 Axis
-Concurrent endurance and resistance training triggers competing intracellular signaling cascades:
-- Endurance exercise depletes glycogen and elevates AMP/ATP, activating **AMPK** and upregulating **PGC-1α** for mitochondrial biogenesis.
-- Heavy resistance training stimulates **mTORC1** and **p70S6K1** via Akt/Rheb to drive myofibrillar protein synthesis and RFD.
-- **Intracellular Conflict:** Active AMPK phosphorylates **TSC2** and **Raptor**, directly inhibiting mTORC1 and attenuating strength/power gains.
-- **Evidence-Based Protocol:** Heavy resistance (80%–95% 1RM, 3–6 reps, 3–4 sets, 2–4 min rest, 1–2 RIR) and low-volume plyometrics (20–30 footstrikes, ground contact $<200\text{ ms}$) improve running economy (+5.0%), time to exhaustion (+21%–33%), and gross cycling efficiency without inducing muscle hypertrophy or blunting aerobic adaptation.
-- **Dry-Land vs. In-Water Swim Strength:** Dry-land upper-body strength training does not improve free-swimming velocity (Tanaka et al., Trappe et al.), whereas in-water resistance (paddles, drag chutes) does. Gym strength prioritizes cycling (#1) and running (#2); swim force is developed in the pool (MF1/MF3).
-- **Sequencing & Spacing Rules:** Key endurance sessions are performed first (AM). Heavy strength is scheduled in the afternoon/evening with $\ge 6\text{ hours}$ separation ("Keep Hard Days Hard") allowing AMPK to return to baseline before stimulating mTORC1. If lifting is scheduled in the AM, it must only be paired with easy Zone 1/2 aerobic recovery in the PM. Heavy runs are locked out for $\ge 24\text{ hours}$ after heavy leg strength due to transient running kinematics disruption and spinal fatigue.
-- **Periodization Cadence:** Preparation (AA: 40%–60% 1RM, 2–3x/wk) $\to$ Base (MS: 80%–95% 1RM, 2x/wk) $\to$ Build (SM: 80%–85% 1RM, 1x/wk) $\to$ Taper (0 sessions/wk $\ge 7-14\text{ days}$ prior to race).
-
-### H. Axial Spinal Kinematics & Equipment-Aware Loading
-1. **L4/L5 Lumbar Compressive & Shear Mechanics:**
-   Heavy conventional and Romanian deadlifts impose up to $18.45\text{ kN}$ compressive force and $3.28\text{ kN}$ shear load on the lumbar spine. Acute spinal erector fatigue impairs ground reaction shock attenuation ($2.5-3.0\times$ BW during running), transmitting impact directly to intervertebral discs. A strict $\pm 24\text{h}$ lockout between deadlifting and threshold/long running is non-negotiable (`HEUR-004`). Stacking deadlifts with swimming is physiologically synergistic due to hydrostatic spinal decompression and non-impact active recovery.
-2. **Subacromial Impingement Prevention:** Heavy overhead pressing and bench pressing cause transient deltoid and rotator cuff micro-trauma. Same-day CSS threshold swimming creates subacromial impingement and is strictly excluded.
-3. **Capped Dumbbell Physiology ($\le 75\text{ lb}$):** Home gym setups with $75\text{ lb}$ max dumbbells cannot safely provide sufficient bilateral mechanical tension for advanced hip hinge and knee extension. The system enforces unilateral progression (Bulgarian split squats, single-leg DB RDLs) and reserves heavy bilateral compound drivers ($\ge 60\%$ weekly sets) for commercial Olympic barbells (`ADR-008`).
+### E. Durability & Axial Kinematics
+- **Durability (Maunder et al., 2021):** Late-session threshold intervals after $>1,500\text{–}2,000\text{ kJ}$, low-cadence torque (55–65 rpm), and T2 bricks train fatigue resistance (target Vance cadence+power fade $\le 13\%$ 70.3, $\le 20\%$ IM).
+- **Lumbar & Shoulder Protection:** Heavy deadlifts impose $18.45\text{ kN}$ compressive / $3.28\text{ kN}$ shear load (`HEUR-004` $\pm 24\text{h}$ run lockout; synergistic with swim); heavy upper press excludes same-day CSS threshold swim; barbell sets $\ge 60\%$ keep capped $\le 75\text{ lb}$ dumbbells for unilateral/hypertrophy work (`ADR-008`).
 
 <!-- LODE_AUTOGEN_START -->
-<!-- Auto-rendered by lodectx.py sync-docs -->
-<!-- LODE_AUTOGEN_END -->
+<!-- Auto-rendered by lodectx.py sync-docs; edit narrative sections above, not this block. -->
 
-### F. Session Structure & Canonical 80/20 in the Engine (TASK-019, `ADR-020`)
-- **Quality `q_i`** (Z4-equivalent minutes, weights Z1 0, Z2 0, ZX 1/6, Z3 1/3, ZY 2/3, Z4 1, Z5 1; strides' Z5 excluded) classifies sessions: `q >= 5` hard, `0 < q < 5` (after an incidental allowance of `2 + 1/h`) is grey-zone and pre-filtered; key = hard, anchor, or long (Run >= 70, Bike >= 120 min). Never IF.
-- **Weekly:** key sessions 2-3 (Tier-1 lower bound), strides >= 2 (Tier-1), one hard endurance session per day, endurance TiZ Z1+Z2 >= 78% and Z3+ZY+Z4+Z5 <= 20% (hard), 80% and Zone X -> 0 soft; strength excluded from the denominator.
-- **Daily:** heavy lower-body lifts stack on hard-endurance days when two windows exist (AM endurance + PM lift; lift AM when the PM session is easy; >= 6 h gap), otherwise stand alone. `DECISION-021` combos: lift + <= 20 min Z1/Z2 Bike (Run after non-heavy lifts), one window, counts toward the cardio sport.
+## Registered Lineage (`physiology`)
+
+### Active Architectural Decisions (`ADR`)
+- **`ADR-004` — Decouple Aerobic TSS and Mechanical Strain with Asynchronous Tissue Remodeling:** Model metabolic load (tau=35d) separately from mechanical strain (tau=120d) with an Orthopedic Dissociation Index <= 1.35.
+- **`ADR-009` — Adopt Canonical 80/20 7-Zone Power System and Two-Point Critical Power Protocol:** Enforce 80/20 7-zone power scale with Zone X/Y penalties and calibrate CP via 3m+12m protocol due to high W' from heavy lifting.
+- **`ADR-011` — Integrate Closed-Loop Critical Power Retesting Engine with Dual Telemetry Triggers and Mesocycle Synchronization:** Retest CP every 8-12w in recovery deloads or via cardiac decoupling/EF triggers; enforce <=10% step jump caps and re-entry testing lockouts.
+- **`ADR-020` — Sport-specific quality q_i classifies hard and key sessions; lift+easy combos are compound candidates; canonical 80/20 is a hard engine rule:** Hard/key = minutes-based q_i, not IF; lift+easy combos are compound candidates; Z1+Z2>=78% and Z3+ZY+Z4+Z5<=20% are hard rows in both facades.
+<!-- LODE_AUTOGEN_END -->
