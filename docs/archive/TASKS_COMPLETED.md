@@ -257,5 +257,14 @@
 - **Safety, Load Dynamics & Goals:** Updated `safety_constraints` (`run_minutes`, `run_strain`, `classify_workouts`) and `WorkoutTable` (`brick_ids`, `extra_members`, `members`, `run_minutes`, `run_strain`) so Bike->Run bricks enter `ADR-003` run-share, `ADR-022` long-run cap, `HEUR-004` deadlift $\pm 24\text{h}$ lockout, 48h heavy-run separation, weekly run mechanical strain cap, in-model running ACWR / run-minutes guard, Bike+Run frequency bounds, and same-day Bike/Run exclusivity (`session_structure.add_combo_exclusivity`). Included `"Brick"` in `load_dynamics._ctl_ramp_row`, `season_validation.py` `ctl_ramp`, `control/season.py` `step_day` Bike/Run TSS split, and `goals._meso_rows` sport duration/TSS splits.
 - **Verification:** `tests/test_brick_run_leg.py` (10 tests), `python -m pytest -q` (361 passed, 8 deselected), and `python -m triplan.perf.season_validation` (0 fallback weeks, 0 Tier-0 violations across all 8 seasons / 240 weeks; `HEUR-008` picks: `BRICK_AE_45_30B_15R` 110, `BRICK_AE_60_45B_15R` 49, `BRICK_TH_60_40B_20R` 5).
 
+## Phase 2 — TASK-061 — completed 2026-11-18 (PR #28)
+
+- [x] **`TASK-061` (`safety`):** **3-Week Rolling Window in Run-Strain Progression Guard (`ADR-028`, `ADR-031`)** — replace the 1-week lookback (`solved_rows[-1]`) in `control/season.py` with a 3-week rolling window (`PROGRESSION_GUARD_WINDOW = 3`) so a 1-week deload or alternating ride-keystone week does not ratchet down the next long-run keystone while never loosening above the profile ceiling.
+
+### Outcomes
+- **Rolling Window Progression Guard (`ADR-031`):** Added `PROGRESSION_GUARD_WINDOW = 3` and `progression_guard_bounds()` to `control/periodization.py` and wired it into `control/season.py` (replacing the 1-week lookback). `cfg.max_weekly_run_mech_strain` is only clamped downward when above `mech_cap` (`CURRENT_ATHLETE`'s `75.0` ceiling untouched). Recorded `Run_Mech_Strain` in `season_summary_rows` for `TASK-062` observability.
+- **Verification:** `tests/test_alternating_keystones.py::test_progression_guard_window_preserves_post_recovery_and_post_ride_keystone`, `python -m pytest -q` (362 passed, 8 deselected), and `python -m triplan.perf.season_validation` (8 seasons / 240 weeks, 0 fallback weeks, 0 Tier-0 violations; Week 5 of `reference / 70.3` and `reference / ironman` no longer drops `RUN_AE2_LONG`; `CURRENT_ATHLETE` 100% violation-free).
+
+
 
 

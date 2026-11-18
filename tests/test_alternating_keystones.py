@@ -3,6 +3,7 @@ import pytest
 
 from triplan.control.periodization import (
     KEYSTONE_RUN_LADDER, apply_keystone_week, build_season_matrix, keystone_kind, keystone_run_minutes,
+    progression_guard_bounds,
 )
 
 BIG_CAPS = [90.0, 120.0, 90.0, 120.0, 90.0, 300.0, 240.0]
@@ -88,4 +89,42 @@ def test_reference_70_3_long_run_week_then_long_ride_week(monkeypatch):
     assert longest(recs[2], lambda w: w.duration if w.sport == "Bike" else 0.0) >= 180.0
     assert "KEYSTONE_LONG_RUN" in summary.Recalibration[1] and "KEYSTONE_LONG_RIDE" in summary.Recalibration[2]
     assert "KEYSTONE" not in summary.Recalibration[0]
+    assert not check_season(recs, profile)
+
+
+def test_progression_guard_window_preserves_post_recovery_and_post_ride_keystone(monkeypatch):
+    """TASK-061: 3-week rolling window references Week 2 across a ride-keystone + recovery pair so Week 5 keeps its
+    >= 75 min long-run keystone without dropping the Run anchor or tripping Tier-0."""
+    import contextlib
+    import io
+
+    import triplan.control.season as season
+    from triplan.perf.season_validation import build_profile, check_season
+    from triplan.solver.safety_constraints import run_minutes
+
+    assert progression_guard_bounds([], 1.25) is None
+    assert progression_guard_bounds([{"Solved_TSS": 0.0, "Total_Mech_Strain": 0.0}], 1.25) is None
+    sample_rows = [
+        {"Solved_TSS": 480.2, "Total_Mech_Strain": 448.0},  # W2 build (run keystone)
+        {"Solved_TSS": 466.6, "Total_Mech_Strain": 383.4},  # W3 overload (ride keystone)
+        {"Solved_TSS": 306.1, "Total_Mech_Strain": 144.6},  # W4 recovery deload
+    ]
+    tss_cap, mech_cap = progression_guard_bounds(sample_rows, 1.25)
+    assert tss_cap == round(480.2 * 1.25, 0)
+    assert mech_cap == round(448.0 * 1.25, 1)
+    assert mech_cap >= 250.0  # would have been 180.8 with 1-week lookback on W4
+
+    orig = season.build_season_matrix
+    monkeypatch.setattr(season, "build_season_matrix", lambda *a, **k: orig(*a, **k)[:5])
+    profile, recs = build_profile("reference", "70.3"), []
+    with contextlib.redirect_stdout(io.StringIO()):
+        _, summary = season.generate_closed_loop_season_schedule(
+            profile=profile, distance="70.3", time_limit_per_week=6.0, weeks_to_race=20, collect=recs,
+        )
+    assert [r.role for r in recs] == ["base", "build", "overload", "recovery", "build"]
+    longest_run = max([run_minutes(w) for d in range(7) for w in recs[4].schedule[d]] or [0.0])
+    assert longest_run >= 75.0
+    assert "KEYSTONE_LONG_RUN" in summary.Recalibration[4]
+    assert "Run_Mech_Strain" in summary.columns
+    assert not any(x.get("category") == "shorten_or_drop_anchor:Run" for x in recs[4].relaxations)
     assert not check_season(recs, profile)

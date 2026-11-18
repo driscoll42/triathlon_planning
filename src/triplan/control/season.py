@@ -14,7 +14,7 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
-                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, keystone_kind, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance)
+                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, keystone_kind, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance, progression_guard_bounds)
 from triplan.control.feasibility import attribute_single_run_week, peak_48h, run_session_count, season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
@@ -207,19 +207,18 @@ def generate_closed_loop_season_schedule(
         pre_acwr = athlete_state.running_mechanical_acwr
         recal_action = "NOMINAL"
 
-        # Receding-Horizon Progression Guard:
-        # Prevent acute mechanical & TSS shock (>15% in masters, >25% in regular) if previous week had lower volume
-        solved_rows = [r for r in season_summary_rows if r.get("Solved_TSS", 0.0) > 0]
-        if solved_rows:
-            # Ramp guard references the last week that actually solved (an infeasible rest week is 0 TSS)
-            last_solved_tss = solved_rows[-1]["Solved_TSS"]
-            last_mech = solved_rows[-1]["Total_Mech_Strain"]
-            max_ramp = 1.15 if athlete_state.masters_mode else 1.25
-            if target_tss > last_solved_tss * max_ramp:
-                target_tss = round(last_solved_tss * max_ramp, 0)
+        # Receding-Horizon Progression Guard (TASK-061):
+        # Prevent acute mechanical & TSS shock (>15% in masters, >25% in regular) using a 3-week rolling window
+        # so a 1-week deload or alternating ride-keystone week does not ratchet down the next long-run keystone.
+        max_ramp = 1.15 if athlete_state.masters_mode else 1.25
+        guard = progression_guard_bounds(season_summary_rows, max_ramp)
+        if guard is not None:
+            tss_cap, mech_cap = guard
+            if target_tss > tss_cap:
+                target_tss = tss_cap
                 cfg.target_weekly_tss = target_tss
-            if cfg.max_weekly_run_mech_strain > last_mech * max_ramp:
-                cfg.max_weekly_run_mech_strain = round(max(last_mech * max_ramp, 150.0), 1)
+            if cfg.max_weekly_run_mech_strain > mech_cap:
+                cfg.max_weekly_run_mech_strain = mech_cap
 
         # Safety bound: ODI > 1.35 (1.20 in masters mode). The running-ACWR ceiling (1.20 during re-entry, 1.25
         # after; ADR-012) is no longer a post-hoc shrink of the strain cap: it is a per-day linear row inside the
@@ -391,6 +390,7 @@ def generate_closed_loop_season_schedule(
                 "StructFloor": struct_floor,             # TASK-041: cheapest plan meeting the full structure (None = not probed)
                 "Solved_TSS": round(plan["total_tss"], 1),
                 "Total_Mech_Strain": round(plan["total_mech_strain"], 1),
+                "Run_Mech_Strain": round(sum(run_strain(w) for d in range(7) for w in plan["schedule"][d]), 1),
                 "Total_ANS_Cost": round(tot_ans, 1),
                 "Durability": round(tot_durability, 1),
                 "Long_Run_Ratio": round(plan["max_single_run_ratio"], 3),
