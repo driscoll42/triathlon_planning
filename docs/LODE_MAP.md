@@ -47,6 +47,7 @@
 - **`ADR-024`** (`workouts`): Long-Course Library Rows, Profile-Level 48h Caps Bounded By The Charter
 - **`ADR-025`** (`optimizer`): Race-block build weeks raise their TSS target to the structural floor
 - **`ADR-028`** (`mpc`): Alternating long-run / long-ride keystone weeks in long-course race-block builds
+- **`ADR-029`** (`workouts`): Include 80/20 Endurance Library Options in Default and Hybrid MILP Pools
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`, `HEUR-008`

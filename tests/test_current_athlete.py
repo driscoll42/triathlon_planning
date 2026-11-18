@@ -104,8 +104,9 @@ def test_profile_8020_and_key_session_fields_reach_the_engine(default_library):
         s, idx, val, _, _ = ctx.model.csr()
         r = ctx.model.row_names.index(name)
         return np.sort(val[s[r]:s[r + 1]])
-    assert not np.allclose(coefs(ctx0, "8020_low_min"), coefs(ctx1, "8020_low_min"))
-    assert not np.allclose(coefs(ctx0, "8020_high_max"), coefs(ctx1, "8020_high_max"))
+    for row_name in ("8020_low_min", "8020_high_max"):
+        a, b = coefs(ctx0, row_name), coefs(ctx1, row_name)
+        assert a.shape != b.shape or not np.allclose(a, b)
 
 
 def test_profile_validation_for_new_structure_fields():

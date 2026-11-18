@@ -54,6 +54,7 @@ class CandidateWorkout:
     cardio_minutes: float = 0.0        # minutes of the cardio component (<= 20, Z1/Z2 only)
     cardio_mech_strain: float = 0.0    # mechanical strain of the cardio component alone
     cardio_zone_durations: Tuple[float, float] = (0.0, 0.0)  # (Z1, Z2) minutes of the cardio component
+    provenance: str = ""               # library source tag ('8020_library', 'agent_authored', 'hand_coded_*', '')
 
 
 @dataclass

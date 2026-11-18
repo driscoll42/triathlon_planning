@@ -171,6 +171,13 @@ KEYSTONE_ROLES = ("build", "overload")
 # extra keystone feasible and cost Ironman build weeks up to 240 TSS against target (ADR-028).
 KEYSTONE_RUN_LADDER = {"70.3": (75.0, 90.0, 90.0, 105.0, 105.0, 120.0),
                        "ironman": (75.0, 90.0, 105.0, 120.0, 120.0, 150.0)}
+KEYSTONE_RUN_CODES = frozenset({"RUN_AE2_LONG", "RUN_LC_Z2_90", "RUN_LC_Z2_105", "RUN_LC_Z2_120", "RUN_LC_Z2_150"})
+
+
+def _is_keystone_run(w, has_canonical: bool) -> bool:
+    if has_canonical:
+        return getattr(w, "code", "") in KEYSTONE_RUN_CODES
+    return w.sport == "Run" and bool((getattr(w, "flags", None) or {}).get("long_run", 0))
 
 
 def keystone_kind(distance: str, role: str, block: str, ordinal: int) -> Optional[str]:
@@ -183,10 +190,12 @@ def keystone_kind(distance: str, role: str, block: str, ordinal: int) -> Optiona
 
 
 def keystone_run_rungs(library, daily_time_caps) -> list:
-    """TASK-055: the long-run durations (library rows flagged ``long_run``) the day caps can host, ascending."""
+    """TASK-055: the long-run durations (canonical keystone rows or ``long_run`` rows) the day caps can host, ascending."""
+    lib_list = list(library)
+    has_canonical = any(getattr(w, "code", "") in KEYSTONE_RUN_CODES for w in lib_list)
     cap = max((float(c) for c in daily_time_caps), default=0.0)
-    return sorted({float(w.duration) for w in library
-                   if w.sport == "Run" and (getattr(w, "flags", None) or {}).get("long_run", 0) and float(w.duration) <= cap})
+    return sorted({float(w.duration) for w in lib_list
+                   if _is_keystone_run(w, has_canonical) and float(w.duration) <= cap})
 
 
 def keystone_run_minutes(distance: str, run_ordinal: int, last_longest_run: float, library, daily_time_caps) -> float:
@@ -208,11 +217,18 @@ def apply_keystone_week(library, kind: str, run_minutes: float):
     """TASK-055: keystone anchors of one week. ``run``: only the long-run keystone (``RUN_AE2_LONG`` or the long-course run
     of ``run_minutes``) is an anchor, the ride anchor becomes optional. ``ride``: only the ride anchor stays mandatory,
     the run anchor becomes optional. Every workout stays a candidate; only the Tier-1 obligation moves."""
+    lib_list = list(library)
+    has_canonical = any(getattr(w, "code", "") in KEYSTONE_RUN_CODES for w in lib_list)
     out = []
-    for w in library:
+    run_anchor_set = False
+    for w in lib_list:
         anchor = bool(getattr(w, "is_anchor", False))
-        if kind == "run" and w.sport == "Run" and (getattr(w, "flags", None) or {}).get("long_run", 0):
-            anchor = abs(float(w.duration) - run_minutes) < 1e-6
+        if kind == "run" and _is_keystone_run(w, has_canonical):
+            anchor = (not run_anchor_set) and abs(float(w.duration) - run_minutes) < 1e-6
+            if anchor:
+                run_anchor_set = True
+        elif kind == "run" and w.sport == "Run" and (getattr(w, "flags", None) or {}).get("long_run", 0):
+            anchor = False
         elif kind == "run" and w.sport == "Bike":
             anchor = False
         elif kind == "ride" and w.sport == "Run":

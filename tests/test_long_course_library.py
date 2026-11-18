@@ -88,7 +88,8 @@ def test_current_athlete_day_caps_exclude_the_new_rows():
     assert all(lib[c].duration > max(cfg.daily_time_caps) for c in RUNS + RIDES)
     assert lib["BIKE_DUR_OUT_DEF"].is_anchor and lib["BIKE_DUR_OUT_DEF"].duration == 180.0
     assert lib["RUN_AE2_LONG"].is_anchor and lib["RUN_AE2_LONG"].duration == 75.0
-    assert len(load_candidates(library="hybrid")) == 22        # hybrid set untouched
+    assert len(load_candidates(library="hybrid", include_8020=False)) == 22  # core hybrid set untouched
+    assert len(load_candidates(library="hybrid")) == 22 + 479                # hybrid + 80/20 options
 
 
 def test_diagnosis_reports_no_library_gap_for_the_reference_profile():
@@ -97,7 +98,8 @@ def test_diagnosis_reports_no_library_gap_for_the_reference_profile():
     for dist in ("70.3", "ironman"):
         assert not [m for m in time_budget_diagnosis(reference_profile(), dist, lib)
                     if "not in the workout library" in m]
-    old = [w for w in lib if w.code not in RUNS + RIDES]
+    core = load_candidates(library="default", include_8020=False)
+    old = [w for w in core if w.code not in RUNS + RIDES]
     assert any("long run" in m and "not in the workout library" in m
                for m in time_budget_diagnosis(reference_profile(), "ironman", old))
 
@@ -151,10 +153,14 @@ def test_peak_48h_and_binding_cap_message():
 
 def test_unhostable_long_course_rows_are_dropped_only_when_no_day_cap_hosts_them():
     from triplan.control.periodization import drop_unhostable_long_sessions
+    core = load_candidates(library="default", include_8020=False)
+    cur_core = {w.code for w in drop_unhostable_long_sessions(core, CURRENT_ATHLETE.daily_time_caps)}
+    assert not (cur_core & set(RUNS + RIDES))
+    assert {"BIKE_DUR_OUT_DEF", "RUN_AE2_LONG", "BIKE_AE2_OUT"} <= cur_core   # anchors and legacy sessions untouched
+    assert len(cur_core) == len(core) - 8
     lib = build_default_candidate_library()
-    cur = {w.code for w in drop_unhostable_long_sessions(lib, CURRENT_ATHLETE.daily_time_caps)}
-    assert not (cur & set(RUNS + RIDES))
-    assert {"BIKE_DUR_OUT_DEF", "RUN_AE2_LONG", "BIKE_AE2_OUT"} <= cur        # anchors and legacy sessions untouched
-    assert len(cur) == len(lib) - 8
+    cur_all = {w.code for w in drop_unhostable_long_sessions(lib, CURRENT_ATHLETE.daily_time_caps)}
+    assert not (cur_all & set(RUNS + RIDES))
+    assert {"BIKE_DUR_OUT_DEF", "RUN_AE2_LONG", "BIKE_AE2_OUT"} <= cur_all
     ref = {w.code for w in drop_unhostable_long_sessions(lib, [90.0, 120.0, 90.0, 120.0, 90.0, 300.0, 240.0])}
     assert set(RUNS + RIDES[:-1]) <= ref and "BIKE_LC_OUT_360" not in ref      # 360 min exceeds the 300 min Saturday cap

@@ -174,7 +174,7 @@ def test_recovery_week_solves_well_below_full_week_floor(default_library):
         return plans[0]["total_tss"]
 
     full, relieved = solve(False), solve(True)
-    assert full > 150 and relieved < 0.6 * full      # was ~250 (162 after the TASK-051 short runs / hard-stride rides) (floor from keys/strides/frequency/rest rows)
+    assert full > 125 and relieved < 0.6 * full      # ~250 -> 162 (TASK-051) -> ~139 with 8020_library options (floor from keys/strides/freq/rest rows)
 
 
 # ----------------------------------------------------------------------------- TASK-037 re-entry structure relief
@@ -284,7 +284,8 @@ def test_race_block_build_weeks_track_target_after_floor_raise():
 
     recs = []
     with contextlib.redirect_stdout(io.StringIO()):
-        _, s = generate_closed_loop_season_schedule(profile=P, distance="sprint", weeks_to_race=8,
+        # base_tss=120 ensures the structural floor sits above 1.15 * matrix_target even with lighter 8020_library options.
+        _, s = generate_closed_loop_season_schedule(profile=P, distance="sprint", base_tss=120.0, weeks_to_race=8,
                                                     reentry_weeks=0, time_limit_per_week=2.0, collect=recs)
     roles = {r.week_num: r.role for r in recs}
     builds = s[s.Week.map(roles).isin(["base", "build", "overload"])]
