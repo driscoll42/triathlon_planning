@@ -14,7 +14,7 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
-                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, keystone_kind, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance, progression_guard_bounds)
+                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, apply_keystone_run_support, keystone_kind, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance, progression_guard_bounds)
 from triplan.control.feasibility import attribute_single_run_week, peak_48h, run_session_count, season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
@@ -225,8 +225,11 @@ def generate_closed_loop_season_schedule(
         # week's MILP, fed by `carry` (TASK-018). ODI has no in-model form yet (TASK-022), so it stays here.
         odi_limit = 1.20 if athlete_state.masters_mode else 1.35
         acwr_cap, acwr_eps = carry.load.acwr_max, carry.load.acwr_eps
+        keystone = keystone_kind(dist, wk.role, wk.block, keystone_ordinal)
 
-        if pre_odi > odi_limit:
+        # TASK-062: in long-run keystone weeks with normal running ACWR, Bike/Swim TSS can inflate M(t)/C(t) ODI
+        # (TASK-022) and cause wrong-sign run-strain throttling; skip the ODI throttle when pre_acwr <= acwr_cap.
+        if pre_odi > odi_limit and (keystone != "run" or pre_acwr > acwr_cap):
             recal_action = "SAFETY_RECALIBRATION_APPLIED"
             # Throttling mechanical run strain ceiling and shifting TSS to bike
             scale_down = odi_limit / pre_odi
@@ -255,8 +258,8 @@ def generate_closed_loop_season_schedule(
         week_lib = filter_test_workouts(lib, wk, carry.last_test_week, **test_rules)
         week_lib = relax_deload_anchors(week_lib, wk.role)   # TASK-038: no keystone obligation in deload weeks
         # TASK-055 (ADR-028): long-course race-block build / overload weeks alternate a long-run and a long-ride keystone.
-        keystone = keystone_kind(dist, wk.role, wk.block, keystone_ordinal)
         keystone_note = None
+        ks_run = 0.0
         if keystone is not None:
             keystone_ordinal += 1
             ks_run = keystone_run_minutes(dist, (keystone_ordinal - 1) // 2, max(last_keystone_run, carry.prev_longest_run_min),
@@ -266,7 +269,11 @@ def generate_closed_loop_season_schedule(
             keystone_note = f"KEYSTONE_LONG_RUN ({ks_run:.0f} min)" if keystone == "run" else "KEYSTONE_LONG_RIDE"
         week_lib = drop_unhostable_long_sessions(week_lib, cfg.daily_time_caps)   # TASK-040: nothing longer than any day cap
         solve_carry = relax_deload_acwr_floor(carry, wk.role)   # TASK-038
-        scheduler = TriathlonMILPScheduler(week_lib, cfg, carry_in=solve_carry)
+        cfg_solve = cfg
+        if keystone == "run":
+            cfg_solve = copy.deepcopy(cfg)
+            apply_keystone_run_support(cfg_solve, keystone, ks_run)
+        scheduler = TriathlonMILPScheduler(week_lib, cfg_solve, carry_in=solve_carry)
         plans = scheduler.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
         # TASK-055: a long-run keystone the week cannot host (Tier-1 "dropped anchor": the ADR-022 cap / run-share rows or the
         # running ACWR bind) is retried one library rung lower, down to the shortest long run; the first rung that keeps its anchor wins.
@@ -275,11 +282,14 @@ def generate_closed_loop_season_schedule(
                 if not any(x.get("category") == "shorten_or_drop_anchor:Run" for x in plans[0].get("relaxations", [])):
                     break
                 lib_r = apply_keystone_week(keystone_base_lib, keystone, rung)
-                sched_k = TriathlonMILPScheduler(lib_r, cfg, carry_in=solve_carry)
+                cfg_r = copy.deepcopy(cfg)
+                apply_keystone_run_support(cfg_r, keystone, rung)
+                sched_k = TriathlonMILPScheduler(lib_r, cfg_r, carry_in=solve_carry)
                 plans_k = sched_k.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
                 if plans_k and not any(x.get("category") == "shorten_or_drop_anchor:Run" for x in plans_k[0].get("relaxations", [])):
-                    scheduler, plans, week_lib, ks_run = sched_k, plans_k, lib_r, rung
+                    scheduler, plans, week_lib, ks_run, cfg_solve = sched_k, plans_k, lib_r, rung, cfg_r
                     keystone_note = f"KEYSTONE_LONG_RUN ({rung:.0f} min, stepped down)"
+        cfg = cfg_solve
         # TASK-037: a re-entry build week whose full-week structure floor overshoots its target by more than
         # STRUCTURE_OVERSHOOT_TOL is re-solved with the structure minimums scaled down (never the Tier-0 caps).
         structure_note = None

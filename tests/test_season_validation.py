@@ -194,3 +194,7 @@ def test_full_matrix_season(profile_name, distance):
         assert res["tss_by_type"][kind]["max_over"] <= 25.0 + 1e-6, (kind, res["tss_by_type"][kind])
     if profile_name == "current" and distance == "ironman":
         assert any("long ride 180+ min cannot fit" in m for m in res["infeasibility"])
+    if profile_name == "reference" and distance == "70.3":
+        assert max(res["longest_run_by_week"]) >= 90.0
+    if profile_name == "reference" and distance == "ironman":
+        assert max(res["longest_run_by_week"]) >= 105.0

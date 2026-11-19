@@ -2,8 +2,8 @@
 import pytest
 
 from triplan.control.periodization import (
-    KEYSTONE_RUN_LADDER, apply_keystone_week, build_season_matrix, keystone_kind, keystone_run_minutes,
-    progression_guard_bounds,
+    KEYSTONE_RUN_LADDER, apply_keystone_run_support, apply_keystone_week, build_season_matrix, keystone_kind,
+    keystone_run_minutes, progression_guard_bounds,
 )
 
 BIG_CAPS = [90.0, 120.0, 90.0, 120.0, 90.0, 300.0, 240.0]
@@ -127,4 +127,46 @@ def test_progression_guard_window_preserves_post_recovery_and_post_ride_keystone
     assert "KEYSTONE_LONG_RUN" in summary.Recalibration[4]
     assert "Run_Mech_Strain" in summary.columns
     assert not any(x.get("category") == "shorten_or_drop_anchor:Run" for x in recs[4].relaxations)
+    assert not check_season(recs, profile)
+
+
+def test_apply_keystone_run_support_only_raises_freq_on_90plus_run_keystone():
+    from triplan.perf.season_validation import reference_profile
+
+    prof = reference_profile()
+    cfg = prof.to_mesocycle_config("Build", 400.0)
+    assert cfg.sport_freq_bounds["Run"] == (4, 5)
+    apply_keystone_run_support(cfg, "run", 75.0)
+    assert cfg.sport_freq_bounds["Run"] == (4, 5)
+    apply_keystone_run_support(cfg, "ride", 105.0)
+    assert cfg.sport_freq_bounds["Run"] == (4, 5)
+    apply_keystone_run_support(cfg, "run", 90.0)
+    assert cfg.sport_freq_bounds["Run"] == (4, 6)
+
+    cfg_low_win = prof.to_mesocycle_config("Build", 400.0)
+    cfg_low_win.two_session_windows = [False] * 7
+    apply_keystone_run_support(cfg_low_win, "run", 90.0)
+    assert cfg_low_win.sport_freq_bounds["Run"] == (4, 5)
+
+
+@pytest.mark.parametrize("dist,n_weeks,target_min", [("70.3", 5, 90.0), ("ironman", 7, 105.0)])
+def test_reference_peak_keystone_reaches_90_and_105_min(monkeypatch, dist, n_weeks, target_min):
+    """TASK-062: reference 70.3 schedules >= 90 min (by W5) and Ironman schedules >= 105 min (by W7) with 0 violations."""
+    import contextlib
+    import io
+
+    import triplan.control.season as season
+    from triplan.perf.season_validation import build_profile, check_season
+    from triplan.solver.safety_constraints import run_minutes
+
+    orig = season.build_season_matrix
+    monkeypatch.setattr(season, "build_season_matrix", lambda *a, **k: orig(*a, **k)[:n_weeks])
+    profile, recs = build_profile("reference", dist), []
+    with contextlib.redirect_stdout(io.StringIO()):
+        season.generate_closed_loop_season_schedule(
+            profile=profile, distance=dist, time_limit_per_week=4.0,
+            weeks_to_race=20 if dist == "70.3" else 24, collect=recs,
+        )
+    longest_run = max((run_minutes(w) for r in recs for d in range(7) for w in r.schedule[d]), default=0.0)
+    assert longest_run >= target_min
     assert not check_season(recs, profile)

@@ -197,13 +197,23 @@ def classify_workouts(workouts: Sequence[Any]) -> WorkoutSets:
                  or (w.sport == "Brick" and run_minutes(w) > 0)),  # incl. lift+run combos & Bike->Run bricks
         heavy_or_long_runs=ids(lambda w: (
             w.sport == "Run" and (
-                getattr(w, "is_heavy_run", False) or _flags(w).get("heavy_run", 0) == 1
-                or _flags(w).get("long_run", 0) == 1
+                getattr(w, "is_heavy_run", False)
+                or _flags(w).get("heavy_run", 0) == 1
+                or (
+                    _flags(w).get("long_run", 0) == 1
+                    and (float(getattr(w, "duration", 0.0) or 0.0) >= 70.0 - 1e-9
+                         or bool(getattr(w, "is_anchor", False)))
+                )
             )
         ) or (
             w.sport == "Brick" and (
-                getattr(w, "brick_run_hard", False) or run_minutes(w) >= 60.0
-                or _flags(w).get("heavy_run", 0) == 1 or _flags(w).get("long_run", 0) == 1
+                getattr(w, "brick_run_hard", False)
+                or run_minutes(w) >= 70.0 - 1e-9
+                or _flags(w).get("heavy_run", 0) == 1
+                or (
+                    _flags(w).get("long_run", 0) == 1
+                    and (run_minutes(w) >= 70.0 - 1e-9 or bool(getattr(w, "is_anchor", False)))
+                )
             )
         )),
         deadlifts=ids(lambda w: w.sport == "Strength" and (

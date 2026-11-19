@@ -237,6 +237,20 @@ def apply_keystone_week(library, kind: str, run_minutes: float):
     return out
 
 
+def apply_keystone_run_support(cfg: Any, keystone: Optional[str], ks_run: float) -> None:
+    """TASK-062: allow up to 6 run sessions in 90+ min long-run keystone weeks when >= 5 two-session windows exist,
+    so 5 standalone runs + 1 short easy run (or lift+run combo) can satisfy the 32% single-run volume ceiling
+    (ADR-003) without exceeding the weekly run mechanical strain cap."""
+    if keystone != "run" or float(ks_run) < 90.0 - 1e-9:
+        return
+    bounds = dict(getattr(cfg, "sport_freq_bounds", {}) or {})
+    run_lo, run_hi = bounds.get("Run", (0, 0))
+    windows = list(getattr(cfg, "two_session_windows", []) or [])
+    if run_hi == 5 and sum(1 for w in windows if w) >= 5:
+        bounds["Run"] = (run_lo, 6)
+        cfg.sport_freq_bounds = bounds
+
+
 PROGRESSION_GUARD_WINDOW = 3  # spans 1 recovery week + 1 alternating ride-keystone week (TASK-061)
 
 

@@ -209,6 +209,13 @@ def _intensity_bucket(w: Any) -> str:
     return "tempo" if z3 >= z45 else "hi"
 
 
+def _has_canonical_long_runs(workouts: Sequence[Any]) -> bool:
+    return any(
+        getattr(w, "code", "") == "RUN_AE2_LONG" or str(getattr(w, "code", "")).startswith("RUN_LC_Z2_")
+        for w in workouts
+    )
+
+
 def prune_8020_candidates(workouts: Sequence[Any],
                           bucket_caps: Optional[Dict[str, int]] = None) -> List[Any]:
     """Stratified representative pruning of ``8020_library`` workouts across duration and intensity buckets.
@@ -216,10 +223,12 @@ def prune_8020_candidates(workouts: Sequence[Any],
     Curated core rows (non-``8020_library``), anchors, tests, and stride-bearing sessions are never pruned.
     Near-duplicate ``8020_library`` rows within (duration <= 2.0 min, aerobic_tss <= 3.0 TSS) of an existing
     core row in the same ``(sport, intensity_bucket, is_indoor_bike)`` are dropped before bucket stratification.
-    Within each ``(sport, intensity_bucket)`` of remaining ``8020_library`` rows, evenly spaced representatives
-    across feasible ``(duration, aerobic_tss)`` (including shortest and longest) are retained up to ``bucket_caps``.
+    When canonical long-course runs (``RUN_AE2_LONG``, ``RUN_LC_Z2_*``) are present, ``8020_library`` easy runs
+    with ``duration > 70.0`` are excluded from the ``easy`` Run bucket so slots stratify across ``<= 70.0 min``
+    support runs (retaining the lowest-strain ~60 min Z1 support run such as ``RRe9``).
     """
     caps = bucket_caps or DEFAULT_8020_BUCKET_CAPS
+    has_canonical_long_runs = _has_canonical_long_runs(workouts)
     core_by_key: Dict[Tuple[str, str, bool], List[Any]] = {}
     for w in workouts:
         if getattr(w, "provenance", "") != "8020_library":
@@ -232,8 +241,10 @@ def prune_8020_candidates(workouts: Sequence[Any],
             continue
         sport = getattr(w, "sport", "")
         bucket = _intensity_bucket(w)
-        core_matches = core_by_key.get((sport, bucket, bool(getattr(w, "is_indoor_bike", False))), ())
         w_dur = float(getattr(w, "duration", 0.0) or 0.0)
+        if sport == "Run" and bucket == "easy" and has_canonical_long_runs and w_dur > 70.0 + 1e-9:
+            continue
+        core_matches = core_by_key.get((sport, bucket, bool(getattr(w, "is_indoor_bike", False))), ())
         w_tss = float(getattr(w, "aerobic_tss", 0.0) or 0.0)
         if any(abs(w_dur - float(getattr(c, "duration", 0.0) or 0.0)) <= 2.0 + 1e-9
                and abs(w_tss - float(getattr(c, "aerobic_tss", 0.0) or 0.0)) <= 3.0 + 1e-9
@@ -242,7 +253,7 @@ def prune_8020_candidates(workouts: Sequence[Any],
         groups.setdefault((sport, bucket), []).append(idx)
 
     keep_8020: set = set()
-    for (_sport, bucket), idxs in groups.items():
+    for (sport, bucket), idxs in groups.items():
         cap = int(caps.get(bucket, 4))
         if len(idxs) <= cap:
             keep_8020.update(idxs)
@@ -252,6 +263,25 @@ def prune_8020_candidates(workouts: Sequence[Any],
                                               str(getattr(workouts[i], "code", ""))))
         if cap == 1:
             keep_8020.add(ordered[0])
+        elif sport == "Run" and bucket == "easy":
+            support_60 = [i for i in ordered if 59.0 <= float(workouts[i].duration) <= 65.0]
+            if support_60:
+                best_support = min(
+                    support_60,
+                    key=lambda i: (float(workouts[i].mechanical_strain), -float(workouts[i].duration),
+                                   str(getattr(workouts[i], "code", ""))),
+                )
+                keep_8020.add(best_support)
+                rest = [i for i in ordered if i != best_support]
+                sub_cap = cap - 1
+                if sub_cap == 1:
+                    keep_8020.add(rest[0])
+                else:
+                    picks = {rest[int(round(k * (len(rest) - 1) / (sub_cap - 1)))] for k in range(sub_cap)}
+                    keep_8020.update(picks)
+            else:
+                picks = {ordered[int(round(k * (len(ordered) - 1) / (cap - 1)))] for k in range(cap)}
+                keep_8020.update(picks)
         else:
             picks = {ordered[int(round(k * (len(ordered) - 1) / (cap - 1)))] for k in range(cap)}
             keep_8020.update(picks)
