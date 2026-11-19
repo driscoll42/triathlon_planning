@@ -68,7 +68,7 @@ def reference_profile(base: Optional[Any] = None) -> Any:
         initial_metabolic_state=45.0, initial_connective_tissue_state=45.0,
         initial_running_acute_mech=35.0, initial_running_chronic_mech=35.0,
         base_weekly_tss=300.0, peak_weekly_tss=560.0,
-        max_48h_ans_cost=700.0, max_weekly_run_mech_strain=250.0,
+        max_48h_ans_cost=120.0, max_weekly_run_mech_strain=250.0,
         sport_freq_bounds={"Swim": (2, 3), "Bike": (3, 4), "Run": (4, 5), "Strength": (2, 3)},
         target_sport_splits={"Swim": 0.15, "Bike": 0.45, "Run": 0.30, "Strength": 0.10},
         reentry_heavy_strength_sessions=2,
@@ -239,7 +239,7 @@ def check_week(rec: WeekRecord, prev: Optional[WeekRecord] = None) -> List[Viola
             b = ALPHA_CTL
             ctl = ls.total_ctl
             for d in range(7):
-                t = sum(w.aerobic_tss for w in _day(rec, d) if w.sport in ("Bike", "Run", "Swim", "Brick"))
+                t = sum(w.aerobic_tss for w in _day(rec, d) if w.sport in ("Bike", "Run", "Swim", "Brick", "Strength"))
                 ctl = (1 - b) * ctl + b * t
             if ctl - ls.total_ctl > ls.ctl_ramp_max + 1e-6:
                 add("ctl_ramp", f"CTL ramp {ctl - ls.total_ctl:.2f} > {ls.ctl_ramp_max:.1f}", ctl - ls.total_ctl,

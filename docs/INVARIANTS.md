@@ -2,7 +2,7 @@
 
 ## 1. Orthopedic Safety & Biomechanical Guardrails
 - **Single-Run Ceiling:** A single run must never exceed **32%** of total weekly running duration (`max_single_run_vol_ratio <= 0.32`, `ADR-003`) to prevent bone stress and patellofemoral injury. With fewer than 4 runs the ratio is vacuous, so the longest run is instead capped in minutes: `max(30, previous week's longest + 10)`, and 45 min while run CTL < 15 (`ADR-022`).
-- **Rolling 48-Hour Strain Caps:** Rolling 48-hour mechanical strain must not exceed **260.0** units; rolling 48-hour aerobic TSS must not exceed **295.0**; rolling ANS cost must not exceed **700.0**.
+- **Rolling 48-Hour Strain Caps:** Rolling 48-hour mechanical strain must not exceed **260.0** units; rolling 48-hour aerobic TSS must not exceed **295.0**; rolling ANS cost must not exceed **120.0** (unified `SPEC.md` 7-zone weights $w=(0,0,0.7,1.0,1.4,1.8,3.5)$ + long-duration surcharge, `ADR-034`; recalibrated from 700.0 on the retired $e^{0.65(z-1)}$ scale, never looser than the old cap's exclusion share).
 - **Axial Spinal & Neuromuscular Ceilings:** Daily axial load $X_{\text{day}} \le 120.0$; weekly axial load $X_{\text{wk}} \le 320.0$. Daily neuromuscular load $N_{\text{day}} \le 130.0$; weekly neuromuscular load $N_{\text{wk}} \le 360.0$ (`ADR-008`).
 - **Deadlift-Run 24h Lockout:** Heavy deadlifts and threshold/long runs must NEVER share a calendar day ($x_{i,d} + x_{j,d} \le 1$) or adjacent days ($x_{i,d} + x_{j,d+1} \le 1$) to prevent lumbar shear failure (`HEUR-004`). Deadlifts stack synergistically with swimming.
 - **Biomechanical Antagonism Exclusions:**

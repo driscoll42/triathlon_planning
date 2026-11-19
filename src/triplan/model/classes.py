@@ -1,6 +1,8 @@
 import os
 import numpy as np
 
+from triplan.physiology.load_model import ANS_WEIGHTS, ZONES7
+
 
 def _resolve_data_path(filename: str) -> str:
     """Resolves data paths checking data/ directory first, then root/relative paths."""
@@ -45,15 +47,8 @@ class triVariables:
         "Z5": (1.10, 2.00),   # Anaerobic / Repetition (W' Depletion)
     }
 
-    ans_cost_7zones = {
-        "Z1": 0.0,
-        "Z2": 0.0,
-        "ZX": 0.7,
-        "Z3": 1.0,
-        "ZY": 1.4,
-        "Z4": 1.8,
-        "Z5": 3.5,
-    }
+    # Single source: physiology.load_model.ANS_WEIGHTS (SPEC.md 7-zone weights, TASK-021)
+    ans_cost_7zones = dict(zip(ZONES7, ANS_WEIGHTS))
 
     # Legacy 5-Zone operational midpoints for backward compatibility
     bike_zone_power_multiplier = np.array([0.6, 0.765, 0.955, 1.06, 1.30])

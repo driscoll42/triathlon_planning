@@ -75,7 +75,7 @@ def cfg_get(cfg: Any, *keys: str, default: Any = None) -> Any:
 class SafetyLimits:
     weekday_single_workout_cap: Optional[float] = None
     max_48h_tss: float = 295.0
-    max_48h_ans: float = 700.0
+    max_48h_ans: float = 120.0
     max_48h_mech: float = 260.0
     max_daily_axial: float = 120.0
     max_weekly_axial: float = 320.0

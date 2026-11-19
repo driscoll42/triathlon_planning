@@ -35,6 +35,7 @@ Do NOT use Stryd 5-Zone or MyProCoach 5-Zone systems (their Zone 2 spans 80%–9
 | **Zone 4** | Supra-Threshold / $\text{VO}_2\text{max}$ | 103% – 120% | 102% – 110% | High (`z4_dur`) | 1.8 |
 | **Zone 5** | Anaerobic / Repetition ($W'$ Depletion) | > 120% | > 110% | High (`z5_dur`) | 3.5 |
 
+- **Unified ANS cost (`ADR-034`, `src/triplan/physiology/load_model.py`):** $\text{ANS}_i = \sum_z w_z\, t_{i,z} + \gamma \max(0, D_i - D_0)$ with $w = (0, 0, 0.7, 1.0, 1.4, 1.8, 3.5)$ over (Z1, Z2, ZX, Z3, ZY, Z4, Z5), alactic Zone 5 strides ($\le 20$ s) weighted 0, $D_0 = 90$ min and $\gamma = 0.35$ ANS/min so a very long easy session is not free. Computed from zone minutes for every library row, never typed in. Rolling 48h cap: 120 (charter), 55 (`CURRENT_ATHLETE`).
 - **Physiological Sanity Checkpoints:**
   - **Run $LT_1$ (88% CP):** Must pass the Talk Test and keep HR <= 89% LTHR.
   - **Run/Bike $LT_2$ (96%–100% CP):** HR must plateau near LTHR during a 15–20 minute interval.

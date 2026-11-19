@@ -63,7 +63,7 @@ flowchart TD
   - **Upper Press vs. CSS Threshold Swim:** Absolute same-day exclusion to prevent subacromial shoulder impingement.
 - **Load Ceilings:** Strict daily and weekly caps on axial spinal load ($X_{\text{day}} \le 120$, $X_{\text{wk}} \le 320$), neuromuscular fatigue ($N_{\text{day}} \le 130$, $N_{\text{wk}} \le 360$), and rolling 48-hour mechanical strain ($\le 260$).
 - **EWMA Mechanical ACWR:** Maintains Acute-to-Chronic Workload Ratio for running strain strictly within $[0.80, 1.30]$.
-- **ANS Costing:** Accounts for Autonomic Nervous System fatigue using exponential penalty scaling ($e^{0.65(z-1)}$) across high-intensity zones.
+- **ANS Costing:** Accounts for Autonomic Nervous System fatigue with the `SPEC.md` 7-zone weight vector $(0, 0, 0.7, 1.0, 1.4, 1.8, 3.5)$ (alactic strides exempt) plus a long-duration surcharge (`ADR-034`).
 - **Hard-Days-Hard & Molecular Signaling:** Preserves easy days for systemic restoration; stacks strength workouts on hard endurance days with $\ge 6\text{ hours}$ intra-day separation to avoid AMPK vs. mTORC1 signaling interference.
 
 ### D. Three-Tier Closed-Loop Model Predictive Control (MPC)

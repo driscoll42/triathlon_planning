@@ -13,10 +13,14 @@ from typing import Dict, List, Optional, Any
 from dataclasses import asdict, dataclass, field, fields, replace
 import numpy as np
 
+from triplan.physiology.load_model import ANS_WEIGHTS, ZONES7
+
 # GEMINI.md section 2 global ceilings for the rolling 48h caps (TASK-040): a profile may set tighter values, never looser.
 CHARTER_MAX_48H_AEROBIC_TSS = 295.0
 CHARTER_MAX_48H_MECH_STRAIN = 260.0
-CHARTER_MAX_48H_ANS_COST = 700.0
+# ANS ceiling in the unified TASK-021 / ADR-034 units (SPEC.md 7-zone weights + duration surcharge). The pre-TASK-021 ceiling
+# was 700 on the e^(0.65 (z-1)) scale; 120 excludes at least the share of charter-legal 48h windows that 700 did (scripts/calibrate_ans_caps.py, ADR-034).
+CHARTER_MAX_48H_ANS_COST = 120.0
 
 
 @dataclass(frozen=True)
@@ -100,9 +104,10 @@ class AthleteProfile:
     # Bike / swim split the remainder of starting_ctl / starting_atl 55:25 (state default proportions).
     starting_run_ctl: float = 1.0            # Last run 2026-07-13 (DECISION-003): essentially detrained
     starting_run_atl: float = 0.6
-    # TASK-018: weekly Banister CTL ramp ceiling (CTL points / week), enforced in-model as a linear row. 7 is the
-    # upper end of the usual 5-8 TSS/day/week guidance; masters athletes are capped at 5 (ADR-019).
-    max_weekly_ctl_ramp: float = 7.0
+    # TASK-018: weekly Banister CTL ramp ceiling (CTL points / week), enforced in-model as a linear row; masters athletes
+    # are capped lower (ADR-019). TASK-021 (ADR-034): CTL is now exact tau = 42 d (it rose ~1.9x faster per TSS before), so
+    # the old 7.0 is 3.75 in today's units (same weekly TSS ramp permitted). The usual 5-8 guidance applies to exact CTL.
+    max_weekly_ctl_ramp: float = 3.75
 
     # Injury guard: 'HEALTHY', 'ACHILLES_REHAB', 'PATELLAR_GUARD', or 'RESTRICTED_RUN'
     orthopedic_status: str = "HEALTHY"
@@ -192,7 +197,7 @@ class AthleteProfile:
     # -------------------------------------------------------------------------
     # 6. PHYSIOLOGICAL SAFETY CEILINGS & DISCIPLINE SPLITS
     # -------------------------------------------------------------------------
-    max_48h_ans_cost: float = 450.0          # Rolling 48h Autonomic Nervous System fatigue ceiling (charter ceiling 700)
+    max_48h_ans_cost: float = 55.0           # Rolling 48h Autonomic Nervous System fatigue ceiling (charter ceiling 120; was 450 / 700)
     # TASK-040: rolling 48h aerobic-TSS and mechanical-strain caps, previously only MesoCycle dataclass defaults. Validated
     # against the GEMINI.md section 2 global ceilings (295 / 260): a profile may be tighter, never looser.
     max_48h_aerobic_tss: float = 295.0       # Rolling 48h glycogen / immune cap
@@ -595,7 +600,8 @@ class AthleteProfile:
             raise ValueError(f"Unsupported sport for 7-zone power: {sport}")
 
         zones = {}
-        for z, (low_pct, high_pct, role, ans_cost) in pcts.items():
+        for z, (low_pct, high_pct, role, _ans_literal) in pcts.items():
+            ans_cost = ANS_WEIGHTS[ZONES7.index(z)]   # single source: load_model.ANS_WEIGHTS (TASK-021)
             zones[z] = {
                 "role": role,
                 "pct_low": low_pct,

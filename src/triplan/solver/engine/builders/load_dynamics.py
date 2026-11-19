@@ -17,7 +17,7 @@ isolated-week model is unchanged.
    ``A_d - rho_min C_d + M_d s >= 0`` with one binary waiver ``s`` per week (a named Tier-1 slack, weight 1,
    the cheapest relaxation).
 3. Weekly CTL ramp (Tier-0): ``CTL_7 - CTL_0 <= ramp`` with ``CTL_7 = (1-b)^7 CTL_0 + b sum_d (1-b)^(6-d) T_d``,
-   ``T_d`` the bike+run+swim TSS (what ``AthletePhysiologicalState.total_ctl`` integrates).
+   ``T_d`` the all-sport TSS incl. strength (what ``AthletePhysiologicalState.total_ctl`` integrates, TASK-021).
 4. Absolute run minutes (Tier-0, re-entry guard): ``sum run duration <= cap``.
 """
 
@@ -121,7 +121,7 @@ def _ctl_ramp_row(ctx: BuildContext) -> None:
     if ls.ctl_ramp_max is None:
         return
     b = ALPHA_CTL
-    ids = np.flatnonzero(tab.mask("Bike", "Run", "Swim", "Brick"))
+    ids = np.flatnonzero(tab.mask("Bike", "Run", "Swim", "Brick", "Strength"))
     if len(ids) == 0:
         return
     cols = np.concatenate([ctx.X[ids, d] for d in ctx.days])

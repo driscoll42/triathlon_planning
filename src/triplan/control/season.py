@@ -479,7 +479,7 @@ if __name__ == "__main__":
     lib = build_default_candidate_library()
     cfg = MesoCycleTargetsAndConstraints(
         daily_time_caps=[60.0, 105.0, 60.0, 105.0, 60.0, 240.0, 240.0],
-        max_48h_ans_cost=700.0,
+        max_48h_ans_cost=120.0,
     )
     sched = TriathlonMILPScheduler(lib, cfg)
     plans = sched.solve_top_k_plans(k_plans=3)

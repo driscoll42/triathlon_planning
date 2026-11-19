@@ -52,6 +52,7 @@
 - **`ADR-031`** (`safety`): Three-week rolling window for receding-horizon progression guard
 - **`ADR-032`** (`safety`): Support-run pool stratification and 90/105-min keystone run build-up
 - **`ADR-033`** (`mpc`): Distance-aware long-ride keystone ladder in long-course builds
+- **`ADR-034`** (`physiology`): Unified ANS cost, zone-power mechanical strain, set-intensity strength strain, 10-20 TSS/h strength and exact Banister PMC decay
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`, `HEUR-008`

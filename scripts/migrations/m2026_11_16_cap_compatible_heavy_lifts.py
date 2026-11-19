@@ -14,17 +14,20 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 import pandas as pd  # noqa: E402
 
 from triplan.library.build import (  # noqa: E402
-    HEAVY_VARIANT_ZONES, HEAVY_VARIANTS, _blank_row, ans_cost, mechanical_strain, strength_loads,
+    HEAVY_VARIANT_ZONES, HEAVY_VARIANTS, _blank_row, ans_cost, strength_loads,
 )
+from triplan.physiology import load_model as lm  # noqa: E402
 from triplan.library.schema import WORKOUT_COLUMNS, validate_table  # noqa: E402
 
 SOURCE = "scripts/migrations/m2026_11_16_cap_compatible_heavy_lifts.py"
-DURATION, TSS, IF = 45.0, 38.88, 0.72   # same envelope as STR_SM1_MAINT (zones 20/20/0/5)
+DURATION = 45.0   # same envelope as STR_SM1_MAINT (zones 20/20/0/5); TSS / strain from the TASK-021 unified model
 
 
 def variant_rows():
     rows = []
     z = HEAVY_VARIANT_ZONES
+    TSS = lm.strength_tss(DURATION, z)
+    IF = lm.strength_intensity_factor(TSS, DURATION)
     for code, v in HEAVY_VARIANTS.items():
         row = _blank_row()
         loads = strength_loads(v["lower"], v["bench"])
@@ -32,14 +35,14 @@ def variant_rows():
             code=code, name=code, sport="Strength", category=v["category"], provenance="agent_authored", source=SOURCE,
             description=v["description"], duration_min=DURATION, tss=TSS, intensity_factor=IF,
             z1_min=z[0], z2_min=z[1], zx_min=z[2], z3_min=z[3], zy_min=z[4], z4_min=z[5], z5_min=z[6],
-            mechanical_strain=mechanical_strain("Strength", TSS, IF, DURATION),
-            ans_cost=round(ans_cost([z[0], z[1], z[3], z[5], z[6]], False), 1), durability_score=2.0,
+            mechanical_strain=lm.strength_strain(code),
+            ans_cost=round(ans_cost(list(z), False, DURATION), 1), durability_score=2.0,
             neuromuscular_load=loads["neuromuscular_load"], axial_load=loads["axial_load"],
             is_heavy_strength=True, heavy_sq=bool(v["sq"]), heavy_dl=bool(v["dl"]), heavy_press=True,
             lib_default=True, lib_hybrid=True, needs_review=True, split_group="HLM", bb_sets=v["bb"], db_sets=v["db"],
             sets_anterior_chain=v["sets"][0], sets_posterior_chain=v["sets"][1], sets_push=v["sets"][2],
             sets_pull=v["sets"][3], target_adaptations=v["adaptations"],
-            notes="Cap-compatible heavy lift (TASK-033): loads from library.build.strength_loads; TSS awaits TASK-021.")
+            notes="Cap-compatible heavy lift (TASK-033): loads from library.build.strength_loads; TSS / strain from the TASK-021 model.")
         rows.append(row)
     return rows
 

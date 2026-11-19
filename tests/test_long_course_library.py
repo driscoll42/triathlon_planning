@@ -77,7 +77,7 @@ def test_long_sessions_fit_the_tier0_daily_and_48h_caps(rows):
         assert r["neuromuscular_load"] <= cfg.max_daily_neuro_load, code
         assert r["axial_load"] <= cfg.max_daily_axial_load, code
         assert r["tss"] <= cfg.max_48h_aerobic_tss, code
-        assert r["ans_cost"] <= 700.0 and r["mechanical_strain"] <= cfg.max_48h_mech_strain, code
+        assert r["ans_cost"] <= 120.0 and r["mechanical_strain"] <= cfg.max_48h_mech_strain, code
 
 
 def test_current_athlete_day_caps_exclude_the_new_rows():
@@ -107,7 +107,7 @@ def test_diagnosis_reports_no_library_gap_for_the_reference_profile():
 # ----------------------------------------------------------------------------- profile-level 48h caps
 def test_profile_48h_caps_round_trip_and_keep_charter_values():
     p = load_athlete_profile()
-    assert (p.max_48h_aerobic_tss, p.max_48h_mech_strain, p.max_48h_ans_cost) == (295.0, 260.0, 450.0)
+    assert (p.max_48h_aerobic_tss, p.max_48h_mech_strain, p.max_48h_ans_cost) == (295.0, 260.0, 55.0)
     assert (CURRENT_ATHLETE.max_48h_aerobic_tss, CURRENT_ATHLETE.max_48h_mech_strain) == (295.0, 260.0)
     cfg = CURRENT_ATHLETE.to_mesocycle_config("Build")
     assert (cfg.max_48h_aerobic_tss, cfg.max_48h_mech_strain) == (295.0, 260.0)
@@ -116,17 +116,17 @@ def test_profile_48h_caps_round_trip_and_keep_charter_values():
 
 
 def test_profile_48h_caps_reach_the_engine_rows(default_library):
-    tight = replace(CURRENT_ATHLETE, max_48h_aerobic_tss=200.0, max_48h_mech_strain=150.0, max_48h_ans_cost=400.0)
+    tight = replace(CURRENT_ATHLETE, max_48h_aerobic_tss=200.0, max_48h_mech_strain=150.0, max_48h_ans_cost=50.0)
     assert tight.to_mesocycle_config("Build").max_48h_aerobic_tss == 200.0
     assert tight.to_hybrid_config()["max_48h_mech_strain"] == 150.0
     _, ctx0 = _build_rows(default_library, CURRENT_ATHLETE)
     _, ctx1 = _build_rows(default_library, tight)
     assert (ctx0.limits.max_48h_tss, ctx0.limits.max_48h_mech) == (295.0, 260.0)
-    assert (ctx1.limits.max_48h_tss, ctx1.limits.max_48h_mech, ctx1.limits.max_48h_ans) == (200.0, 150.0, 400.0)
+    assert (ctx1.limits.max_48h_tss, ctx1.limits.max_48h_mech, ctx1.limits.max_48h_ans) == (200.0, 150.0, 50.0)
 
 
 @pytest.mark.parametrize("bad", [{"max_48h_aerobic_tss": 296.0}, {"max_48h_mech_strain": 261.0},
-                                 {"max_48h_ans_cost": 701.0}, {"max_48h_aerobic_tss": 0.0},
+                                 {"max_48h_ans_cost": 121.0}, {"max_48h_aerobic_tss": 0.0},
                                  {"max_48h_mech_strain": -1.0}])
 def test_profile_48h_caps_are_validated_against_the_charter_ceilings(bad):
     with pytest.raises(ValueError):
@@ -136,19 +136,19 @@ def test_profile_48h_caps_are_validated_against_the_charter_ceilings(bad):
 def test_reference_profile_keeps_charter_48h_caps():
     from triplan.perf.season_validation import reference_profile
     r = reference_profile()
-    assert (r.max_48h_aerobic_tss, r.max_48h_mech_strain, r.max_48h_ans_cost) == (295.0, 260.0, 700.0)
+    assert (r.max_48h_aerobic_tss, r.max_48h_mech_strain, r.max_48h_ans_cost) == (295.0, 260.0, 120.0)
 
 
 # ----------------------------------------------------------------------------- season diagnosis
 def test_peak_48h_and_binding_cap_message():
-    sched = {0: [wk(tss=100.0, ans=300.0, mech=50.0)], 1: [wk(tss=150.0, ans=390.0, mech=60.0, id=2)]}
-    assert peak_48h(sched) == {"TSS": 250.0, "ANS": 690.0, "Strain": 110.0}
+    sched = {0: [wk(tss=100.0, ans=60.0, mech=50.0)], 1: [wk(tss=150.0, ans=58.0, mech=60.0, id=2)]}
+    assert peak_48h(sched) == {"TSS": 250.0, "ANS": 118.0, "Strain": 110.0}
     summary = pd.DataFrame([{"Week": 5, "Target_TSS": 700.0, "Solved_TSS": 570.0, "Relaxations": "", "Diagnostics": "",
-                             "Max_48h_TSS": 250.0, "Max_48h_ANS": 690.0, "Max_48h_Strain": 110.0}])
+                             "Max_48h_TSS": 250.0, "Max_48h_ANS": 118.0, "Max_48h_Strain": 110.0}])
     from triplan.perf.season_validation import reference_profile
     msgs = season_infeasibility_report(summary, reference_profile(), "ironman")
     hit = [m for m in msgs if m.startswith("Rolling 48h")]
-    assert len(hit) == 1 and "ANS cost cap 700" in hit[0] and "not reachable" in hit[0]
+    assert len(hit) == 1 and "ANS cost cap 120" in hit[0] and "not reachable" in hit[0]
 
 
 def test_unhostable_long_course_rows_are_dropped_only_when_no_day_cap_hosts_them():

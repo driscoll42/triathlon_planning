@@ -16,7 +16,7 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of
 GLOBAL_ACWR_MAX = 1.30      # INVARIANTS: mechanical ACWR window [0.80, 1.30]
 GLOBAL_ACWR_MIN = 0.80
 MASTERS_ACWR_MAX = 1.15
-MASTERS_CTL_RAMP = 5.0
+MASTERS_CTL_RAMP = 2.75   # was 5.0 before exact Banister decay (TASK-021, ADR-034): same weekly TSS ramp
 
 
 def acwr_eps_floor(library: Iterable[Any], rho: float) -> float:
