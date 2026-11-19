@@ -13,7 +13,6 @@ Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library +
 
 ### Phase 2 — Unified MILP Engine (`~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/phase2_master_plan.md`)
 
-- [ ] `TASK-063` (`mpc`): distance-aware long-ride keystone (180->210-360m `BIKE_LC_OUT_*`, `TASK-050`) — `~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/plan_TASK_063_long_ride_keystone.md`
 
 ### Phase 3 — Physiology Calibration
 

@@ -2,8 +2,8 @@
 import pytest
 
 from triplan.control.periodization import (
-    KEYSTONE_RUN_LADDER, apply_keystone_run_support, apply_keystone_week, build_season_matrix, keystone_kind,
-    keystone_run_minutes, progression_guard_bounds,
+    KEYSTONE_RIDE_LADDER, KEYSTONE_RUN_LADDER, apply_keystone_run_support, apply_keystone_week, build_season_matrix,
+    keystone_kind, keystone_ride_minutes, keystone_ride_rungs, keystone_run_minutes, progression_guard_bounds,
 )
 
 BIG_CAPS = [90.0, 120.0, 90.0, 120.0, 90.0, 300.0, 240.0]
@@ -169,4 +169,71 @@ def test_reference_peak_keystone_reaches_90_and_105_min(monkeypatch, dist, n_wee
         )
     longest_run = max((run_minutes(w) for r in recs for d in range(7) for w in r.schedule[d]), default=0.0)
     assert longest_run >= target_min
+    assert not check_season(recs, profile)
+
+
+def test_keystone_ride_minutes_progresses_one_rung_and_respects_caps(default_library):
+    """TASK-063: 70.3 180 -> 210 -> 240 -> 300, Ironman up to 360; one library rung per step; day caps clamp the top."""
+    lib = default_library
+    big = [90.0, 120.0, 90.0, 120.0, 90.0, 360.0, 240.0]
+    assert keystone_ride_rungs(lib, big) == [180.0, 210.0, 240.0, 300.0, 360.0]
+    assert keystone_ride_rungs(lib, [90.0, 300.0]) == [180.0, 210.0, 240.0, 300.0]
+    assert KEYSTONE_RIDE_LADDER["70.3"][-1] == 300.0 and KEYSTONE_RIDE_LADDER["ironman"][-1] == 360.0
+
+    last, got = 0.0, []
+    for i in range(6):
+        last = keystone_ride_minutes("70.3", i, last, lib, big)
+        got.append(last)
+    assert got == [180.0, 210.0, 210.0, 240.0, 240.0, 300.0]
+    last, got = 0.0, []
+    for i in range(6):
+        last = keystone_ride_minutes("ironman", i, last, lib, big)
+        got.append(last)
+    assert got == [180.0, 210.0, 240.0, 300.0, 300.0, 360.0]
+
+    assert keystone_ride_minutes("70.3", 5, 180.0, lib, big) == 210.0          # ladder wants 300, one rung per step
+    assert keystone_ride_minutes("ironman", 99, 1e4, lib, [90.0, 300.0]) == 300.0   # reference Saturday cap clamps 360
+    # CURRENT_ATHLETE-like 75 min caps host no keystone ride: the 180 min anchor stays (diagnosis fires as before)
+    assert keystone_ride_minutes("ironman", 5, 1e4, lib, [75.0] * 7) == 180.0
+
+
+def test_apply_keystone_week_ride_minutes_moves_the_ride_anchor(default_library):
+    lib = default_library
+    wk = apply_keystone_week(lib, "ride", 75.0, 210.0)
+    assert {w.code for w in wk if w.is_anchor} == {"BIKE_LC_OUT_210"}
+    assert not next(w for w in wk if w.code == "BIKE_DUR_OUT_DEF").is_anchor
+    assert not next(w for w in wk if w.code == "RUN_AE2_LONG").is_anchor
+    # default ride_minutes keeps the pre-TASK-063 behavior
+    assert {w.code for w in apply_keystone_week(lib, "ride", 75.0) if w.is_anchor} == {"BIKE_DUR_OUT_DEF"}
+    # a duration the library has no ride for leaves the Bike anchors untouched
+    assert {w.code for w in apply_keystone_week(lib, "ride", 75.0, 333.0) if w.is_anchor} == {"BIKE_DUR_OUT_DEF"}
+    # run weeks still drop every Bike anchor
+    assert not any(w.is_anchor for w in apply_keystone_week(lib, "run", 90.0) if w.sport == "Bike")
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("dist,n_weeks,target_min", [("70.3", 10, 210.0), ("ironman", 10, 210.0)])
+def test_reference_long_ride_keystone_grows_with_block(monkeypatch, dist, n_weeks, target_min):
+    """TASK-063: the first ride-keystone week (W3) holds the 180 min anchor; later ones reach >= 210 min; 0 violations."""
+    import contextlib
+    import io
+
+    import triplan.control.season as season
+    from triplan.perf.season_validation import build_profile, check_season
+
+    orig = season.build_season_matrix
+    monkeypatch.setattr(season, "build_season_matrix", lambda *a, **k: orig(*a, **k)[:n_weeks])
+    profile, recs = build_profile("reference", dist), []
+    with contextlib.redirect_stdout(io.StringIO()):
+        _, summary = season.generate_closed_loop_season_schedule(
+            profile=profile, distance=dist, time_limit_per_week=4.0,
+            weeks_to_race=20 if dist == "70.3" else 24, collect=recs,
+        )
+    rides = {}
+    for r, note in zip(recs, summary.Recalibration):
+        if "KEYSTONE_LONG_RIDE" in note:
+            rides[r.week_num] = max([w.duration for d in range(7) for w in r.schedule[d] if w.sport == "Bike"] or [0.0])
+    assert len(rides) >= 3
+    ordered = list(rides.values())
+    assert ordered[0] >= 180.0 and max(ordered) >= target_min
     assert not check_season(recs, profile)

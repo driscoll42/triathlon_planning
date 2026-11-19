@@ -180,6 +180,25 @@ def _is_keystone_run(w, has_canonical: bool) -> bool:
     return w.sport == "Run" and bool((getattr(w, "flags", None) or {}).get("long_run", 0))
 
 
+# TASK-063 (ADR-028): the long-ride keystone grows like the run one. Rungs are the TASK-040 long-course outdoor Z1/Z2
+# rides (BIKE_LC_OUT_*); 180 min is the BIKE_DUR_OUT_DEF anchor (the rung every season starts on and the fallback when
+# the day caps host no longer ride). Clamped to hostable rungs and one library rung above the last longest ride.
+KEYSTONE_RIDE_BASE_MIN = 180.0
+KEYSTONE_RUN_BASE_MIN = 75.0
+KEYSTONE_RIDE_LADDER = {"70.3": (180.0, 210.0, 210.0, 240.0, 240.0, 300.0),
+                        "ironman": (180.0, 210.0, 240.0, 300.0, 300.0, 360.0)}
+KEYSTONE_RIDE_CODES = frozenset({"BIKE_DUR_OUT_DEF", "BIKE_LC_OUT_210", "BIKE_LC_OUT_240", "BIKE_LC_OUT_300",
+                                 "BIKE_LC_OUT_360"})
+
+
+def _is_keystone_ride(w, has_canonical: bool) -> bool:
+    if has_canonical:
+        return getattr(w, "code", "") in KEYSTONE_RIDE_CODES
+    return w.sport == "Bike" and (
+        bool(getattr(w, "is_anchor", False))
+        or (bool((getattr(w, "flags", None) or {}).get("outdoor_bike", 0)) and float(w.duration) >= KEYSTONE_RIDE_BASE_MIN - 1e-6))
+
+
 def keystone_kind(distance: str, role: str, block: str, ordinal: int) -> Optional[str]:
     """TASK-055: ``"run"`` / ``"ride"`` keystone for the ``ordinal``-th (0-based) race-block build / overload week of a
     70.3 / Ironman season, alternating run, ride, run, ...; ``None`` for every other week (sprint / olympic, re-entry
@@ -213,14 +232,46 @@ def keystone_run_minutes(distance: str, run_ordinal: int, last_longest_run: floa
     return ok[-1] if ok else rungs[0]
 
 
-def apply_keystone_week(library, kind: str, run_minutes: float):
+def keystone_ride_rungs(library, daily_time_caps) -> list:
+    """TASK-063: the long-ride durations (canonical keystone rides or the Bike anchor / long outdoor rows) the day caps
+    can host, ascending."""
+    lib_list = list(library)
+    has_canonical = any(getattr(w, "code", "") in KEYSTONE_RIDE_CODES for w in lib_list)
+    cap = max((float(c) for c in daily_time_caps), default=0.0)
+    return sorted({float(w.duration) for w in lib_list
+                   if _is_keystone_ride(w, has_canonical) and float(w.duration) <= cap})
+
+
+def keystone_ride_minutes(distance: str, ride_ordinal: int, last_longest_ride: float, library, daily_time_caps) -> float:
+    """TASK-063: duration of the long-ride keystone: the ladder rung for this distance and ride-week index, clamped to the
+    hostable library rungs and to at most one library rung above ``last_longest_ride`` (a progression, never a jump).
+    When the day caps host no keystone ride at all, the 180 min anchor is returned unchanged so the Tier-1
+    "dropped anchor" diagnosis keeps firing exactly as before."""
+    rungs = keystone_ride_rungs(library, daily_time_caps)
+    if not rungs:
+        return KEYSTONE_RIDE_BASE_MIN
+    ladder = KEYSTONE_RIDE_LADDER[normalize_distance(distance)]
+    want = ladder[min(ride_ordinal, len(ladder) - 1)]
+    above = [r for r in rungs if r > last_longest_ride]
+    ceiling = above[0] if above else rungs[-1]
+    ok = [r for r in rungs if r <= min(want, ceiling)]
+    return ok[-1] if ok else rungs[0]
+
+
+def apply_keystone_week(library, kind: str, run_minutes: float, ride_minutes: float = KEYSTONE_RIDE_BASE_MIN):
     """TASK-055: keystone anchors of one week. ``run``: only the long-run keystone (``RUN_AE2_LONG`` or the long-course run
-    of ``run_minutes``) is an anchor, the ride anchor becomes optional. ``ride``: only the ride anchor stays mandatory,
-    the run anchor becomes optional. Every workout stays a candidate; only the Tier-1 obligation moves."""
+    of ``run_minutes``) is an anchor, the ride anchor becomes optional. ``ride``: only the ride anchor stays mandatory
+    (``BIKE_DUR_OUT_DEF`` or the long-course ride of ``ride_minutes``), the run anchor becomes optional. Every workout stays a candidate; only the Tier-1 obligation moves."""
     lib_list = list(library)
     has_canonical = any(getattr(w, "code", "") in KEYSTONE_RUN_CODES for w in lib_list)
+    has_canonical_ride = any(getattr(w, "code", "") in KEYSTONE_RIDE_CODES for w in lib_list)
+    # TASK-063: ``ride`` weeks anchor the keystone ride of ``ride_minutes``; a library with no ride of that length keeps
+    # its existing Bike anchors (the pre-TASK-063 behavior).
+    ride_rows = [w for w in lib_list if _is_keystone_ride(w, has_canonical_ride)]
+    ride_swap = kind == "ride" and any(abs(float(w.duration) - ride_minutes) < 1e-6 for w in ride_rows)
     out = []
     run_anchor_set = False
+    ride_anchor_set = False
     for w in lib_list:
         anchor = bool(getattr(w, "is_anchor", False))
         if kind == "run" and _is_keystone_run(w, has_canonical):
@@ -233,6 +284,13 @@ def apply_keystone_week(library, kind: str, run_minutes: float):
             anchor = False
         elif kind == "ride" and w.sport == "Run":
             anchor = False
+        elif ride_swap and w.sport == "Bike":
+            if _is_keystone_ride(w, has_canonical_ride):
+                anchor = (not ride_anchor_set) and abs(float(w.duration) - ride_minutes) < 1e-6
+                if anchor:
+                    ride_anchor_set = True
+            else:
+                anchor = False
         out.append(w if anchor == bool(getattr(w, "is_anchor", False)) else replace(w, is_anchor=anchor))
     return out
 

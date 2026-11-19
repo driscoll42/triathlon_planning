@@ -277,6 +277,11 @@
   - `control/periodization.py` & `control/season.py`: added `apply_keystone_run_support()` raising `Run` max frequency `5 -> 6` in `90+ min` run-keystone weeks with `>= 5` two-session windows (preserved across step-down and `ADR-025` target-raise re-solves), and skipped `pre_odi > odi_limit` run-strain throttling in `keystone == "run"` weeks when `pre_acwr <= acwr_cap`.
 - **Verification:** `python -m pytest -q` (368 passed, 8 deselected), `test_full_matrix_season[reference-70.3]` & `[reference-ironman]` (`PASSED`), and `python -m triplan.perf.season_validation` (8 seasons / 240 weeks, 0 fallback weeks, 0 Tier-0 violations; `reference / 70.3` hosts `90.0 min` keystones, `reference / ironman` hosts `105.0 min` keystones with 0 dropped run anchors in build/overload weeks; `CURRENT_ATHLETE` unchanged).
 
+## Phase 2 — TASK-063 — completed 2026-11-18
 
+- [x] **`TASK-063` (`mpc`):** **Distance-Aware Long-Ride Keystone (`ADR-028`, `ADR-033`)** — long-ride keystone weeks in 70.3 / Ironman race-block builds climb the `BIKE_DUR_OUT_DEF` / `BIKE_LC_OUT_*` ladder instead of a fixed 180 min anchor.
 
-
+### Outcomes
+- **Ladder (`ADR-033`):** `control/periodization.py` adds `KEYSTONE_RIDE_LADDER` (70.3 `180, 210, 210, 240, 240, 300`; Ironman `180, 210, 240, 300, 300, 360`), `KEYSTONE_RIDE_CODES`, `keystone_ride_rungs()`, `keystone_ride_minutes()` (hostable-rung clamp, one rung above the last longest ride, 180 min when no rung is hostable) and `apply_keystone_week(..., ride_minutes=180.0)` (backward compatible). `control/season.py` tracks `last_keystone_ride` / `prev_longest_ride` and retries an unhostable ride rung one rung lower on `shorten_or_drop_anchor:Bike`.
+- **Result (`EXP-007` section 12):** reference 70.3 ride keystones 180 -> 210 -> 210 -> 240 -> 240 -> 300; Ironman 180 -> 210 -> 240 -> 300 (360 needs a 360 min day cap, `reference` has 300). Build-week solved/target median 70.3 0.99 -> 1.02, Ironman 0.95 -> 0.99; Ironman worst under-target week -139 -> -183 TSS (48h ANS cap, `TASK-050` / `TASK-021`, reported not fixed).
+- **Verification:** `python -m pytest -q` (370 passed, 10 deselected), slow `test_reference_long_ride_keystone_grows_with_block` (70.3, Ironman) passed, and `python -m triplan.perf.season_validation` (8 seasons / 240 weeks, 0 fallback weeks, 0 Tier-0 violations; `CURRENT_ATHLETE` violation-free).
