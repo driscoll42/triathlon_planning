@@ -39,6 +39,7 @@ Keeping the active post-combo candidate pool $W \le 120$ bounds binary assignmen
 
 ### Empirical Experiments (`EXP`)
 - **`EXP-001` [`NEEDS_RETEST` | `TIER_1_ISOLATED`] — Multi-Seed HiGHS Race vs Single-Seed Branching Search Benchmark:** 15-seed x 2-thread parallel HiGHS race reduces p99 solve time from 24.8s to 1.1s across 500 candidate workouts.
+- **`EXP-003` [`ACTIVE` | `QUEUED_SPEC`] — Solver Correctness, Sparse Build and Dominance Pruning Scaling Benchmark:** Queued spec: benchmark sparse CSR WeekModel build and dominance pruning across 40-500 candidates, and retest EXP-001 15-seed race vs single solve.
 - **`EXP-007` [`ACTIVE` | `TIER_1_ISOLATED`] — Multi-Distance Season Validation on CURRENT_ATHLETE and an Unconstrained Reference Profile:** 8 seasons (4 distances x 2 profiles): 0 fallback weeks, 0 independent Tier-0 violations; time-budget infeasibility is named, volume-target defects are queued.
 
 > **Superseded (`perf`):** `ADR-006` (`python scripts/lodectx.py trace <ID>`).
