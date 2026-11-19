@@ -41,7 +41,7 @@ def _state(acute, chronic, rho=1.2, eps=0.0, **kw):
 def test_day_load_from_workouts_uses_the_safety_classification():
     hard = wk(0, "T", "Bike", 60, z=(15.0, 25.0, 0.0, 20.0, 0.0), tss=80.0, mech=0.0, ans=30.0)
     dl = wk(1, "DL", "Strength", 45, is_heavy_strength=True, flags={"heavy_dl": 1})
-    lr = wk(2, "LR", "Run", 60, flags={"long_run": 1}, mech=50.0)
+    lr = wk(2, "LR", "Run", 75, flags={"long_run": 1}, mech=50.0)
     assert DayLoad.from_workouts([]).is_empty
     d = DayLoad.from_workouts([hard, dl, lr])
     assert d.hard and d.heavy_run and d.deadlift and d.heavy_strength and d.strength
@@ -59,7 +59,7 @@ def test_day0_hard_is_blocked_after_hard_day_minus_1():
 
 
 def test_day0_heavy_run_and_deadlift_blocked_by_day_minus_1_neighbours():
-    lib = [wk(0, "LONG", "Run", 60, tss=60.0, flags={"long_run": 1}), wk(1, "EASY", "Run", 60, tss=20.0),
+    lib = [wk(0, "LONG", "Run", 75, tss=60.0, flags={"long_run": 1}), wk(1, "EASY", "Run", 60, tss=20.0),
            wk(2, "DL", "Strength", 40, tss=60.0, is_heavy_strength=True, flags={"heavy_dl": 1})]
     c = _day0_cfg(target_weekly_tss=60.0)
     assert _codes(_solve(lib, c), 0) in (["LONG"], ["DL"])

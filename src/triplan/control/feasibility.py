@@ -16,6 +16,7 @@ import copy
 import re
 from collections import OrderedDict
 from dataclasses import replace
+from itertools import combinations
 from typing import Any, Dict, List, Optional, Sequence
 
 import pandas as pd
@@ -183,6 +184,17 @@ SINGLE_RUN_COMBINED = "combination of rows"
 SINGLE_RUN_UNBOUND = "no run row (goal trade-off)"
 SINGLE_RUN_MIN_ONE = "run-frequency minimum of 1 (no row prevents more runs)"
 SINGLE_RUN_BUDGET_S = 1.0     # time limit of each scratch re-solve
+KEYSTONE_RUN_ROWS = (
+    "weekly run strain cap",
+    "running ACWR ceiling",
+    "long-run cap",
+    "run-share ceiling",
+    "run frequency cap",
+    "heavy-lift +-24h lockout",
+    "48h caps",
+    "1 session/day",
+)
+KEYSTONE_RUN_UNBOUND = "not hostable under daily time caps / library / structure"
 
 
 def run_session_count(schedule: Dict[int, Sequence[Any]]) -> int:
@@ -201,13 +213,33 @@ def _relax_row(name: str, cfg: Any, carry: Any):
     elif name == "structure minimums":
         from triplan.control.periodization import apply_reentry_relief
         apply_reentry_relief(cfg, 2)
+    elif name == "run-share ceiling":
+        cfg.max_single_run_vol_ratio = 1.0
+        if hasattr(cfg, "long_run_cap_ratio"):
+            cfg.long_run_cap_ratio = 1.0
+        cfg.pigeonhole_run_share = {3: 1.0, 2: 1.0}
+    elif name == "run frequency cap":
+        bounds = dict(getattr(cfg, "sport_freq_bounds", {}) or {})
+        lo, _hi = bounds.get("Run", (0, 7))
+        bounds["Run"] = (lo, 7)
+        cfg.sport_freq_bounds = bounds
+    elif name == "heavy-lift +-24h lockout":
+        cfg.required_heavy_strength_sessions = 0
+    elif name == "48h caps":
+        cfg.max_48h_aerobic_tss = 1e6
+        cfg.max_48h_ans_cost = 1e6
+        cfg.max_48h_mech_strain = 1e6
+    elif name == "long-run cap":
+        cfg.long_run_step_min = None
+        cfg.reentry_long_run_max_min = None
+        if carry is not None:
+            carry = replace(carry, prev_longest_run_min=1e4,
+                            load=replace(load, reentry=False) if load is not None else None)
     elif load is not None:
         if name == "run-minutes guard":
             carry = replace(carry, load=replace(load, run_minutes_cap=None))
         elif name == "running ACWR ceiling":
             carry = replace(carry, load=replace(load, acwr_max=1e3, acwr_min=0.0))
-        elif name == "long-run cap":
-            carry = replace(carry, prev_longest_run_min=1e4, load=replace(load, reentry=False))
     return cfg, carry
 
 
@@ -239,6 +271,56 @@ def attribute_single_run_week(library: Sequence[Any], cfg: Any, carry: Any,
             run_min = (getattr(cfg, "sport_freq_bounds", {}) or {}).get("Run", (2, 7))[0]
             label = SINGLE_RUN_MIN_ONE if run_min <= 1 else SINGLE_RUN_UNBOUND
     return {"label": label, "binding": binding}
+
+
+def attribute_keystone_run_week(
+    library: Sequence[Any],
+    cfg: Any,
+    carry: Any,
+    target_run_min: float,
+    time_limit: float = 3.5,
+    check_pairs: bool = True,
+) -> Dict[str, Any]:
+    """TASK-062: attribute why a week cannot host a ``target_run_min`` keystone run by relaxing candidate rows.
+
+    Mirrors :func:`attribute_single_run_week`: applies ``apply_keystone_week(library, "run", target_run_min)`` and
+    relaxes each row in :data:`KEYSTONE_RUN_ROWS` one at a time (then pairs and all rows if needed) in a scratch
+    model. Diagnostic only: never mutates ``cfg``, ``carry``, or ``library``.
+    """
+    from triplan.control.periodization import apply_keystone_week
+    from triplan.solver.safety_constraints import run_minutes
+    from triplan.solver.scheduler import TriathlonMILPScheduler
+
+    ks_lib = apply_keystone_week(library, "run", float(target_run_min))
+
+    def hosts_with(names: Sequence[str]) -> bool:
+        c, k = cfg, carry
+        for n in names:
+            c, k = _relax_row(n, c, k)
+        plans = TriathlonMILPScheduler(ks_lib, c, carry_in=k).solve_top_k_plans(k_plans=1, time_limit=time_limit)
+        if not plans:
+            return False
+        if any(x.get("category") == "shorten_or_drop_anchor:Run" for x in plans[0].get("relaxations", [])):
+            return False
+        longest = max((run_minutes(w) for d in range(7) for w in plans[0]["schedule"][d]), default=0.0)
+        return longest >= float(target_run_min) - 1e-6
+
+    binding = [n for n in KEYSTONE_RUN_ROWS if hosts_with([n])]
+    pairs: List[List[str]] = []
+    if binding:
+        label = " + ".join(binding)
+    elif hosts_with(KEYSTONE_RUN_ROWS):
+        if check_pairs:
+            pairs = [list(pair) for pair in combinations(KEYSTONE_RUN_ROWS, 2) if hosts_with(pair)]
+        if len(pairs) == 1:
+            label = " + ".join(pairs[0])
+        elif pairs:
+            label = f"{SINGLE_RUN_COMBINED} ({'; '.join(' + '.join(p) for p in pairs)})"
+        else:
+            label = SINGLE_RUN_COMBINED
+    else:
+        label = KEYSTONE_RUN_UNBOUND
+    return {"label": label, "binding": binding, "pairs": pairs, "target_run_min": float(target_run_min)}
 
 
 def single_run_message(summary: pd.DataFrame) -> List[str]:

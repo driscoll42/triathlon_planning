@@ -186,3 +186,11 @@ def test_classification_treats_unflagged_heavy_strength_as_deadlift():
     lib = [wk(0, "MYSTERY", "Strength", 45, is_heavy_strength=True), wk(1, "SQ", "Strength", 45, flags={"heavy_sq": 1})]
     sets = classify_workouts(lib)
     assert sets.deadlifts == [0] and sets.squats == [1] and set(sets.heavy_strength) == {0, 1}
+
+
+def test_classification_excludes_non_anchor_60m_easy_run_from_heavy_or_long_runs():
+    easy_60 = wk(0, "RRe9", "Run", 60, is_heavy_run=False, is_anchor=False, flags={"long_run": 1})
+    heavy_70 = wk(1, "RF13", "Run", 70, is_heavy_run=True, is_anchor=False, flags={"long_run": 1})
+    anchor_60 = wk(2, "LONG_ANCHOR", "Run", 60, is_heavy_run=False, is_anchor=True, flags={"long_run": 1})
+    sets = classify_workouts([easy_60, heavy_70, anchor_60])
+    assert sets.heavy_or_long_runs == [1, 2]

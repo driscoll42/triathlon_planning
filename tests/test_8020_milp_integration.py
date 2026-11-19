@@ -47,6 +47,25 @@ def test_prune_8020_candidates_stratifies_across_durations_without_dropping_core
     assert any(w.sport == "Bike" for w in kept_8020)
 
 
+def test_prune_8020_retains_rre9_support_run_and_drops_long_8020_easy_runs():
+    from triplan.perf.season_validation import reference_profile
+    from triplan.solver.engine.builders import calendar
+    from triplan.solver.engine.config import WeekConfig, WorkoutTable
+
+    lib = build_default_candidate_library()
+    cfg = reference_profile().to_mesocycle_config("Build", 400.0)
+    allowed = calendar.make_allowed(WorkoutTable(lib), WeekConfig(cfg), meso_options())
+    feas = filter_feasible_candidates(lib, allowed, SafetyLimits.from_config(cfg), req_heavy_strength=1)
+    pruned = prune_8020_candidates(feas, meso_options().max_8020_per_bucket)
+    easy_8020_runs = [
+        w for w in pruned
+        if w.sport == "Run" and w.provenance == "8020_library" and not w.is_hard_endurance and not w.has_strides
+    ]
+    codes = {w.code for w in easy_8020_runs}
+    assert "RRe9" in codes
+    assert all(w.duration <= 70.0 + 1e-9 for w in easy_8020_runs)
+
+
 def test_keystone_selection_does_not_duplicate_8020_runs_at_same_duration():
     lib = build_default_candidate_library()
     big_caps = [90.0, 120.0, 90.0, 120.0, 90.0, 300.0, 240.0]
