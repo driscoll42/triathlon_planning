@@ -6,7 +6,6 @@
 
 ## Phase 2: Consolidate into ONE Unified MILP Engine (`WeekModel` engine, `ADR-017`)
 
-- [ ] **`TASK-063` (`mpc`):** **Distance-Aware Long-Ride Keystone** — `ADR-028` long-ride weeks keep the 180 min `BIKE_DUR_OUT_DEF` anchor for 70.3 and Ironman. Add a ladder like the run one (70.3 up to 240-300, Ironman up to 300-360 min from the `TASK-040` `BIKE_LC_OUT_*` rows), progression-bounded and hostable-rung-clamped, with the same step-down retry. Ironman build weeks stay bound by the 48h ANS cap (`TASK-050`); report, do not fix. Acceptance: ride keystone grows with the block, 0 violations, build-week targets tracked no worse than `ADR-028`.
 
 ## Phase 3: Physiology Calibration & Periodization
 - [ ] **`TASK-021` (`physiology`):** **Unify ANS Cost, Mechanical Strain, Strength TSS & Banister PMC Math** — Unify the 3 conflicting ANS formulas into the 7-zone `SPEC.md` weight vector $w=(0,0,0.7,1.0,1.4,1.8,3.5)$ with alactic stride exemption and long-duration surcharge; replace stacked-constant mechanical strain with zone-power exponent model $S^{\text{run}}_i = \sum_z t_{i,z} p_z^\beta$ and set-intensity strength strain; assign strength a realistic aerobic TSS (10–20/hr instead of 56 TSS); fix `AthletePhysiologicalState.step_day` (`:1628-1629`) from $\alpha = 2/(N+1)$ to exact Banister decay $\alpha = 1 - e^{-1/\tau}$ ($\tau=42, 7$) and reconcile strength TSS in `total_ctl` vs `metabolic_fitness_state`; recalibrate 48h caps to match.

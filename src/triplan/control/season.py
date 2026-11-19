@@ -14,7 +14,7 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import initial_carry_in, next_week_carry_in
 from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
-                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, apply_keystone_run_support, keystone_kind, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance, progression_guard_bounds)
+                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, apply_keystone_run_support, keystone_kind, KEYSTONE_RIDE_BASE_MIN, KEYSTONE_RUN_BASE_MIN, keystone_ride_minutes, keystone_ride_rungs, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance, progression_guard_bounds)
 from triplan.control.feasibility import attribute_single_run_week, peak_48h, run_session_count, season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
@@ -156,6 +156,8 @@ def generate_closed_loop_season_schedule(
     season_summary_rows = []
     keystone_ordinal = 0       # TASK-055: race-block build / overload weeks seen so far (alternation index)
     last_keystone_run = 0.0    # longest run actually scheduled in the last long-run keystone week
+    last_keystone_ride = 0.0   # TASK-063: longest ride actually scheduled in the last long-ride keystone week
+    prev_longest_ride = 0.0    # TASK-063: longest ride of the previous solved week (any role)
 
     print(f"\n================================================================================")
     print(f"  LAUNCHING CLOSED-LOOP {dist.upper()} SEASON PLANNER ({len(season_matrix)} WEEKS)")
@@ -260,13 +262,23 @@ def generate_closed_loop_season_schedule(
         # TASK-055 (ADR-028): long-course race-block build / overload weeks alternate a long-run and a long-ride keystone.
         keystone_note = None
         ks_run = 0.0
+        ks_ride = KEYSTONE_RIDE_BASE_MIN
         if keystone is not None:
             keystone_ordinal += 1
-            ks_run = keystone_run_minutes(dist, (keystone_ordinal - 1) // 2, max(last_keystone_run, carry.prev_longest_run_min),
-                                          week_lib, cfg.daily_time_caps)
             keystone_base_lib = week_lib
-            week_lib = apply_keystone_week(keystone_base_lib, keystone, ks_run)
-            keystone_note = f"KEYSTONE_LONG_RUN ({ks_run:.0f} min)" if keystone == "run" else "KEYSTONE_LONG_RIDE"
+            if keystone == "run":
+                ks_run = keystone_run_minutes(dist, (keystone_ordinal - 1) // 2,
+                                              max(last_keystone_run, carry.prev_longest_run_min),
+                                              week_lib, cfg.daily_time_caps)
+                keystone_note = f"KEYSTONE_LONG_RUN ({ks_run:.0f} min)"
+            else:
+                # TASK-063: the long ride climbs the BIKE_LC_OUT_* ladder; the run anchor is optional this week.
+                ks_run = KEYSTONE_RUN_BASE_MIN
+                ks_ride = keystone_ride_minutes(dist, (keystone_ordinal - 1) // 2,
+                                                max(last_keystone_ride, prev_longest_ride),
+                                                week_lib, cfg.daily_time_caps)
+                keystone_note = f"KEYSTONE_LONG_RIDE ({ks_ride:.0f} min)"
+            week_lib = apply_keystone_week(keystone_base_lib, keystone, ks_run, ks_ride)
         week_lib = drop_unhostable_long_sessions(week_lib, cfg.daily_time_caps)   # TASK-040: nothing longer than any day cap
         solve_carry = relax_deload_acwr_floor(carry, wk.role)   # TASK-038
         cfg_solve = cfg
@@ -289,6 +301,19 @@ def generate_closed_loop_season_schedule(
                 if plans_k and not any(x.get("category") == "shorten_or_drop_anchor:Run" for x in plans_k[0].get("relaxations", [])):
                     scheduler, plans, week_lib, ks_run, cfg_solve = sched_k, plans_k, lib_r, rung, cfg_r
                     keystone_note = f"KEYSTONE_LONG_RUN ({rung:.0f} min, stepped down)"
+        # TASK-063: same step-down for the long ride: a ride rung the week cannot host (Tier-1 "dropped anchor" on Bike)
+        # is retried one library rung lower, down to the 180 min anchor; the first rung that keeps its anchor wins.
+        if keystone == "ride" and plans and ks_ride > 0:
+            for rung in [r_ for r_ in reversed(keystone_ride_rungs(keystone_base_lib, cfg.daily_time_caps)) if r_ < ks_ride]:
+                if not any(x.get("category") == "shorten_or_drop_anchor:Bike" for x in plans[0].get("relaxations", [])):
+                    break
+                lib_r = apply_keystone_week(keystone_base_lib, keystone, ks_run, rung)
+                lib_r = drop_unhostable_long_sessions(lib_r, cfg.daily_time_caps)
+                sched_k = TriathlonMILPScheduler(lib_r, cfg_solve, carry_in=solve_carry)
+                plans_k = sched_k.solve_top_k_plans(k_plans=1, time_limit=time_limit_per_week)
+                if plans_k and not any(x.get("category") == "shorten_or_drop_anchor:Bike" for x in plans_k[0].get("relaxations", [])):
+                    scheduler, plans, week_lib, ks_ride = sched_k, plans_k, lib_r, rung
+                    keystone_note = f"KEYSTONE_LONG_RIDE ({rung:.0f} min, stepped down)"
         cfg = cfg_solve
         # TASK-037: a re-entry build week whose full-week structure floor overshoots its target by more than
         # STRUCTURE_OVERSHOOT_TOL is re-solved with the structure minimums scaled down (never the Tier-0 caps).
@@ -376,6 +401,12 @@ def generate_closed_loop_season_schedule(
             run_minutes = float(sum(run_minutes_of(w) for d in range(7) for w in plan["schedule"][d]))
             if keystone == "run" and solved_ok:
                 last_keystone_run = max((run_minutes_of(w) for d in range(7) for w in plan["schedule"][d]), default=0.0)
+            # TASK-063: longest ride scheduled this week bounds the next long-ride keystone (one rung above it).
+            week_longest_ride = max((float(w.duration) for d in range(7) for w in plan["schedule"][d] if w.sport == "Bike"),
+                                    default=0.0)
+            if keystone == "ride" and solved_ok:
+                last_keystone_ride = week_longest_ride
+            prev_longest_ride = week_longest_ride
             # TASK-046: a one-run week is attributed to its binding row(s) by relaxing each in a scratch model
             # (only these weeks are re-solved, ~1 s per candidate row).
             single_run_binding = ""
