@@ -265,6 +265,18 @@
 - **Rolling Window Progression Guard (`ADR-031`):** Added `PROGRESSION_GUARD_WINDOW = 3` and `progression_guard_bounds()` to `control/periodization.py` and wired it into `control/season.py` (replacing the 1-week lookback). `cfg.max_weekly_run_mech_strain` is only clamped downward when above `mech_cap` (`CURRENT_ATHLETE`'s `75.0` ceiling untouched). Recorded `Run_Mech_Strain` in `season_summary_rows` for `TASK-062` observability.
 - **Verification:** `tests/test_alternating_keystones.py::test_progression_guard_window_preserves_post_recovery_and_post_ride_keystone`, `python -m pytest -q` (362 passed, 8 deselected), and `python -m triplan.perf.season_validation` (8 seasons / 240 weeks, 0 fallback weeks, 0 Tier-0 violations; Week 5 of `reference / 70.3` and `reference / ironman` no longer drops `RUN_AE2_LONG`; `CURRENT_ATHLETE` 100% violation-free).
 
+## Phase 2 — TASK-062 — completed 2026-11-18 (PR #29)
+
+- [x] **`TASK-062` (`safety`):** **90+ Min Keystone Run Attribution & Support-Run Policy (`ADR-022`, `ADR-028`, `ADR-032`)** — add `attribute_keystone_run_week()`, stratify `8020_library` easy runs `<= 70 min` (retaining `RRe9`), align `classify_workouts()` `heavy_or_long_runs` to `>= 70 min` / `is_heavy_run` / `is_anchor`, allow up to 6 run sessions in `90+ min` run-keystone weeks, and guard `keystone == "run"` weeks from wrong-sign ODI throttling while `pre_acwr <= acwr_cap`.
+
+### Outcomes
+- **Keystone Attribution & Support-Run Stack (`ADR-032`):**
+  - `control/feasibility.py`: added `KEYSTONE_RUN_ROWS`, `KEYSTONE_RUN_UNBOUND`, and `attribute_keystone_run_week()` (mirroring `attribute_single_run_week()`).
+  - `solver/pruning.py`: when canonical long-course runs (`RUN_AE2_LONG`, `RUN_LC_Z2_*`) exist, `prune_8020_candidates()` excludes `> 70.0 min` `8020_library` easy runs from `("Run", "easy")` stratification and retains the lowest-strain `~60 min` Z1 support run (`RRe9`).
+  - `solver/safety_constraints.py`: aligned `classify_workouts()` `heavy_or_long_runs` with `>= 70.0 min` / `is_heavy_run` / `is_anchor` (and `Brick` `brick_run_hard` / `>= 70.0 min`), removing 48h/deadlift lockouts on non-anchor `< 70 min` easy runs.
+  - `control/periodization.py` & `control/season.py`: added `apply_keystone_run_support()` raising `Run` max frequency `5 -> 6` in `90+ min` run-keystone weeks with `>= 5` two-session windows (preserved across step-down and `ADR-025` target-raise re-solves), and skipped `pre_odi > odi_limit` run-strain throttling in `keystone == "run"` weeks when `pre_acwr <= acwr_cap`.
+- **Verification:** `python -m pytest -q` (368 passed, 8 deselected), `test_full_matrix_season[reference-70.3]` & `[reference-ironman]` (`PASSED`), and `python -m triplan.perf.season_validation` (8 seasons / 240 weeks, 0 fallback weeks, 0 Tier-0 violations; `reference / 70.3` hosts `90.0 min` keystones, `reference / ironman` hosts `105.0 min` keystones with 0 dropped run anchors in build/overload weeks; `CURRENT_ATHLETE` unchanged).
+
 
 
 
