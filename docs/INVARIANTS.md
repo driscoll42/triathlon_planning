@@ -8,7 +8,7 @@
 - **Biomechanical Antagonism Exclusions:**
   - Squat vs. High-Torque Bike / Threshold Run: Absolute same-day exclusion.
   - Heavy Upper Press vs. CSS Threshold Swim: Absolute same-day exclusion to prevent subacromial impingement.
-- **Orthopedic Dissociation Index (ODI):** Cardiovascular remodeling ($\tau=35d$) adapts faster than collagenous matrix remodeling ($\tau=120d$). The ratio of metabolic fitness to connective tissue adaptation ($ODI$) must never exceed **1.35**.
+- **Orthopedic Dissociation Index (ODI):** Cardiovascular remodeling ($\tau=35d$) adapts faster than collagenous matrix remodeling ($\tau=120d$). $\text{ODI}^{\text{run}} = \text{EWMA}_{35}(S^{\text{run}}) / \text{EWMA}_{120}(S^{\text{run}})$, both EWMAs of the same daily run strain (`ADR-035`, `TASK-022`), must never exceed **1.35** (1.20 Masters); enforced in-model per day.
 - **EWMA Mechanical ACWR:** Acute-to-Chronic Workload Ratio for mechanical running load ($\tau_a=7d, \tau_c=28d$) must remain within $[0.80, 1.30]$; tightened to $\le 1.20$ during running re-entry (run CTL < 15) and $\le 1.25$ thereafter, with an absolute-minutes guard (60 min/wk floor, +15 min/wk max) (`ADR-012`).
 - **Adjacency Prohibitions:** Never schedule two breakthrough high-intensity sessions on consecutive days; maintain $\ge 48$ hours between heavy running workouts.
 

@@ -12,7 +12,7 @@ from triplan.physiology.athlete_profile import AthleteProfile
 from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
 from triplan.solver.scheduler import TriathlonMILPScheduler
 from triplan.control.mpc import ClosedLoopMPCController
-from triplan.physiology.state import AthletePhysiologicalState
+from triplan.physiology.state import ALPHA_ODI_FAST, AthletePhysiologicalState, alpha_odi_slow
 from triplan.library.candidates import build_default_candidate_library
 from triplan.control.season import generate_closed_loop_season_schedule
 from triplan.paths import training_plan_path
@@ -61,18 +61,17 @@ def compute_book_durability(row):
 
 def simulate_daily_stream(daily_records):
     """
-    Simulates Banister PMC, tissue remodeling M(t)/C(t), and EWMA ACWR
-    starting from absolute ZERO fitness/fatigue, with sedentary biological baseline (M0=20, C0=20).
+    Simulates Banister PMC, run-strain ODI (EWMA_35 / EWMA_120 of daily run strain, TASK-022) and EWMA ACWR
+    starting from absolute ZERO fitness/fatigue, with a sedentary run-strain baseline (F0=S0=10).
     """
     alpha_atl = 2.0 / (7.0 + 1.0)
     alpha_ctl = 2.0 / (42.0 + 1.0)
-    lambda_m = 1.0 / 35.0
-    lambda_c = 1.0 / 120.0
+    lambda_f, lambda_s = ALPHA_ODI_FAST, alpha_odi_slow()
     alpha_acute_mech = 2.0 / (7.0 + 1.0)
     alpha_chronic_mech = 2.0 / (28.0 + 1.0)
 
     ctl, atl = 0.0, 0.0
-    m_t, c_t = 20.0, 20.0
+    f_t, s_t = 10.0, 10.0
     acute_mech, chronic_mech = 10.0, 10.0
     history = []
     peak_ctl = 0.0
@@ -86,11 +85,9 @@ def simulate_daily_stream(daily_records):
         if ctl > peak_ctl:
             peak_ctl = ctl
 
-        delta_m = (day_tss / 10.0) - lambda_m * m_t
-        delta_c = (day_run_mech / 12.0) - lambda_c * c_t
-        m_t = max(10.0, m_t + delta_m)
-        c_t = max(10.0, c_t + delta_c)
-        odi = m_t / c_t if c_t > 0 else 1.0
+        f_t += lambda_f * (day_run_mech - f_t)
+        s_t += lambda_s * (day_run_mech - s_t)
+        odi = f_t / max(s_t, 1.0)
 
         acute_mech = acute_mech + alpha_acute_mech * (day_run_mech - acute_mech)
         chronic_mech = chronic_mech + alpha_chronic_mech * (day_run_mech - chronic_mech)
@@ -181,8 +178,8 @@ def run_comparison(distances=None, time_limit_per_week=1.5):
             name=f"Novice {display_name} Athlete",
             starting_ctl=0.0,
             starting_atl=0.0,
-            initial_metabolic_state=20.0,
-            initial_connective_tissue_state=20.0,
+            initial_run_strain_fast=10.0,
+            initial_run_strain_slow=10.0,
             initial_running_acute_mech=10.0,
             initial_running_chronic_mech=10.0,
             base_weekly_tss=base_tss,

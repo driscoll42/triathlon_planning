@@ -95,8 +95,10 @@ class AthleteProfile:
     # DECISION-003 confirmed: last run 2026-07-13, last ride 2026-06-20, last swim 2024-08; no injury history.
     starting_ctl: float = 5.0                # Chronic Training Load (Fitness, ~42-day EWMA)
     starting_atl: float = 3.0                # Acute Training Load (Fatigue, ~7-day EWMA)
-    initial_metabolic_state: float = 15.0    # Cardio / Mitochondrial convolution state (tau=35d)
-    initial_connective_tissue_state: float = 20.0 # Tendon / Bone matrix convolution state (tau=120d)
+    # ODI^run seeds (TASK-022, ADR-035): EWMAs of the daily RUN strain, same units as the acute / chronic seeds below.
+    # Last run 2026-07-13 (~4 months detrained): the 35 d horizon has decayed further than the 120 d one, so ODI0 < 1.
+    initial_run_strain_fast: float = 6.0     # EWMA_35 of daily run strain
+    initial_run_strain_slow: float = 9.0     # EWMA_120 of daily run strain (EWMA_210 for masters)
     initial_running_acute_mech: float = 5.0  # Acute mechanical running load (tau=7d)
     initial_running_chronic_mech: float = 8.0 # Chronic mechanical running load (tau=28d)
     # TASK-018: per-sport PMC seed. Run CTL decides whether the re-entry ACWR cap (1.20) or the post-re-entry cap
@@ -367,8 +369,8 @@ class AthleteProfile:
         rest_ctl, rest_atl = self.starting_ctl - run_ctl, self.starting_atl - run_atl
         return AthletePhysiologicalState(
             day_index=0,
-            metabolic_fitness_state=self.initial_metabolic_state,
-            connective_tissue_state=self.initial_connective_tissue_state,
+            run_strain_fast=self.initial_run_strain_fast,
+            run_strain_slow=self.initial_run_strain_slow,
             running_acute_mech=self.initial_running_acute_mech,
             running_chronic_mech=self.initial_running_chronic_mech,
             masters_mode=is_masters,

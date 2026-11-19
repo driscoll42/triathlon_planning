@@ -92,11 +92,11 @@ def run_stress_tests():
         library=lib_master,
         time_limit_per_week=1.5
     )
-    recal_count = (summary_master['Recalibration'] == 'SAFETY_RECALIBRATION_APPLIED').sum()
+    # TASK-022 (ADR-035): ODI^run <= 1.20 is an in-model Tier-0 row for masters (no post-hoc recalibration any more).
     print(f"Master Athlete Season Completed: {len(summary_master)} Weeks.")
-    print(f"Safety Recalibrations Triggered: {recal_count} / {len(summary_master)} weeks.")
+    print(f"Max ODI^run: {summary_master['Ending_ODI'].max():.2f} (masters limit 1.20)")
     print(f"Final CTL: {summary_master['Ending_CTL'].iloc[-1]} | Mean ACWR: {summary_master['Ending_ACWR'].mean():.2f}")
-    assert recal_count > 0, "Safety recalibration failed to trigger!"
+    assert summary_master['Ending_ODI'].max() <= 1.20 + 1e-6, "Masters run-strain ODI exceeded the 1.20 ceiling!"
     assert summary_master['Ending_ACWR'].mean() <= 1.25, "Master athlete mean ACWR exceeded safe bounds!"
     print("TEST 3 PASSED: Master mode strictly protected slower collagen remodeling kinetics.")
 

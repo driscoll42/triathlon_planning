@@ -285,8 +285,8 @@ def _scenario_10() -> dict:
     print_header("SCENARIO 10: CLOSED-LOOP TIER 2 INTENSITY CREEP RECALIBRATION")
     # Simulate an athlete where metabolic load outpaces orthopedic chassis:
     decoupled_state = AthletePhysiologicalState(
-        metabolic_fitness_state=78.0,
-        connective_tissue_state=48.0,    # ODI = 78/48 = 1.625 > 1.35!
+        run_strain_fast=78.0,
+        run_strain_slow=48.0,            # ODI^run = 78/48 = 1.625 > 1.35!
         running_acute_mech=85.0,
         running_chronic_mech=52.0,       # ACWR = 85/52 = 1.635 > 1.30!
     )

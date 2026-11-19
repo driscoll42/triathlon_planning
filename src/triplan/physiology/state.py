@@ -1,8 +1,7 @@
-"""Running exponential-convolution physiological state (CTL/ATL, ODI, mechanical ACWR)."""
+"""Running exponential-convolution physiological state (CTL/ATL, run-strain ODI, mechanical ACWR)."""
 
 from dataclasses import dataclass
 import logging
-import math
 from typing import Optional
 
 from triplan.physiology.load_model import TAU_ATL_DAYS, TAU_CTL_DAYS, banister_alpha
@@ -20,13 +19,27 @@ ALPHA_CHRONIC = 2.0 / (28.0 + 1.0)  # running mechanical chronic load, N = 28 d
 ALPHA_ATL = banister_alpha(TAU_ATL_DAYS)   # tau = 7 d  (0.1331)
 ALPHA_CTL = banister_alpha(TAU_CTL_DAYS)   # tau = 42 d (0.0235)
 
+# Orthopedic Dissociation Index (TASK-022, ADR-035): ODI^run = F / S, two EWMAs of the SAME daily run strain,
+# F (tau = 35 d, the cardio-remodeling horizon) and S (tau = 120 d, collagen; 210 d for masters). Both are in run-strain
+# units, so the ratio is dimensionless and steady-state training reads 1.0. The old M(t) was all-sport TSS over a
+# run-strain C(t): cutting run strain lowered C(t) but not M(t), so the controller drove ODI UP (wrong sign).
+TAU_ODI_FAST_DAYS = 35.0
+TAU_ODI_SLOW_DAYS = 120.0
+TAU_ODI_SLOW_MASTERS_DAYS = 210.0
+ALPHA_ODI_FAST = banister_alpha(TAU_ODI_FAST_DAYS)
+
+
+def alpha_odi_slow(masters_mode: bool = False) -> float:
+    """One-day decay weight of the slow (collagen) run-strain EWMA: tau 120 d, or 210 d for masters."""
+    return banister_alpha(TAU_ODI_SLOW_MASTERS_DAYS if masters_mode else TAU_ODI_SLOW_DAYS)
+
 
 @dataclass
 class AthletePhysiologicalState:
     """Tracks running exponential convolution states across days."""
     day_index: int = 0
-    metabolic_fitness_state: float = 50.0       # M(t), tau = 35d
-    connective_tissue_state: float = 45.0       # C(t), tau = 120d (or 210d for masters)
+    run_strain_fast: float = 45.0               # F(t): EWMA of daily run strain, tau = 35d
+    run_strain_slow: float = 45.0               # S(t): EWMA of daily run strain, tau = 120d (or 210d for masters)
     running_acute_mech: float = 40.0            # Acute mechanical load, tau = 7d
     running_chronic_mech: float = 38.0          # Chronic mechanical load, tau = 28d
     masters_mode: bool = False                  # When True, tau_c=210d and stricter ACWR caution
@@ -43,8 +56,11 @@ class AthletePhysiologicalState:
 
     @property
     def orthopedic_decoupling_index(self) -> float:
-        """ODI = M(t) / C(t). Safe <= 1.35 (<= 1.20 in masters mode)."""
-        return self.metabolic_fitness_state / max(self.connective_tissue_state, 1.0)
+        """ODI^run = EWMA_35(run strain) / EWMA_120(run strain). Safe <= 1.35 (<= 1.20 in masters mode).
+
+        Reads > 1 only while run load is ramping faster than the collagen matrix can follow; cutting run strain
+        lowers the fast EWMA first, so the index falls (right-sign feedback; TASK-022)."""
+        return self.run_strain_fast / max(self.run_strain_slow, 1.0)
 
     @property
     def running_mechanical_acwr(self) -> float:
@@ -60,16 +76,15 @@ class AthletePhysiologicalState:
                  daily_swim_tss: float, daily_strength_tss: Optional[float] = None):
         """Updates all convolution and EWMA states for 1 elapsed calendar day.
 
-        ``daily_aerobic_tss`` is the day's all-sport aerobic TSS (drives ``M(t)``). The composite ``total_ctl`` /
-        ``total_atl`` integrate the SAME all-sport load: bike + run + swim + strength, where strength is
-        ``daily_strength_tss`` or, when omitted, the remainder ``daily_aerobic_tss - (bike + run + swim)`` (TASK-021)."""
+        ``daily_aerobic_tss`` is the day's all-sport aerobic TSS. The composite ``total_ctl`` / ``total_atl``
+        integrate it: bike + run + swim + strength, where strength is ``daily_strength_tss`` or, when omitted, the
+        remainder ``daily_aerobic_tss - (bike + run + swim)`` (TASK-021). It no longer feeds ODI (TASK-022):
+        ``daily_run_mech`` drives both ODI EWMAs, so ODI is a ratio of like units."""
         self.day_index += 1
-        lambda_m = 1.0 - math.exp(-1.0 / 35.0)
         # Masters athlete tendon and bone remodeling constant is slower (tau_c = 210 days vs 120 days)
-        tau_c = 210.0 if self.masters_mode else 120.0
-        lambda_c = 1.0 - math.exp(-1.0 / tau_c)
-        self.metabolic_fitness_state = (1.0 - lambda_m) * self.metabolic_fitness_state + lambda_m * daily_aerobic_tss
-        self.connective_tissue_state = (1.0 - lambda_c) * self.connective_tissue_state + lambda_c * daily_run_mech
+        lambda_f, lambda_s = ALPHA_ODI_FAST, alpha_odi_slow(self.masters_mode)
+        self.run_strain_fast = (1.0 - lambda_f) * self.run_strain_fast + lambda_f * daily_run_mech
+        self.run_strain_slow = (1.0 - lambda_s) * self.run_strain_slow + lambda_s * daily_run_mech
 
         # EWMA Mechanical ACWR
         alpha_a, alpha_c = ALPHA_ACUTE, ALPHA_CHRONIC

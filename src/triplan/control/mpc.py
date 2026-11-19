@@ -447,8 +447,9 @@ class ClosedLoopMPCController:
         odi = self.state.orthopedic_decoupling_index
         acwr = self.state.running_mechanical_acwr
 
-        # If chassis is decoupled (ODI > 1.35) or in Danger Zone (ACWR > 1.30):
-        # Dynamically scale down weekly run mechanical strain ceiling
+        # If chassis is decoupled (run-strain ODI > 1.35, TASK-022) or in Danger Zone (ACWR > 1.30):
+        # Dynamically scale down weekly run mechanical strain ceiling. ODI is a ratio of two run-strain EWMAs, so a
+        # lower ceiling lowers the fast EWMA first and ODI falls (right-sign feedback).
         if odi > 1.35 or acwr > 1.30:
             scale_factor = min(1.35 / odi, 1.30 / acwr)
             new_run_strain_cap = round(updated_config.max_weekly_run_mech_strain * scale_factor, 1)

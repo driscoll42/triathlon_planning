@@ -25,7 +25,7 @@ import pandas as pd
 
 from triplan.control.periodization import DEFAULT_RACE_WEEKS, normalize_distance
 from triplan.control.season import WeekRecord, generate_closed_loop_season_schedule
-from triplan.physiology.state import ALPHA_ACUTE, ALPHA_CHRONIC, ALPHA_CTL
+from triplan.physiology.state import ALPHA_ACUTE, ALPHA_CHRONIC, ALPHA_CTL, ALPHA_ODI_FAST
 from triplan.solver.engine.session_quality import endurance_zone7
 from triplan.solver.safety_constraints import classify_workouts, run_minutes, run_strain
 
@@ -65,7 +65,7 @@ def reference_profile(base: Optional[Any] = None) -> Any:
         reentry_weeks=0, reentry_phase=False,
         starting_ctl=45.0, starting_atl=40.0, starting_run_ctl=22.0, starting_run_atl=20.0,
         starting_longest_run_min=90.0,   # TASK-049: trained runner, not in re-entry (reentry_phase=False is honoured by carry)
-        initial_metabolic_state=45.0, initial_connective_tissue_state=45.0,
+        initial_run_strain_fast=35.0, initial_run_strain_slow=35.0,
         initial_running_acute_mech=35.0, initial_running_chronic_mech=35.0,
         base_weekly_tss=300.0, peak_weekly_tss=560.0,
         max_48h_ans_cost=120.0, max_weekly_run_mech_strain=250.0,
@@ -235,6 +235,17 @@ def check_week(rec: WeekRecord, prev: Optional[WeekRecord] = None) -> List[Viola
             if A - ls.acwr_max * C > allowed + 1e-6:
                 add("run_acwr", f"day {d}: A-{ls.acwr_max:.2f}*C = {A - ls.acwr_max * C:.3f} > {allowed:.3f}",
                     A - ls.acwr_max * C, allowed)
+        if ls.odi_slow_alpha > 0 and ls.odi_max > 0:   # run-strain ODI ceiling (TASK-022, ADR-035)
+            f_, s_ = ALPHA_ODI_FAST, ls.odi_slow_alpha
+            F, S = ls.odi_fast, ls.odi_slow
+            for d in range(7):
+                m = sum(run_strain(w) for w in _day(rec, d))
+                F, S = (1 - f_) * F + f_ * m, (1 - s_) * S + s_ * m
+                const = (1 - f_) ** (d + 1) * ls.odi_fast - ls.odi_max * (1 - s_) ** (d + 1) * ls.odi_slow
+                allowed = max(ls.odi_eps, const)
+                if F - ls.odi_max * S > allowed + 1e-6:
+                    add("run_odi", f"day {d}: F-{ls.odi_max:.2f}*S = {F - ls.odi_max * S:.3f} > {allowed:.3f}",
+                        F - ls.odi_max * S, allowed)
         if ls.ctl_ramp_max is not None:
             b = ALPHA_CTL
             ctl = ls.total_ctl

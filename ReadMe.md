@@ -55,7 +55,7 @@ flowchart TD
 ### C. Advanced Physiological Modeling & Biomechanical Safety
 - **Dual-Load Tracking (Aerobic TSS vs. Mechanical Strain):** Decouples cardiovascular load (TSS) from musculoskeletal impact shock ($S_{\text{mech}}$).
 - **Asynchronous Tissue Remodeling:** Accurately models the disparate adaptation time-constants of vascularized cardiovascular tissue ($\tau = 35\text{ days}$) versus poorly vascularized collagenous tendon/cartilage matrix ($\tau = 120\text{ days}$).
-- **Orthopedic Dissociation Index (ODI):** Restricts the ratio of metabolic fitness to musculoskeletal remodeling ($ODI \le 1.35$) to prevent aerobic overreach injuries.
+- **Orthopedic Dissociation Index (ODI):** Restricts the ratio of the 35-day to the 120-day running-strain EWMA ($ODI^{run} \le 1.35$) to prevent aerobic overreach injuries.
 - **Single-Run Ceiling:** Strictly caps any single run at $\le 32\%$ of total weekly running duration (`ADR-003`) to eliminate long-run orthopedic spikes.
 - **Biomechanical Conflict Matrix:**
   - **Deadlift-Run 24h Lockout:** Prevents heavy deadlifts and threshold/long runs from occurring within 24 hours of each other to protect against lumbar shear fatigue. Deadlifts stack synergistically with swimming.

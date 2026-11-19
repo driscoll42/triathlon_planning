@@ -60,6 +60,11 @@ class LoadState:
     run_chronic: float               # running mechanical chronic EWMA (tau 28d) after day -1
     total_ctl: float                 # Banister CTL of bike+run+swim TSS after day -1
     run_ctl: float = 0.0             # decides which ACWR ceiling applies (ADR-012)
+    odi_fast: float = 0.0            # run-strain EWMA, tau 35 d, after day -1 (ODI numerator; TASK-022)
+    odi_slow: float = 0.0            # run-strain EWMA, tau 120 d (210 d masters), after day -1 (ODI denominator)
+    odi_slow_alpha: float = 0.0      # one-day weight of the slow EWMA (depends on masters_mode); 0 = no ODI row
+    odi_max: float = 1.35            # ODI^run ceiling this week (Tier-0; 1.20 masters)
+    odi_eps: float = 0.0             # epsilon_floor in run-strain units (same role as acwr_eps)
     acwr_max: float = 1.30           # rho_max: running ACWR ceiling this week (Tier-0)
     acwr_min: float = 0.80           # undertraining floor (Tier-1 named slack)
     acwr_eps: float = 0.0            # epsilon_floor in running-strain units (ADR-019)

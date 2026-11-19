@@ -107,7 +107,7 @@ def generate_closed_loop_season_schedule(
 
     Tier 3: 3:1 step-cycles, volume/intensity progression, durability scaling, fast-decay taper.
     Tier 2: Receding-horizon adaptive feedback monitoring Banister PMC (CTL/ATL/TSB),
-            connective tissue remodeling (M(t)/C(t) ODI), and running mechanical EWMA ACWR.
+            run-strain ODI (EWMA_35 / EWMA_120), and running mechanical EWMA ACWR.
     Tier 1: Perturbation support (illness, pool closure, sudden travel).
 
     ``collect``: optional list that receives one ``WeekRecord`` per week (schedule, limits, carry-in) for
@@ -205,8 +205,6 @@ def generate_closed_loop_season_schedule(
             cfg.facility_access["Swim"] = [False] * 7
 
         # 2. Tier 2 Receding-Horizon Feedback & Recalibration
-        pre_odi = athlete_state.orthopedic_decoupling_index
-        pre_acwr = athlete_state.running_mechanical_acwr
         recal_action = "NOMINAL"
 
         # Receding-Horizon Progression Guard (TASK-061):
@@ -222,21 +220,12 @@ def generate_closed_loop_season_schedule(
             if cfg.max_weekly_run_mech_strain > mech_cap:
                 cfg.max_weekly_run_mech_strain = mech_cap
 
-        # Safety bound: ODI > 1.35 (1.20 in masters mode). The running-ACWR ceiling (1.20 during re-entry, 1.25
-        # after; ADR-012) is no longer a post-hoc shrink of the strain cap: it is a per-day linear row inside the
-        # week's MILP, fed by `carry` (TASK-018). ODI has no in-model form yet (TASK-022), so it stays here.
-        odi_limit = 1.20 if athlete_state.masters_mode else 1.35
+        # Safety bounds: the running-ACWR ceiling (1.20 during re-entry, 1.25 after; ADR-012) and the run-strain ODI
+        # ceiling (1.35, 1.20 masters; TASK-022, ADR-035) are per-day linear rows inside the week's MILP, fed by
+        # `carry` (TASK-018). There is no post-hoc strain-cap shrink here: the old ODI throttle had the wrong sign
+        # (M(t) was all-sport TSS, C(t) run strain, so cutting run strain RAISED ODI) and is gone.
         acwr_cap, acwr_eps = carry.load.acwr_max, carry.load.acwr_eps
         keystone = keystone_kind(dist, wk.role, wk.block, keystone_ordinal)
-
-        # TASK-062: in long-run keystone weeks with normal running ACWR, Bike/Swim TSS can inflate M(t)/C(t) ODI
-        # (TASK-022) and cause wrong-sign run-strain throttling; skip the ODI throttle when pre_acwr <= acwr_cap.
-        if pre_odi > odi_limit and (keystone != "run" or pre_acwr > acwr_cap):
-            recal_action = "SAFETY_RECALIBRATION_APPLIED"
-            # Throttling mechanical run strain ceiling and shifting TSS to bike
-            scale_down = odi_limit / pre_odi
-            cfg.max_weekly_run_mech_strain = round(cfg.max_weekly_run_mech_strain * scale_down, 1)
-            cfg.target_bike_run_tss_splits = {"Bike": 0.70, "Run": 0.30}
 
         # 3. Tier 1 Perturbation handling
         pert_info = None
