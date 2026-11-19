@@ -5,7 +5,7 @@ Authors/Sources: Joe Friel, Jim Vance, Patrick Hagerman, Matt Fitzgerald, Ed Mau
 
 Key Architecture:
 - Dual-load modeling: Aerobic TSS vs Mechanical Strain
-- Exponential ANS Costing: e^(0.65 * (z - 1))
+- ANS Costing: SPEC.md 7-zone weights + long-duration surcharge (physiology.load_model, ADR-034)
 - Asynchronous tissue remodeling tracking (Cardio tau=35d, Tendon/Bone tau=120d, ODI <= 1.35)
 - EWMA Mechanical ACWR (Acute tau=7d, Chronic tau=28d)
 - Exact algebraic linearizations (Single run <= 32% weekly run volume, TiZ ratios, Sport splits)

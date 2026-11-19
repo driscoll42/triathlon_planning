@@ -63,7 +63,7 @@ def run_benchmark():
             target_zone_pcts={1: 0.25, 2: 0.55, 3: 0.14, 4: 0.05, 5: 0.01},
             target_sport_duration_splits={"Swim": 0.15, "Bike": 0.45, "Run": 0.33, "Strength": 0.07},
             target_bike_run_tss_splits={"Bike": 0.60, "Run": 0.40},
-            max_48h_ans_cost=750.0,
+            max_48h_ans_cost=130.0,
         )
         t0 = time.time()
         scheduler = TriathlonMILPScheduler(lib, meso_config)

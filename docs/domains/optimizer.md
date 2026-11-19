@@ -48,7 +48,7 @@ All three historical solver entrypoints (`TriathlonMILPScheduler`, `HybridAthlet
 - **Brick Run-Leg Accounting (`ADR-030`):** Bike→Run bricks (`brick_run_min > 0`) contribute their run leg to run minutes, run mechanical strain, heavy/long-run adjacency, Bike+Run frequency counts, and `Brick`/cardio same-day exclusivity (`SW_T1_BRICK` with `brick_run_min == 0` stays non-run).
 
 ### B. Calendar, 48-Hour Caps & Dimensionless Tier-2 Objective
-- **Rolling 48h Hard Caps (Profile-Bounded by Charter `ADR-024`):** Aerobic TSS $\le 295.0$, Mechanical Strain $\le 260.0$, ANS Cost $\le 700.0$ (across every $(d, d+1)$ pair, including Sun→Mon via `WeekCarryIn`).
+- **Rolling 48h Hard Caps (Profile-Bounded by Charter `ADR-024`):** Aerobic TSS $\le 295.0$, Mechanical Strain $\le 260.0$, ANS Cost $\le 120.0$ (`ADR-034` units; across every $(d, d+1)$ pair, including Sun→Mon via `WeekCarryIn`).
 - **Session & Facility Gating:** Weekday single-workout cap (`weekday_single_workout_cap`), daily time caps (`daily_time_caps`), pool-day gates, indoor/outdoor bike gating, and `two_session_windows` AM/PM gating (`am_pm` slot assignment in plans).
 - **Dimensionless Objective (`WeekModel.add_soft_goal`):** Normalized fractional deviations for weekly TSS ($W_{\text{tss}} = 100$), TiZ ($W_{\text{tiz}} = 80$), sport duration splits ($W_{\text{sport\_dur}} = 50$), Bike/Run TSS split ($W_{\text{tss\_split}} = 45$), durability stimulus ($W_{\text{durab}} = 25$), schedule friction ($W_{\text{pref}} = 5$), and double-day aversion ($W_{\text{double}} = 0.5$).
 - **Week-Level Target Policies (driven by `control/season.py`):**
@@ -73,6 +73,9 @@ All three historical solver entrypoints (`TriathlonMILPScheduler`, `HybridAthlet
 - **`ADR-021` — Re-entry weeks scale the structure minimums down when the full-week structure floor exceeds the TSS target:** Re-entry build weeks re-solve with halved, then zero, key/stride minimums only while solved TSS exceeds 1.15x target; Tier-0 caps never change.
 - **`ADR-023` — Deload weeks carry no key minimum, anchor obligation or running-ACWR floor charge:** Recovery/taper/race weeks solve with key min 0, halved Bike/Run/Swim min, anchors optional and no ACWR-floor Tier-1 charge; Tier-0 caps unchanged.
 - **`ADR-025` — Race-block build weeks raise their TSS target to the structural floor:** Race-block base/build/overload weeks solve at target = max(matrix target, structural floor); no structure relief there; deload/re-entry relief unchanged.
+
+### Empirical Experiments (`EXP`)
+- **`EXP-004` [`ACTIVE` | `QUEUED_SPEC`] — Goal-Weight Sensitivity and Session-Structure Constraints Sweep:** Queued spec: 81-point soft-goal weight sensitivity sweep across 300/500/700 TSS with and without ADR-020 session-structure constraints.
 
 > **Superseded (`optimizer`):** `PRD-001` (`python scripts/lodectx.py trace <ID>`).
 <!-- LODE_AUTOGEN_END -->

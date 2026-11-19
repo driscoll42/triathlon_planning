@@ -5,6 +5,7 @@ Dual-load modeling (metabolic aerobic TSS vs peripheral mechanical strain, `ADR-
 
 ## 2. Key Modules & Entrypoints
 - [`src/triplan/physiology/athlete_profile.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/athlete_profile.py): Frozen `AthleteProfile` loaded from [`config/athlete_profile.yaml`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/config/athlete_profile.yaml) (`CURRENT_ATHLETE`), canonical `bike_cp`/`run_cp`/`swim_css` (read-only `bike_ftp`/`run_ftp` aliases), validation, and `to_mesocycle_config()` / `to_hybrid_config()` (`TASK-035`).
+- [`src/triplan/physiology/load_model.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/load_model.py): Unified load model (`TASK-021`, `ADR-034`): `ANS_WEIGHTS` / `ans_cost`, zone-power `zone_strain` / `brick_strain`, set-intensity `strength_strain` (`STRENGTH_SET_SPECS`), `strength_tss`, and exact `banister_alpha`. Single source for `library.build`, `model.classes` and `athlete_profile`.
 - [`src/triplan/physiology/state.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/state.py): `AthletePhysiologicalState`, `ALPHA_ACUTE`/`ALPHA_CHRONIC`/`ALPHA_ATL`/`ALPHA_CTL`, convolutional tissue remodeling ($M(t), C(t), ODI$), Banister PMC accumulators, EWMA running ACWR, and `step_day()`.
 - [`src/triplan/solver/engine/session_quality.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/solver/engine/session_quality.py): Sport-specific quality minutes `q_i`, incidental grey-zone filtering, hard/key session masks, and canonical 80/20 Time-in-Zone helpers (`ADR-020`).
 - [`src/triplan/library/compound.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/library/compound.py): `DECISION-021` lift + easy cardio compound candidate builder.
@@ -21,16 +22,25 @@ Human tissues adapt along distinct first-order exponential timelines:
 
 Parallel impulse-response accumulators track metabolic fitness $M(t)$ ($\tau_m = 35\text{ d}$) vs connective chassis adaptation $C(t)$ ($\tau_c = 120\text{ d}$):
 $$M(t) = M(t-1)e^{-1/\tau_m} + \text{aerobic\_tss}_t(1 - e^{-1/\tau_m}), \quad C(t) = C(t-1)e^{-1/\tau_c} + \text{mechanical\_strain}_t(1 - e^{-1/\tau_c})$$
+The Banister PMC uses the same exact discretisation, $\alpha = 1 - e^{-1/\tau}$ with $\tau_{CTL}=42$ d ($\alpha=0.0235$) and $\tau_{ATL}=7$ d ($\alpha=0.1331$) (`ALPHA_CTL`, `ALPHA_ATL`; `TASK-021`). The old $2/(N+1)$ form made the effective constants about 21 d / 3.5 d (42 days of 100 TSS/day read CTL 86.5, truth 63.2). Running ACWR keeps the published $2/(N+1)$ EWMA convention (`ALPHA_ACUTE`, `ALPHA_CHRONIC`). Because the same weekly TSS now moves CTL ~1.9x slower, `max_weekly_ctl_ramp` is 3.75 (was 7.0) and the masters ramp 2.75 (was 5.0): the same TSS ramp is permitted.
 $$\text{ODI}(t) = \frac{M(t)}{C(t)} \le 1.35$$
 When $\text{ODI} > 1.35$, the MPC tightens mechanical strain caps and shifts metabolic volume into non-impact swimming/cycling.
 
-### B. Dual-Load Formulation & Sport Strain Exponents
-$$\text{mechanical\_strain}_w = \text{duration}_w \cdot S_{sport(w)} \cdot (\text{IF}_w)^{\beta_{sport(w)}}$$
-- **Swimming ($S=0.05, \beta=1.2$):** Weight-supported upper-body concentric propulsion.
-- **Cycling ($S=0.10, \beta=2.0$):** Closed-chain non-impact pedaling.
-- **Running ($S=1.00, \beta=2.5$):** Ballistic $2.5\text{–}3.0\times$ BW ground impact + eccentric SSC.
-- **Heavy Resistance ($S=1.50, \beta=3.0$):** High axial compression and tendon shear.
-- **Separate PMCs (Vance):** Bike and Run CTL/ATL/TSB are tracked independently; Bike→Run bricks split TSS proportionally between Bike and Run in `step_day()` (`ADR-030`).
+### B. Unified Load Model: ANS Cost, Mechanical Strain, Strength TSS (`ADR-034`, `TASK-021`)
+One definition per quantity in [`src/triplan/physiology/load_model.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/physiology/load_model.py), computed from zone minutes (never typed in). `library.build.recompute_load_columns` applies it to every library row (`scripts/migrations/m2026_11_19_unify_load_model.py`); `derive_8020_rows`, `materialize_distance_row`, `endurance_loads`, `compound.cardio_piece` and the gap-fill / long-course / brick builders call the same functions.
+
+**ANS cost** (replaces three conflicting definitions: the `SPEC.md` table, $e^{0.65(z-1)}$ in `library.build`, and hand-entered hybrid values):
+$$\text{ANS}_i = \sum_{z \in \{Z1,Z2,ZX,Z3,ZY,Z4,Z5\}} w_z\, t_{i,z} + \gamma \max(0,\, D_i - D_0), \quad w=(0,0,0.7,1.0,1.4,1.8,3.5),\ D_0=90\text{ min},\ \gamma=0.35$$
+Alactic strides ($\le 20$ s, Zone 5) carry weight 0. Easy Z1/Z2 minutes are free until $D_0$, so the 48h ANS cap now binds intensity, not volume (a 240 min Z1/Z2 ride is 52.5, was 372; `TASK-050`). Rolling 48h cap **120** (charter) / **55** (`CURRENT_ATHLETE`), recalibrated by matched exclusion from 700 / 450 (`scripts/calibrate_ans_caps.py`, `ADR-034`).
+
+**Mechanical strain** is zone-additive, $S = \kappa \sum_z t_z\, p_z^{\beta}$ with $p_z$ the zone midpoint as a fraction of CP (CSS for swim); $(\kappa, \beta)$ reproduce the pre-`TASK-021` closed forms for a uniform-intensity session so every strain cap keeps its meaning:
+- **Running** $(\kappa=100/60,\ \beta=3)$: equals $\text{TSS} \times \text{IF}$ for a constant session. $\beta=3$ is a sensitivity-bounded prior (no injury-labelled data, `EXP-006` rule 3); $\beta=2$ would loosen every high-intensity run (Tier-0), so it is not adopted.
+- **Cycling** $(10/60,\ 2.2)$ = $0.10\,\text{TSS}\,\text{IF}^{0.2}$. **Swimming** $(5/60,\ 3)$ = $0.05\,\text{sTSS}$. **Brick** = run leg on the run model + the remainder on the bike model (run leg alone is `brick_run_strain`, which feeds ACWR).
+- **Strength** is set-intensity based, $S = \kappa_s \sum_e c_e\, \text{sets}\,\text{reps}\,p_e^{4}$ over the per-row set specs `STRENGTH_SET_SPECS` ($c$: lower 1.0, upper 0.4, core 0.15, plyometric 1.0; $p$ = fraction of 1RM; reps per limb). $\kappa_s$ anchors the mean of the four cap-compatible heavy variants (`TASK-033`) at 145.8. A heavy squat is now a heavy squat in every library (hybrid rows were 12–32, i.e. an order of magnitude too low).
+
+**Strength TSS** is 10–20 aerobic TSS per hour (10 when all Zone 1, 20 when none is), not 42–58; its cost lives in strain, axial and neuromuscular load. Sport strain keeps `neuromuscular_load` / `axial_load` rules (run $0.65 / 0.38 \times$ strain when heavy).
+
+**Separate PMCs (Vance):** Bike and Run CTL/ATL/TSB are tracked independently; Bike→Run bricks split TSS proportionally in `step_day()` (`ADR-030`). `total_ctl` / `total_atl` integrate all-sport TSS including strength, the same load as $M(t)$ (they previously left strength out).
 
 ### C. Single Source of Truth Thresholds, Two-Point CP & Retesting (`ADR-009`, `ADR-011`, `TASK-013`)
 - **Single Source of Truth:** Frozen `AthleteProfile` (`config/athlete_profile.yaml`) is the sole owner of `bike_cp`, `run_cp`, and `swim_css` (manual integers; Auto-CP/Auto-FTP disabled in Stryd and Garmin). `apply_cp_retest_result()` returns a new `AthleteProfile` via `dataclasses.replace()`.
@@ -58,4 +68,8 @@ $$\text{mechanical\_strain}_w = \text{duration}_w \cdot S_{sport(w)} \cdot (\tex
 - **`ADR-009` — Adopt Canonical 80/20 7-Zone Power System and Two-Point Critical Power Protocol:** Enforce 80/20 7-zone power scale with Zone X/Y penalties and calibrate CP via 3m+12m protocol due to high W' from heavy lifting.
 - **`ADR-011` — Integrate Closed-Loop Critical Power Retesting Engine with Dual Telemetry Triggers and Mesocycle Synchronization:** Retest CP every 8-12w in recovery deloads or via cardiac decoupling/EF triggers; enforce <=10% step jump caps and re-entry testing lockouts.
 - **`ADR-020` — Sport-specific quality q_i classifies hard and key sessions; lift+easy combos are compound candidates; canonical 80/20 is a hard engine rule:** Hard/key = minutes-based q_i, not IF; lift+easy combos are compound candidates; Z1+Z2>=78% and Z3+ZY+Z4+Z5<=20% are hard rows in both facades.
+- **`ADR-034` — Unified ANS cost, zone-power mechanical strain, set-intensity strength strain, 10-20 TSS/h strength and exact Banister PMC decay:** ANS, strain, strength TSS are computed once in physiology/load_model.py; Banister PMC uses alpha=1-exp(-1/tau); 48h ANS cap 120 (charter) / 55.
+
+### Empirical Experiments (`EXP`)
+- **`EXP-006` [`ACTIVE` | `QUEUED_SPEC`] — Load-Model Calibration Against Historical Garmin and Lifting Telemetry:** Queued spec: calibrate Banister PMC decay, 80/20 zone midpoints, running strain exponent beta, and 28-day HRV/RHR readiness alpha_d on 2,020 activities.
 <!-- LODE_AUTOGEN_END -->

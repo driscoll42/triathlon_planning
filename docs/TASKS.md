@@ -9,25 +9,18 @@ None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027
 
 ## P1 — Engineering Queue
 
-Phases 0–1 + follow-ups ✅ (2026-11-16): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), repo-anchored paths (`triplan.paths`), token budget (`ADR-016`). Tests: `python -m pytest` (342 pass; `-m slow` adds the 8-season `EXP-007` matrix).
-
-### Phase 2 — Unified MILP Engine (`~/.gemini/antigravity-cli/brain/9e46c601-f8a0-4c36-86a7-570cb63b978d/phase2_master_plan.md`)
-
+Phases 0–2 ✅ (through 2026-11-18; details in `docs/archive/TASKS_COMPLETED.md`): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), token budget (`ADR-016`), unified MILP engine + safety rules + library/keystone work (`ADR-017`, `ADR-028`, `ADR-033`). Tests: `python -m pytest` (387 pass; `-m slow` adds the 8-season `EXP-007` matrix).
 
 ### Phase 3 — Physiology Calibration
 
-- [ ] `TASK-021` (`physiology`): unify ANS cost, strain, strength TSS; exact Banister decay.
-- [ ] `TASK-050` (`physiology`): IM build weeks bound by 48h ANS cap (700) on long Z1/Z2 sessions; distance-aware anchors. **Deferred to `TASK-021` (keep 700 cap).**
 - [ ] `TASK-022` (`safety`): fix or replace ODI (dimensional mismatch, wrong-sign controller).
-- [ ] `TASK-023` (`mpc`): interval-parsed TTE durability, variety goal, `Phase` enum, walk-jog re-entry.
-  - [ ] Use ~/.gemini/antigravity-cli/brain/d15e4a01-51fd-44e4-8d43-485d767b8207/implementation_plan.md for TASK-023 and TASK-058
-- [ ] `TASK-058` (`workouts`): walk-jog (run/walk) re-entry workouts: the schema has no walk component and a reduced impact load is an invented number; build them on the `TASK-023` impact model (`EXP-008`).
+- [ ] `TASK-023` (`mpc`): interval-parsed TTE durability, variety goal, `Phase` enum, walk-jog re-entry. Plan: `~/.gemini/antigravity-cli/brain/d15e4a01-51fd-44e4-8d43-485d767b8207/implementation_plan.md` (shared with `TASK-058`).
+- [ ] `TASK-058` (`workouts`): walk-jog (run/walk) re-entry workouts on the `TASK-023` impact model (`EXP-008`); the schema has no walk component and a reduced impact load is an invented number.
 
 ### Phase 4 — Telemetry & Closed Loop
 
 - [ ] `TASK-024` (`integrations`): multi-device `.fit` activity parser + 300s ride dedup (`SPEC.md`, `ADR-010`).
 - [ ] `TASK-025` (`mpc`): actuals store, unified readiness α_d (absorbs `TASK-003`), intra-week re-solve.
-- [ ] `TASK-003` (`mpc`): *merged into `TASK-025`*.
 - [ ] `TASK-002` (`workouts`): swim structured-workout ingestion + TP export; 1–3s jitter in all sync scripts.
 
 ## P2 — Queued Experiments (`docs/experiments/`)

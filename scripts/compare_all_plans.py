@@ -16,37 +16,24 @@ from triplan.library.candidates import build_default_candidate_library
 from triplan.control.season import generate_closed_loop_season_schedule
 from triplan.physiology.athlete_profile import CURRENT_ATHLETE
 from triplan.paths import training_plan_path
+from triplan.physiology import load_model as lm
+
+ANS_CAP_48H = 110.0   # TASK-021: was 650 on the retired e^(0.65 (z-1)) scale
 
 
 def compute_workout_mech_strain(row):
-    dur = row['duration']
-    intensity = row['if']
+    """Unified TASK-021 model (``triplan.physiology.load_model``): zone-power strain of a uniform-intensity session."""
     sport = row['sport_cat']
-    if sport == 'Run':
-        return 1.2 * dur * (intensity ** 2)
-    elif sport == 'Bike':
-        return 0.1 * dur * (intensity ** 2)
-    elif sport == 'Swim':
-        return 0.05 * dur * (intensity ** 2)
-    elif sport == 'Strength':
-        return 65.0
-    return 0.5 * dur * (intensity ** 2)
+    if sport in lm.STRAIN_PARAMS:
+        return lm.uniform_strain(sport, row['duration'], row['if'])
+    if sport == 'Strength':
+        return 145.8   # mean of the four cap-compatible heavy variants (no per-session set specs in the book plans)
+    return 0.5 * row['duration'] * (row['if'] ** 2)
 
 
 def compute_workout_ans_cost(row):
-    z1 = row['z1']
-    z2 = row['z2']
-    z3 = row['z3']
-    z4 = row['z4']
-    z5 = row['z5']
-    cost = (
-        z1 * np.exp(0.65 * (1 - 1)) +
-        z2 * np.exp(0.65 * (2 - 1)) +
-        z3 * np.exp(0.65 * (3 - 1)) +
-        z4 * np.exp(0.65 * (4 - 1)) +
-        z5 * np.exp(0.65 * (5 - 1))
-    )
-    return cost
+    """Unified TASK-021 ANS cost from the 5-zone minutes of a book workout (no ZX / ZY in the published plans)."""
+    return lm.ans_cost([row['z1'], row['z2'], row['z3'], row['z4'], row['z5']], False, row['duration'])
 
 
 def run_comparison():
@@ -116,7 +103,7 @@ def run_comparison():
                 day_ans[r['day']] += r['ans_cost']
             for i in range(6):
                 d1, d2 = days_order[i], days_order[i+1]
-                if (day_ans[d1] + day_ans[d2]) > 650.0:
+                if (day_ans[d1] + day_ans[d2]) > ANS_CAP_48H:
                     ans_48h_violations += 1
 
             # Strength count

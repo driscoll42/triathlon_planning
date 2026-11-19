@@ -33,7 +33,7 @@ Running mechanical strain uses coupled EWMAs ($\lambda_a = 2/8 = 0.25$, $\lambda
 Across every adjacent day pair $(d, d+1)$ including the cross-week Sun→Mon boundary (`WeekCarryIn`):
 - **Aerobic TSS Ceiling:** $\le 295.0$ (charter ceiling; profile `max_48h_aerobic_tss` must be $\le 295.0$).
 - **Mechanical Strain Ceiling:** $\le 260.0$ (charter ceiling; profile `max_48h_mech_strain` must be $\le 260.0$).
-- **ANS Cost Ceiling:** $\le 700.0$ (charter ceiling; profile `max_48h_ans_cost` must be $\le 700.0$; `CURRENT_ATHLETE` tightens this to `450.0`).
+- **ANS Cost Ceiling:** $\le 120.0$ in the unified `ADR-034` units (charter ceiling; profile `max_48h_ans_cost` must be $\le 120.0$; `CURRENT_ATHLETE` tightens this to `55.0`; both were 700 / 450 on the retired $e^{0.65(z-1)}$ scale).
 
 ### E. Hard Adjacency, Biomechanical Conflicts & Brick Run-Leg Accounting (`ADR-008`, `ADR-030`, `HEUR-004`)
 1. **Hard/Easy Principle:** At most one hard session (`q_i >= 5` or heavy strength) per day, and no two hard days back-to-back ($hard_d + hard_{d+1} \le 1$, including Sun→Mon).
@@ -62,4 +62,7 @@ Across every adjacent day pair $(d, d+1)$ including the cross-week Sun→Mon bou
 ### Active Operational Heuristics (`HEUR`)
 - **`HEUR-002` — Prevent Orthopedic Dissociation Index Spikes in Build Cycles:** Never ramp weekly running mechanical strain by >10% week-over-week even when aerobic fitness allows higher volume.
 - **`HEUR-004` — Axial Spinal Fatigue and Running Impact Interaction: Enforcing 24h Buffer Between Heavy Deadlifts and Threshold/Long Runs:** Never schedule heavy deadlifts and threshold/long runs within 24 hours of each other due to catastrophic lumbar shear and spinal fatigue.
+
+### Empirical Experiments (`EXP`)
+- **`EXP-002` [`ACTIVE` | `QUEUED_SPEC`] — Closed-Loop 16-Week Season Simulation Under Real Profile and Perturbations:** Queued spec: verify 16-week closed-loop season simulation on CURRENT_ATHLETE under nominal, illness, pool-closure, travel, and stochastic execution noise.
 <!-- LODE_AUTOGEN_END -->

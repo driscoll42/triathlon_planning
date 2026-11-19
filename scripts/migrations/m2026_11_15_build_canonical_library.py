@@ -15,6 +15,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 import pandas as pd  # noqa: E402
 
+from triplan.physiology import load_model as lm  # noqa: E402
 from triplan.library.build import (  # noqa: E402
     BIKE_ZONE_IF, RUN_ZONE_IF, ZONE_CORRECTIONS, _blank_row, derive_8020_rows, endurance_flags, endurance_loads, if_from_tss,
     mechanical_strain, ans_cost, read_8020_scrape, zone_tss,
@@ -95,14 +96,14 @@ def main():
                        source="recommended_workout_legos.csv", description=str(r["Description"]),
                        duration_min=float(r["Duration"]), tss=float(r["TSS"]), intensity_factor=float(r["Intensity Factor"]),
                        z1_min=z[0], z2_min=z[1], z3_min=z[2], z4_min=z[3], z5_min=z[4],
-                       mechanical_strain=mechanical_strain("Strength", float(r["TSS"]), float(r["Intensity Factor"]), float(r["Duration"])),
-                       ans_cost=round(ans_cost(z, False), 1), durability_score=2.0,
+                       mechanical_strain=lm.strength_strain(code) if code in lm.STRENGTH_SET_SPECS else 0.0,  # TASK-021 model
+                       ans_cost=round(ans_cost(z, False, float(r["Duration"])), 1), durability_score=2.0,
                        neuromuscular_load=k["neuro"], axial_load=k["axial"], is_heavy_strength=("MS" in code or "HEAVY" in code),
                        heavy_sq=bool(k["sq"]), heavy_dl=bool(k["dl"]), heavy_press=bool(k["pr"]), split_group=k["split_group"],
                        bb_sets=k["bb"], db_sets=k["db"], sets_anterior_chain=k["sets"][0], sets_posterior_chain=k["sets"][1],
                        sets_push=k["sets"][2], sets_pull=k["sets"][3], target_adaptations=str(r["Target Adaptations"]),
                        needs_review=True,
-                       notes="Strength TSS (42-58/h) awaits recalibration to 10-20/h (TASK-021).")
+                       notes="Strength TSS / strain recalibrated by m2026_11_19_unify_load_model.py (TASK-021).")
             rows.append(row)
         else:
             rows.append(endurance_row(code, "Brick", str(r["Description"]), float(r["Duration"]), z, float(r["TSS"]),

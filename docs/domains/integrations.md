@@ -53,4 +53,7 @@ TrainingPeaks private REST API authentication and workout syncing, 80/20 Enduran
 - **`HEUR-005` — Disambiguate Stryd CIQ Developer Power Field and Enforce ANT+ Pairing:** Never read record.power for running; extract CIQ dev field 'Power' and pair Stryd Model 17 via ANT+ to prevent BLE lockouts.
 - **`HEUR-006` — Tacx Neo 2T Incline-Mode Testing and Invalidate Left-Right Balance:** Test CP in Slope mode (+1.5-2.0%), keep AC power plugged in, and discard Neo 2T inductive left_right_balance stream.
 - **`HEUR-007` — Pool Swim Active Length Parsing and Multi-Device Deduplication Window:** Sum pool swim time strictly across active lengths (exclude drills from SWOLF) and deduplicate multi-device FIT files within 300s window.
+
+### Empirical Experiments (`EXP`)
+- **`EXP-005` [`ACTIVE` | `QUEUED_SPEC`] — Multi-Device FIT Ingestion Parser and Hardware Invariant Validation:** Queued spec: validate multi-device FIT parser on synthetic and 2,020 real Garmin FIT files for Stryd CIQ power, active swim lengths, and 300s ride dedup.
 <!-- LODE_AUTOGEN_END -->

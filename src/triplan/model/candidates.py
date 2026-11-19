@@ -108,7 +108,7 @@ class MesoCycleTargetsAndConstraints:
     long_run_floor_min: float = 30.0
     reentry_long_run_max_min: Optional[float] = None
     max_48h_aerobic_tss: float = 295.0           # Rolling 48h glycogen/immune cap
-    max_48h_ans_cost: float = 700.0              # Rolling 48h autonomic strain cap (calibrated safe)
+    max_48h_ans_cost: float = 120.0              # Rolling 48h autonomic strain cap (calibrated safe)
     max_48h_mech_strain: float = 260.0           # Rolling 48h mechanical strain cap
     max_weekly_run_mech_strain: float = 350.0    # EWMA CMS bound (ACWR <= 1.30)
     # Pigeonhole single-run caps for weeks with < 4 runs (32% unattainable); explicit & reported (ADR-013)

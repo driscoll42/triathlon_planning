@@ -77,11 +77,11 @@ def test_non_consecutive_strength_includes_the_boundary():
     assert "ST" not in _codes(_solve(lib, c, WeekCarryIn(day_m1=DayLoad(strength=True))))
 
 
-@pytest.mark.parametrize("metric,attr,cap", [("aerobic_tss", "tss", 295.0), ("ans_cost", "ans", 700.0),
+@pytest.mark.parametrize("metric,attr,cap", [("aerobic_tss", "tss", 295.0), ("ans_cost", "ans", 120.0),
                                               ("mech_strain", "mech", 260.0)])
 def test_rolling_48h_cap_counts_day_minus_1_load(metric, attr, cap):
     big = {"tss": 150.0, "mech": 10.0, "ans": 10.0}
-    big[attr] = {"tss": 150.0, "mech": 150.0, "ans": 400.0}[attr]
+    big[attr] = {"tss": 150.0, "mech": 150.0, "ans": 100.0}[attr]
     lib = [wk(0, "BIG", "Bike", 60, tss=big["tss"], mech=big["mech"], ans=big["ans"]),
            wk(1, "SMALL", "Bike", 60, tss=20.0, mech=5.0, ans=5.0)]
     c = _day0_cfg(target_weekly_tss=150.0)

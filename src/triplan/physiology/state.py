@@ -2,17 +2,23 @@
 
 from dataclasses import dataclass
 import logging
+import math
+from typing import Optional
 
+from triplan.physiology.load_model import TAU_ATL_DAYS, TAU_CTL_DAYS, banister_alpha
 
 
 logger = logging.getLogger(__name__)
 
-# EWMA smoothing constants, the single source for ``step_day`` AND the in-model linearised ACWR / CTL-ramp
-# rows (``solver.engine.builders.load_dynamics``, TASK-018). TASK-021 (exact Banister decay) changes them here.
-ALPHA_ACUTE = 2.0 / (7.0 + 1.0)     # running mechanical acute load, tau = 7 d
-ALPHA_CHRONIC = 2.0 / (28.0 + 1.0)  # running mechanical chronic load, tau = 28 d
-ALPHA_ATL = 2.0 / (7.0 + 1.0)       # Banister ATL
-ALPHA_CTL = 2.0 / (42.0 + 1.0)      # Banister CTL
+# Smoothing constants, the single source for ``step_day`` AND the in-model linearised ACWR / CTL-ramp rows
+# (``solver.engine.builders.load_dynamics``, TASK-018).
+# Running ACWR keeps the published ``2/(N+1)`` EWMA convention (Williams et al.), a ratio of two EWMAs of the same load.
+ALPHA_ACUTE = 2.0 / (7.0 + 1.0)     # running mechanical acute load, N = 7 d
+ALPHA_CHRONIC = 2.0 / (28.0 + 1.0)  # running mechanical chronic load, N = 28 d
+# Banister PMC (TASK-021, ADR-034): exact one-day decay ``1 - exp(-1/tau)``. ``2/(N+1)`` made the effective time
+# constants about half (21 d CTL, 3.5 d ATL): constant 100 TSS/day for 42 days gave CTL 86.5 instead of 63.2.
+ALPHA_ATL = banister_alpha(TAU_ATL_DAYS)   # tau = 7 d  (0.1331)
+ALPHA_CTL = banister_alpha(TAU_CTL_DAYS)   # tau = 42 d (0.0235)
 
 
 @dataclass
@@ -50,13 +56,18 @@ class AthletePhysiologicalState:
         """Training Stress Balance = CTL - ATL."""
         return self.total_ctl - self.total_atl
 
-    def step_day(self, daily_aerobic_tss: float, daily_run_mech: float, daily_bike_tss: float, daily_run_tss: float, daily_swim_tss: float):
-        """Updates all convolution and EWMA states for 1 elapsed calendar day."""
+    def step_day(self, daily_aerobic_tss: float, daily_run_mech: float, daily_bike_tss: float, daily_run_tss: float,
+                 daily_swim_tss: float, daily_strength_tss: Optional[float] = None):
+        """Updates all convolution and EWMA states for 1 elapsed calendar day.
+
+        ``daily_aerobic_tss`` is the day's all-sport aerobic TSS (drives ``M(t)``). The composite ``total_ctl`` /
+        ``total_atl`` integrate the SAME all-sport load: bike + run + swim + strength, where strength is
+        ``daily_strength_tss`` or, when omitted, the remainder ``daily_aerobic_tss - (bike + run + swim)`` (TASK-021)."""
         self.day_index += 1
-        lambda_m = 1.0 / 35.0
+        lambda_m = 1.0 - math.exp(-1.0 / 35.0)
         # Masters athlete tendon and bone remodeling constant is slower (tau_c = 210 days vs 120 days)
         tau_c = 210.0 if self.masters_mode else 120.0
-        lambda_c = 1.0 / tau_c
+        lambda_c = 1.0 - math.exp(-1.0 / tau_c)
         self.metabolic_fitness_state = (1.0 - lambda_m) * self.metabolic_fitness_state + lambda_m * daily_aerobic_tss
         self.connective_tissue_state = (1.0 - lambda_c) * self.connective_tissue_state + lambda_c * daily_run_mech
 
@@ -74,7 +85,10 @@ class AthletePhysiologicalState:
         self.swim_atl = alpha_atl * daily_swim_tss + (1.0 - alpha_atl) * self.swim_atl
         self.swim_ctl = alpha_ctl * daily_swim_tss + (1.0 - alpha_ctl) * self.swim_ctl
 
-        tot_tss = daily_bike_tss + daily_run_tss + daily_swim_tss
+        endurance_tss = daily_bike_tss + daily_run_tss + daily_swim_tss
+        if daily_strength_tss is None:
+            daily_strength_tss = max(0.0, daily_aerobic_tss - endurance_tss)
+        tot_tss = endurance_tss + daily_strength_tss
         self.total_atl = alpha_atl * tot_tss + (1.0 - alpha_atl) * self.total_atl
         self.total_ctl = alpha_ctl * tot_tss + (1.0 - alpha_ctl) * self.total_ctl
 

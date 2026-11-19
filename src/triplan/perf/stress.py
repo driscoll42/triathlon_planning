@@ -60,7 +60,7 @@ def _scenario_1() -> dict:
     default_lib = build_default_candidate_library()
     cfg_base = MesoCycleTargetsAndConstraints(
         target_weekly_tss=540.0,
-        max_48h_ans_cost=700.0,
+        max_48h_ans_cost=120.0,
     )
     res1 = run_scenario("1. Baseline Nominal (540 TSS, Balanced 7-day)", default_lib, cfg_base, k_plans=3)
     results["1_baseline"] = res1
@@ -72,7 +72,7 @@ def _scenario_2() -> dict:
     default_lib = build_default_candidate_library()
     cfg_strict_650 = MesoCycleTargetsAndConstraints(
         target_weekly_tss=540.0,
-        max_48h_ans_cost=650.0,
+        max_48h_ans_cost=110.0,
         enable_soft_48h_slacks=False, # STRICT HARD BOUND
     )
     res2_hard = run_scenario("2a. Strict Hard Cap 650 ANS (No Slacks)", default_lib, cfg_strict_650)
@@ -80,7 +80,7 @@ def _scenario_2() -> dict:
 
     cfg_soft_650 = MesoCycleTargetsAndConstraints(
         target_weekly_tss=540.0,
-        max_48h_ans_cost=650.0,
+        max_48h_ans_cost=110.0,
         enable_soft_48h_slacks=True, # SOFT PENALIZED SLACKS
     )
     res2_soft = run_scenario("2b. Soft Cap 650 ANS (With High-Penalty Slacks)", default_lib, cfg_soft_650)
@@ -96,7 +96,7 @@ def _scenario_3() -> dict:
         weekday_single_workout_cap=45.0,
         target_weekly_tss=300.0,
         nominal_weekly_duration=360.0,
-        max_48h_ans_cost=700.0,
+        max_48h_ans_cost=120.0,
     )
     res3 = run_scenario("3. Severe Time Starvation with 180m Anchor in Library", default_lib, cfg_time_starved)
     results["3_time_starvation_anchor"] = res3
@@ -116,7 +116,7 @@ def _scenario_3() -> dict:
         weekday_single_workout_cap=45.0,
         target_weekly_tss=280.0,
         nominal_weekly_duration=320.0,
-        max_48h_ans_cost=700.0,
+        max_48h_ans_cost=120.0,
         sport_freq_bounds={"Swim": (1, 2), "Bike": (2, 3), "Run": (3, 4), "Strength": (1, 1)},
     )
     res3_real = run_scenario("3b. Realistic Time Starvation (Capped <=90m workouts)", lib_time_starved_no_anchors, cfg_time_starved_realistic)
@@ -133,7 +133,7 @@ def _scenario_4() -> dict:
         target_weekly_tss=750.0,
         nominal_weekly_duration=900.0,
         max_48h_aerobic_tss=420.0,
-        max_48h_ans_cost=950.0,
+        max_48h_ans_cost=165.0,
         max_48h_mech_strain=380.0,
         max_weekly_run_mech_strain=420.0,
         sport_freq_bounds={"Swim": (2, 3), "Bike": (3, 5), "Run": (4, 5), "Strength": (1, 2)},
@@ -244,7 +244,7 @@ def _scenario_8() -> dict:
             sport_freq_bounds={"Swim": (2, 3), "Bike": (3, 4), "Run": (4, 5), "Strength": (0, 0)},
             required_heavy_strength_sessions=0,
             min_stride_sessions=0,
-            max_48h_ans_cost=800.0,
+            max_48h_ans_cost=135.0,
         )
         res8 = run_scenario("8. Large Library MILP Scaling (Pruned to 60 workouts)", scaled_lib, cfg_large, k_plans=3, time_limit=10.0)
         results["8_large_library"] = res8

@@ -33,6 +33,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from triplan.library.schema import WORKOUT_COLUMNS, ZONE_DISTANCE_COLUMNS, validate_table
+from triplan.physiology import load_model as lm
 
 # Explicit, reviewed corrections to scraped rows whose zone minutes did not sum to their duration.
 ZONE_CORRECTIONS: Dict[str, Dict[str, float]] = {
@@ -54,24 +55,19 @@ YARDS_PER_METER = 1.0936133
 SWIM_TIME_TRIALS = {"STT1", "STT2"}
 
 
-def ans_cost(z: List[float], has_strides: bool) -> float:
-    """C_ans = sum_z T_z * e^(0.65 (z-1)); alactic strides exempt Z5 (weight 1.0). Mirrors SPEC/ADR-009."""
-    w = [math.exp(0.65 * k) for k in range(5)]
-    return float(sum(z[k] * (1.0 if (k == 4 and has_strides) else w[k]) for k in range(5)))
+def ans_cost(z: List[float], has_strides: bool = False, duration: Optional[float] = None) -> float:
+    """Unified ANS cost (TASK-021, ADR-034): ``sum_z w_z t_z`` with ``w = (0, 0, 0.7, 1.0, 1.4, 1.8, 3.5)`` + long-duration
+    surcharge, alactic strides exempt. ``z`` is the 5-zone (Z1, Z2, Z3, Z4, Z5) or 7-zone library layout. See
+    ``triplan.physiology.load_model.ans_cost``."""
+    return lm.ans_cost(z, has_strides, duration)
 
 
 def mechanical_strain(sport: str, tss: float, intensity_factor: float, duration: float) -> float:
-    if sport == "Swim":
-        return round(0.05 * tss, 1)
-    if sport == "Bike":
-        return round(0.10 * tss * (intensity_factor ** 0.2), 1)
-    if sport == "Run":
-        return round(1.00 * tss * intensity_factor, 1)
-    if sport == "Strength":
-        return round(1.50 * max(tss, 15.0) * (duration / 45.0) * 2.5, 1)
-    if sport == "Brick":
-        return round(0.55 * tss * intensity_factor, 1)
-    return round(0.50 * tss, 1)
+    """Strain of a constant-intensity endurance session (closed form of the zone-power model, ``load_model``).
+    Real rows use ``load_model.zone_strain`` / ``brick_strain`` (zone-additive) and ``strength_strain`` (set-intensity)."""
+    if sport in lm.STRAIN_PARAMS:
+        return round(lm.uniform_strain(sport, duration, intensity_factor), 1)
+    raise ValueError(f"mechanical_strain({sport!r}): use load_model.zone_strain / brick_strain / strength_strain")
 
 
 # -----------------------------------------------------------------------------
@@ -279,8 +275,8 @@ def gap_fill_rows(profile=None, source: str = "scripts/migrations/m2026_11_16_li
     for code, v in GAP_STRENGTH_SPECS.items():
         z = v["zones"]
         duration = v["duration"]
-        tss = round(38.88 * duration / 45.0, 2)
-        if_ = 0.72
+        tss = lm.strength_tss(duration, z)
+        if_ = lm.strength_intensity_factor(tss, duration)
         if "lower" in v:
             loads = strength_loads(v["lower"], v.get("bench", 0))
         else:
@@ -289,14 +285,14 @@ def gap_fill_rows(profile=None, source: str = "scripts/migrations/m2026_11_16_li
         row.update(code=code, name=code, sport="Strength", category=v["category"], provenance="agent_authored",
                    source=source, description=v["description"], duration_min=duration, tss=tss, intensity_factor=if_,
                    z1_min=z[0], z2_min=z[1], z3_min=z[2], z4_min=z[3], z5_min=z[4],
-                   mechanical_strain=mechanical_strain("Strength", tss, if_, duration),
-                   ans_cost=round(ans_cost(list(z), False), 1), durability_score=2.0,
+                   mechanical_strain=lm.strength_strain(code),
+                   ans_cost=round(ans_cost(list(z), False, duration), 1), durability_score=2.0,
                    neuromuscular_load=loads["neuromuscular_load"], axial_load=loads["axial_load"],
                    heavy_sq=v["sq"], heavy_dl=v["dl"], heavy_press=v["press"], lib_default=True, needs_review=True,
                    split_group=v["split"], bb_sets=v["bb"], db_sets=v["db"], sets_anterior_chain=v["sets"][0],
                    sets_posterior_chain=v["sets"][1], sets_push=v["sets"][2], sets_pull=v["sets"][3],
                    target_adaptations=v["adaptations"], preference_penalty=0.1,
-                   notes="Library gap-fill (TASK-051, EXP-008); maintenance (non-heavy) lift; loads estimated, TSS awaits TASK-021.")
+                   notes="Library gap-fill (TASK-051, EXP-008); maintenance (non-heavy) lift; loads estimated (TASK-021 unified model: set-intensity strain, 10-20 TSS/h).")
         rows.append(row)
     return rows
 
@@ -474,8 +470,14 @@ def endurance_flags(sport: str, desc: str, duration: float, z: List[float]) -> D
     return f
 
 
-def endurance_loads(sport: str, tss: float, if_: float, duration: float, z: List[float], strides: bool) -> Dict[str, float]:
-    mech = mechanical_strain(sport, tss, if_, duration)
+def endurance_loads(sport: str, tss: float, if_: float, duration: float, z: List[float], strides: bool,
+                    z_run: Optional[List[float]] = None) -> Dict[str, float]:
+    """Loads of an endurance row from its zone minutes (``tss`` / ``if_`` only drive the bike neuromuscular rule).
+    ``z_run`` = the run-leg zone minutes of a Brick (default: none, the whole brick on the bike model)."""
+    if sport == "Brick":
+        mech = round(lm.brick_strain(z, z_run if z_run is not None else [0.0] * len(z)), 1)
+    else:
+        mech = round(lm.zone_strain(sport, z), 1)
     high = z[2] + z[3] + z[4]
     hard = high >= 15.0 or (z[3] + z[4]) >= 5.0
     if sport == "Swim":
@@ -487,7 +489,7 @@ def endurance_loads(sport: str, tss: float, if_: float, duration: float, z: List
         neuro, axial = (round(0.65 * mech, 1), round(0.38 * mech, 1)) if heavy else (round(0.40 * mech, 1), round(0.30 * mech, 1))
     else:  # Brick
         neuro, axial = round(0.55 * mech, 1), round(0.35 * mech, 1)
-    return {"mechanical_strain": mech, "ans_cost": round(ans_cost(z, strides), 1),
+    return {"mechanical_strain": mech, "ans_cost": round(ans_cost(z, strides, duration), 1),
             "durability_score": durability(sport, duration, high, ""), "neuromuscular_load": neuro, "axial_load": axial}
 
 
@@ -496,8 +498,7 @@ def brick_run_loads(z_run: List[float], run_cp: float = 200.0) -> Dict[str, obje
     dur_run = float(sum(z_run))
     if dur_run <= 0:
         return {"brick_run_min": 0.0, "brick_run_strain": 0.0, "is_brick_run_hard": False}
-    _, if_run, tss_run = power_tss(z_run, RUN_ZONE_IF, run_cp)
-    strain = mechanical_strain("Run", tss_run, if_run, dur_run)
+    strain = round(lm.zone_strain("Run", z_run), 1)
     hard = (z_run[2] + z_run[3] + z_run[4] >= 15.0) or (z_run[3] + z_run[4] >= 5.0) or dur_run >= 70.0
     return {"brick_run_min": round(dur_run, 2), "brick_run_strain": strain, "is_brick_run_hard": bool(hard)}
 
@@ -565,7 +566,7 @@ def short_brick_rows(profile=None, source: str = "scripts/migrations/m2026_11_18
         )
         flags = endurance_flags("Brick", str(spec["description"]), duration, z)
         row.update(flags)
-        row.update(endurance_loads("Brick", tss, if_, duration, z, bool(flags.get("has_strides"))))
+        row.update(endurance_loads("Brick", tss, if_, duration, z, bool(flags.get("has_strides")), z_run=rz))
         row.update(brick_run_loads(rz, profile.run_cp))
         rows.append(row)
     return rows
@@ -655,3 +656,73 @@ def refresh_from_8020_scrape(canonical: pd.DataFrame, run_xlsx: str, bike_xlsx: 
         raise ValueError(f"Scraped codes collide with authored rows: {sorted(clash)}")
     out = pd.concat([fresh, kept], ignore_index=True)[WORKOUT_COLUMNS]
     return validate_table(out)
+
+
+# -----------------------------------------------------------------------------
+# Unified load model applied to an existing library table (TASK-021, ADR-034)
+# -----------------------------------------------------------------------------
+_ZONE7_COLUMNS = ("z1_min", "z2_min", "zx_min", "z3_min", "zy_min", "z4_min", "z5_min")
+
+
+def _row_zones7(row) -> List[float]:
+    return [0.0 if pd.isna(row[c]) else float(row[c]) for c in _ZONE7_COLUMNS]
+
+
+def _brick_run_zones(code: str) -> List[float]:
+    if code in EXISTING_BRICK_RUN_ZONES:
+        return list(EXISTING_BRICK_RUN_ZONES[code])
+    if code in SHORT_BRICK_SPECS:
+        return [float(x) for x in SHORT_BRICK_SPECS[code]["run_z"]]
+    raise KeyError(f"{code}: no explicit run-leg zone minutes for this Brick")
+
+
+def _endurance_rule_loads(sport: str, tss: float, mech: float, duration: float, z5: List[float]) -> Dict[str, float]:
+    """Neuromuscular / axial load rule of ``endurance_loads`` (kept for rows whose stored loads follow it)."""
+    hard = (z5[2] + z5[3] + z5[4]) >= 15.0 or (z5[3] + z5[4]) >= 5.0
+    if sport == "Swim":
+        return {"neuromuscular_load": 20.0 if hard else 10.0, "axial_load": 0.0}
+    if sport == "Bike":
+        return ({"neuromuscular_load": round(0.55 * tss, 1), "axial_load": 10.0} if hard
+                else {"neuromuscular_load": round(0.25 * tss, 1), "axial_load": 5.0})
+    if sport == "Run":
+        heavy = hard or duration >= 70.0
+        return ({"neuromuscular_load": round(0.65 * mech, 1), "axial_load": round(0.38 * mech, 1)} if heavy
+                else {"neuromuscular_load": round(0.40 * mech, 1), "axial_load": round(0.30 * mech, 1)})
+    return {"neuromuscular_load": round(0.55 * mech, 1), "axial_load": round(0.35 * mech, 1)}   # Brick
+
+
+def recompute_load_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Recompute ``ans_cost``, ``mechanical_strain`` (and, for strength, ``tss`` / ``intensity_factor``) of every row with
+    the unified TASK-021 model. Endurance aerobic TSS is unchanged. Run / Brick neuromuscular and axial loads are
+    re-derived from the new strain only where the stored value followed the library rule (hand-set loads are kept);
+    strength neuromuscular / axial loads are set-count based and unchanged. Brick run-leg strain follows the run model."""
+    out = df.copy()
+    for i, r in out.iterrows():
+        sport, code = r["sport"], r["code"]
+        z7 = _row_zones7(r)
+        z5 = [z7[0], z7[1], z7[3], z7[5], z7[6]]
+        dur = float(r["duration_min"])
+        strides = bool(r["has_strides"]) if not pd.isna(r["has_strides"]) else False
+        out.at[i, "ans_cost"] = round(ans_cost(z7, strides, dur), 1)
+        if sport == "Strength":
+            tss = lm.strength_tss(dur, z7)
+            out.at[i, "tss"] = tss
+            out.at[i, "intensity_factor"] = lm.strength_intensity_factor(tss, dur)
+            out.at[i, "mechanical_strain"] = lm.strength_strain(code)
+            continue
+        old_mech, tss = float(r["mechanical_strain"]), float(r["tss"])
+        if sport == "Brick":
+            rz = _brick_run_zones(code)
+            mech = round(lm.brick_strain(z7, rz), 1)
+            out.at[i, "brick_run_strain"] = round(lm.zone_strain("Run", rz), 1)
+        else:
+            mech = round(lm.zone_strain(sport, z7), 1)
+        out.at[i, "mechanical_strain"] = mech
+        if sport in ("Run", "Brick"):
+            old_rule = _endurance_rule_loads(sport, tss, old_mech, dur, z5)
+            if (abs(old_rule["neuromuscular_load"] - float(r["neuromuscular_load"])) <= 0.15
+                    and abs(old_rule["axial_load"] - float(r["axial_load"])) <= 0.15):
+                new_rule = _endurance_rule_loads(sport, tss, mech, dur, z5)
+                out.at[i, "neuromuscular_load"] = new_rule["neuromuscular_load"]
+                out.at[i, "axial_load"] = new_rule["axial_load"]
+    return out

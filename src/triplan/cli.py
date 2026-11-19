@@ -292,7 +292,7 @@ def run_closed_loop_optimizer_demo(df=None):
     cfg = MesoCycleTargetsAndConstraints(
         target_weekly_tss=540.0,
         nominal_weekly_duration=640.0,
-        max_48h_ans_cost=650.0,
+        max_48h_ans_cost=110.0,
         max_weekly_run_mech_strain=350.0,
         enable_soft_48h_slacks=True,
     )

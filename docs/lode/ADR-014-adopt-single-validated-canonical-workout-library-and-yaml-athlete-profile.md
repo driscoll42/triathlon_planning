@@ -39,5 +39,5 @@ Workouts lived in seven places: three 80/20 xlsx files, stale CSV copies of them
 
 ## 5. Consequences & Trade-Offs
 - **Positive:** One reviewed source of truth with lineage (`provenance`, `source`, `notes`, `needs_review`). Bad data fails loudly at load.
-- **Negative / Operational Cost:** Flag rules changed some 80/20 classifications (swims, long rides), so engine behavior on the large library shifts. Durability is still on two scales (0–10 vs 0–85) until TASK-023. Strength TSS is unrecalibrated until TASK-021. Swim minutes are still precomputed with the legacy CSS until TASK-013.
+- **Negative / Operational Cost:** Flag rules changed some 80/20 classifications (swims, long rides), so engine behavior on the large library shifts. Durability is still on two scales (0–10 vs 0–85) until TASK-023. Strength TSS recalibrated by TASK-021. Swim minutes are still precomputed with the legacy CSS until TASK-013.
 - **When to Revisit:** When ingested actual sessions (TASK-024) need their own table, or the library outgrows CSV review.
