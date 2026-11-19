@@ -13,7 +13,6 @@ Phases 0–2 ✅ (through 2026-11-18; details in `docs/archive/TASKS_COMPLETED.m
 
 ### Phase 3 — Physiology Calibration
 
-- [ ] `TASK-022` (`safety`): fix or replace ODI (dimensional mismatch, wrong-sign controller).
 - [ ] `TASK-023` (`mpc`): interval-parsed TTE durability, variety goal, `Phase` enum, walk-jog re-entry. Plan: `~/.gemini/antigravity-cli/brain/d15e4a01-51fd-44e4-8d43-485d767b8207/implementation_plan.md` (shared with `TASK-058`).
 - [ ] `TASK-058` (`workouts`): walk-jog (run/walk) re-entry workouts on the `TASK-023` impact model (`EXP-008`); the schema has no walk component and a reduced impact load is an invented number.
 

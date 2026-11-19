@@ -178,7 +178,7 @@ def _binding_48h_caps(short: pd.DataFrame, profile: Any, tol: float = 0.03) -> L
 # ---------------------------------------------------------------------------
 # TASK-046: which Tier-0 / structure row keeps a week at a single run?
 # ---------------------------------------------------------------------------
-SINGLE_RUN_ROWS = ("run-minutes guard", "running ACWR ceiling", "weekly run strain cap", "long-run cap",
+SINGLE_RUN_ROWS = ("run-minutes guard", "running ACWR ceiling", "run-strain ODI ceiling", "weekly run strain cap", "long-run cap",
                    "1 session/day", "structure minimums")
 SINGLE_RUN_COMBINED = "combination of rows"
 SINGLE_RUN_UNBOUND = "no run row (goal trade-off)"
@@ -187,6 +187,7 @@ SINGLE_RUN_BUDGET_S = 1.0     # time limit of each scratch re-solve
 KEYSTONE_RUN_ROWS = (
     "weekly run strain cap",
     "running ACWR ceiling",
+    "run-strain ODI ceiling",
     "long-run cap",
     "run-share ceiling",
     "run frequency cap",
@@ -240,6 +241,8 @@ def _relax_row(name: str, cfg: Any, carry: Any):
             carry = replace(carry, load=replace(load, run_minutes_cap=None))
         elif name == "running ACWR ceiling":
             carry = replace(carry, load=replace(load, acwr_max=1e3, acwr_min=0.0))
+        elif name == "run-strain ODI ceiling":
+            carry = replace(carry, load=replace(load, odi_max=1e3))
     return cfg, carry
 
 

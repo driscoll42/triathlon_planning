@@ -9,13 +9,16 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional
 
-from triplan.physiology.state import ALPHA_ACUTE, ALPHA_CHRONIC, AthletePhysiologicalState
+from triplan.physiology.state import (ALPHA_ACUTE, ALPHA_CHRONIC, ALPHA_ODI_FAST, AthletePhysiologicalState,
+                                      alpha_odi_slow)
 from triplan.solver.engine.carry_in import DayLoad, LoadState, WeekCarryIn
 from triplan.solver.safety_constraints import run_minutes as run_minutes_of
 
 GLOBAL_ACWR_MAX = 1.30      # INVARIANTS: mechanical ACWR window [0.80, 1.30]
 GLOBAL_ACWR_MIN = 0.80
 MASTERS_ACWR_MAX = 1.15
+GLOBAL_ODI_MAX = 1.35       # INVARIANTS: ODI^run (EWMA_35 / EWMA_120 of run strain) <= 1.35
+MASTERS_ODI_MAX = 1.20
 MASTERS_CTL_RAMP = 2.75   # was 5.0 before exact Banister decay (TASK-021, ADR-034): same weekly TSS ramp
 
 
@@ -27,6 +30,15 @@ def acwr_eps_floor(library: Iterable[Any], rho: float) -> float:
     strains = [float(w.mechanical_strain) for w in library
                if getattr(w, "sport", "") == "Run" and float(w.mechanical_strain) > 0]
     return max(ALPHA_ACUTE - rho * ALPHA_CHRONIC, 0.0) * min(strains) if strains else 0.0
+
+
+def odi_eps_floor(library: Iterable[Any], rho: float, slow_alpha: float) -> float:
+    """ODI analogue of ``acwr_eps_floor``: ``F - rho * S`` after ONE smallest library run from a fully detrained
+    state, ``(ALPHA_ODI_FAST - rho * slow_alpha) * min_run_strain`` (clamped at 0), so a floor-sized session is
+    always admissible (ADR-012: the 60 min/week absolute floor applies regardless of the ratio)."""
+    strains = [float(w.mechanical_strain) for w in library
+               if getattr(w, "sport", "") == "Run" and float(w.mechanical_strain) > 0]
+    return max(ALPHA_ODI_FAST - rho * slow_alpha, 0.0) * min(strains) if strains else 0.0
 
 
 def load_state_for_week(state: AthletePhysiologicalState, profile: Optional[Any], prev_run_minutes: float,
@@ -48,7 +60,12 @@ def load_state_for_week(state: AthletePhysiologicalState, profile: Optional[Any]
     if state.masters_mode:
         rho = min(rho, MASTERS_ACWR_MAX)
         ramp = MASTERS_CTL_RAMP if ramp is None else min(ramp, MASTERS_CTL_RAMP)
+    library = list(library)
+    odi_max = MASTERS_ODI_MAX if state.masters_mode else GLOBAL_ODI_MAX
+    slow_alpha = alpha_odi_slow(state.masters_mode)
     return LoadState(run_acute=state.running_acute_mech, run_chronic=state.running_chronic_mech,
+                     odi_fast=state.run_strain_fast, odi_slow=state.run_strain_slow, odi_slow_alpha=slow_alpha,
+                     odi_max=odi_max, odi_eps=odi_eps_floor(library, odi_max, slow_alpha),
                      total_ctl=state.total_ctl, run_ctl=state.run_ctl, acwr_max=rho, acwr_min=GLOBAL_ACWR_MIN,
                      acwr_eps=acwr_eps_floor(library, rho), ctl_ramp_max=ramp, run_minutes_cap=run_cap,
                      reentry=bool(reentry))

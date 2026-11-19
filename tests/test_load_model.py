@@ -104,9 +104,9 @@ def test_42_days_of_100_tss_gives_ctl_63_not_86():
     assert s.total_atl == pytest.approx(100.0 * (1.0 - math.exp(-6.0)), rel=1e-9)
 
 
-def test_total_ctl_includes_strength_tss_like_metabolic_fitness():
+def test_total_ctl_includes_strength_tss():
     kw = dict(total_ctl=0.0, total_atl=0.0, bike_ctl=0.0, bike_atl=0.0, run_ctl=0.0, run_atl=0.0, swim_ctl=0.0, swim_atl=0.0,
-              metabolic_fitness_state=0.0)
+              run_strain_fast=0.0, run_strain_slow=0.0)
     a, b = st.AthletePhysiologicalState(**kw), st.AthletePhysiologicalState(**kw)
     for _ in range(14):
         a.step_day(115.0, 0.0, 100.0, 0.0, 0.0)                         # 15 TSS of strength folded into the all-sport total
@@ -115,8 +115,8 @@ def test_total_ctl_includes_strength_tss_like_metabolic_fitness():
     expected = 115.0 * (1.0 - (1.0 - st.ALPHA_CTL) ** 14)
     assert a.total_ctl == pytest.approx(expected, rel=1e-9)
     assert a.bike_ctl == pytest.approx(100.0 * (1.0 - (1.0 - st.ALPHA_CTL) ** 14), rel=1e-9)   # per-sport CTL excludes it
-    # metabolic fitness M(t) integrates the same all-sport load with the exact tau = 35 d decay
-    assert a.metabolic_fitness_state == pytest.approx(115.0 * (1.0 - math.exp(-14.0 / 35.0)), rel=1e-9)
+    # TASK-022: ODI no longer integrates all-sport TSS (it is run-strain over run-strain); no run strain here
+    assert a.run_strain_fast == 0.0 and a.run_strain_slow == 0.0
 
 
 # ---------------------------------------------------------------------------------- Library coherence (data/ CSV)
