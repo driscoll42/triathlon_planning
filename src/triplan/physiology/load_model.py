@@ -98,6 +98,44 @@ def brick_strain(z_total: Sequence[float], z_run: Sequence[float]) -> float:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Walk-jog (run/walk) re-entry: stride-count / ground-contact impact model (TASK-023, ADR-036)
+# ---------------------------------------------------------------------------------------------------------------------
+# A walked minute loads the tibia / Achilles far less than a run minute but not zero. The per-minute tissue dose is
+#     contacts_per_min x (peak vertical ground-reaction force / BW)^b            (b = BONE_STRAIN_EXPONENT)
+# so a walk minute relative to a Zone 1 run minute is  (walk_spm / run_spm) x (GRF_walk / GRF_run)^b. The constants
+# are literature-scale PRIORS (not athlete data; calibrate in EXP-006) and the result is deliberately inflated by a
+# safety factor so the model errs toward MORE load: a reduced impact number that is too low would loosen the in-model
+# running-ACWR / strain / ODI rows (charter §2), which is exactly what TASK-058 may not do.
+RUN_CADENCE_SPM = 170.0         # steps per minute, easy running
+WALK_CADENCE_SPM = 110.0        # steps per minute, brisk walking
+RUN_PEAK_GRF_BW = 2.2           # peak vertical GRF of easy running, body weights
+WALK_PEAK_GRF_BW = 1.2          # peak vertical GRF of brisk walking, body weights
+BONE_STRAIN_EXPONENT = 3.0      # tissue-dose exponent on per-contact force (same beta as the run strain model)
+WALK_SAFETY_FACTOR = 2.0        # conservative inflation of the walk dose (needs_review until EXP-006)
+
+
+def walk_dose_fraction() -> float:
+    """Strain of ONE walked minute as a fraction of ONE Zone 1 run minute (``WALK_SAFETY_FACTOR`` included)."""
+    raw = (WALK_CADENCE_SPM / RUN_CADENCE_SPM) * (WALK_PEAK_GRF_BW / RUN_PEAK_GRF_BW) ** BONE_STRAIN_EXPONENT
+    return min(1.0, WALK_SAFETY_FACTOR * raw)
+
+
+def run_walk_mechanical_strain(run_zone_minutes: Sequence[float], walk_min: float) -> float:
+    """Mechanical strain of a run/walk session: the run minutes on the zone model (``zone_strain("Run", ...)``,
+    5- or 7-vector) plus the walked minutes at ``walk_dose_fraction()`` of a Zone 1 run minute. With ``walk_min == 0``
+    it IS ``zone_strain("Run", z)``; walking never makes a session cost more than running those minutes would."""
+    if walk_min < 0:
+        raise ValueError("walk_min must be >= 0")
+    z1_minute = uniform_strain("Run", 1.0, RUN_MID7[0])
+    return float(zone_strain("Run", run_zone_minutes) + walk_min * walk_dose_fraction() * z1_minute)
+
+
+def run_walk_contacts(run_min: float, walk_min: float) -> float:
+    """Ground contacts (steps) of a run/walk session: the stride-count view of the same dose."""
+    return float(run_min * RUN_CADENCE_SPM + walk_min * WALK_CADENCE_SPM)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Strength: aerobic TSS and set-intensity strain
 # ---------------------------------------------------------------------------------------------------------------------
 STRENGTH_TSS_PER_HOUR = (10.0, 20.0)   # (rest-dominated, continuous / plyometric)

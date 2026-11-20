@@ -55,7 +55,7 @@ def test_endurance_loads_use_the_shared_formulas(rows):
             if k in ("is_indoor_bike", "is_outdoor_bike") and outdoor:
                 continue
             assert bool(r[k]) == bool(v), (code, k)
-        loads = endurance_loads(sport, tss, if_, sum(zz), zz, bool(flags.get("has_strides")))
+        loads = endurance_loads(sport, tss, if_, sum(zz), zz, bool(flags.get("has_strides")), description=desc)
         for k, v in loads.items():
             assert r[k] == pytest.approx(v), (code, k)
 

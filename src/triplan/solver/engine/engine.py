@@ -29,6 +29,7 @@ import numpy as np
 
 from triplan.library.compound import make_lift_easy_combos
 from triplan.solver.engine import session_quality as sq
+from triplan.solver.engine import variety as vty
 from triplan.solver.engine.builders import (calendar, goals, intensity_structure, load_dynamics, orthopedic,
                                             session_structure, strength, symmetry)
 from triplan.solver.engine.config import EngineOptions, WEEKENDS, WeekConfig, WorkoutTable
@@ -103,12 +104,19 @@ class UnifiedWeekEngine:
                 )
             self.combo_codes = [c.code for c in combos]
             workouts = workouts + combos
+        # TASK-023: key codes selected in recent weeks carry a linear variety cost; dominance pruning must see it.
+        self.recency = vty.recency_weights(carry_in, int(self.cfg.get("variety_window", default=3)))
+        variety_cost = None
+        if self.recency:
+            variety_cost = lambda w: float(vty.variety_vector([w], self.recency, self.quality_params)[0])  # noqa: E731
         if options.prune_dominated:
             workouts, self.dominance = prune_dominated_candidates(
-                workouts, WeekConfig(config).get("sport_freq_bounds", default=None) if options.tier1 else None)
+                workouts, WeekConfig(config).get("sport_freq_bounds", default=None) if options.tier1 else None,
+                extra_cost=variety_cost)
         self.workouts = workouts
         self.table = WorkoutTable(self.workouts)
         self.key = sq.key_mask(self.workouts, self.quality_params)
+        self.variety = vty.variety_vector(self.workouts, self.recency, self.quality_params)
         self.sets = classify_workouts(self.workouts)
         self.allowed = calendar.make_allowed(self.table, self.cfg, options)
         self.notes: List[str] = list(notes or [])
@@ -130,7 +138,8 @@ class UnifiedWeekEngine:
         opt = self.opt
         model = WeekModel(empty_row_policy=opt.empty_row_policy)
         ctx = BuildContext(model=model, table=self.table, cfg=self.cfg, opt=opt, limits=self.limits,
-                           sets=self.sets, allowed=self.allowed, key=self.key, carry_in=self.carry_in)
+                           sets=self.sets, allowed=self.allowed, key=self.key, variety=self.variety,
+                           carry_in=self.carry_in)
         calendar.add_variables(ctx, goals.cost_terms(ctx))
         goals.declare_goals(ctx)
         if opt.safety or opt.tier1:

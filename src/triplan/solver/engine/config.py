@@ -116,6 +116,7 @@ class WorkoutTable:
         self.mechanical_strain = np.array([float(getattr(x, "mechanical_strain", 0.0)) for x in w], dtype=np.float64)
         self.ans_cost = np.array([float(getattr(x, "ans_cost", 20.0)) for x in w], dtype=np.float64)
         self.durability = np.array([float(getattr(x, "durability_score", 2.0)) for x in w], dtype=np.float64)
+        self.t_thr = np.array([float(getattr(x, "t_thr_min", 0.0)) for x in w], dtype=np.float64)   # TASK-023 T^thr_i
         self.preference_penalty = np.array([float(getattr(x, "preference_penalty", 0.1)) for x in w],
                                            dtype=np.float64)
         self.bb_sets = np.array([float(int(getattr(x, "bb_sets", 0))) for x in w], dtype=np.float64)

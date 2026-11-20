@@ -16,6 +16,8 @@ Rules encoded here:
 from dataclasses import dataclass, replace
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from triplan.model.phase import Phase
+
 # Default race-block length (weeks) per distance, when the caller does not give ``weeks_to_race``.
 DEFAULT_RACE_WEEKS = {"sprint": 12, "olympic": 16, "70.3": 20, "ironman": 24}
 _TAPER_WEEKS = {"sprint": 1, "olympic": 1, "70.3": 2, "ironman": 2}
@@ -33,13 +35,7 @@ _REENTRY_PHASES = ["Re-Entry Foundation", "Re-Entry Aerobic Base", "Re-Entry Gen
 REENTRY_START_FACTOR = 0.60   # of base_tss; re-entry ramps to 1.00 so the race block continues smoothly
 RECOVERY_RATIO = 0.70         # recovery week TSS = 70% of the preceding build week
 
-# ``role`` is a neutral keyword handed to ``profile.to_mesocycle_config`` (phase names such as
-# "Peak Threshold" or "Race Specific" would otherwise hit its substring matching, see TASK-023).
-ROLE_CONFIG_NAME = {"base": "Base", "build": "Build", "overload": "Build 2 Overload",
-                    "recovery": "Recovery Deload", "taper": "Taper", "race": "Race Week"}
-
-
-DELOAD_ROLES = ("recovery", "taper", "race")
+DELOAD_ROLES = (Phase.RECOVERY, Phase.TAPER, Phase.RACE)
 DELOAD_MAX_REST_DAYS = 4      # a deload week may hold up to 4 rest days (>= 3 training days)
 
 
@@ -68,7 +64,7 @@ def apply_deload_relief(cfg, role: str) -> bool:
 
 
 # TASK-037: re-entry weeks whose TSS target sits below the TSS floor of the full-week structure minimums.
-REENTRY_RELIEF_ROLES = ("base", "build", "overload")
+REENTRY_RELIEF_ROLES = (Phase.BASE, Phase.BUILD, Phase.OVERLOAD)
 STRUCTURE_OVERSHOOT_TOL = 1.15    # solved / target above this triggers the next relief level
 REENTRY_RELIEF_LEVELS = (1, 2)
 
@@ -102,7 +98,7 @@ def apply_reentry_relief(cfg, level: int) -> str:
 
 
 # TASK-041 (ADR-025): race-block build weeks whose TSS target sits below the structural floor of the full-week structure.
-FLOOR_RAISE_ROLES = ("base", "build", "overload")
+FLOOR_RAISE_ROLES = (Phase.BASE, Phase.BUILD, Phase.OVERLOAD)
 FLOOR_PROBE_TARGET = 1.0     # a ~0 TSS goal makes the lexicographic solve return the cheapest plan meeting Tier-0 + Tier-1
 
 
@@ -164,7 +160,7 @@ def relax_deload_anchors(library, role: str):
 # (EXP-007 section 10), so the weekly keystone alternates: a long-run week (run anchor mandatory, ride anchor optional)
 # then a long-ride week (ride anchor mandatory, run anchor optional). Deload roles keep ADR-023 (anchors optional).
 KEYSTONE_DISTANCES = ("70.3", "ironman")
-KEYSTONE_ROLES = ("build", "overload")
+KEYSTONE_ROLES = (Phase.BUILD, Phase.OVERLOAD)
 # Keystone long-run minutes per long-run week (index = how many run-keystone weeks came before); clamped to the last rung,
 # to the library rungs the day caps can host and to one library rung above the last long run actually scheduled.
 # A Tier-2 split shift toward running (Run TSS 40%, duration +8 points) was tried and dropped: it did not make a single
@@ -335,17 +331,22 @@ class SeasonWeek:
     tss_factor: float
     durability_w: float
     req_strength: int        # heavy-strength sessions requested by the phase (before profile caps)
-    role: str                # base | build | overload | recovery | taper | race
+    role: Phase              # BASE | BUILD | OVERLOAD | RECOVERY | TAPER | RACE (StrEnum: equals "base", ...)
     block: str               # "reentry" | "race"
     block_week: int          # 1-based week inside its block
 
     @property
     def is_recovery(self) -> bool:
-        return self.role == "recovery"
+        return self.role is Phase.RECOVERY
 
     @property
-    def config_phase(self) -> str:
-        return ROLE_CONFIG_NAME[self.role]
+    def phase(self) -> Phase:
+        return self.role
+
+    @property
+    def config_phase(self) -> Phase:
+        """The ``Phase`` handed to ``profile.to_mesocycle_config`` (TASK-023: an enum, not a keyword string)."""
+        return self.role
 
     def as_tuple(self):
         return (self.week_num, self.phase_name, self.step_type, self.tss_factor, self.durability_w,
@@ -382,7 +383,7 @@ def _block_weeks(n_weeks: int, build: int, recovery: int, names: List[str], firs
         phase = names[_spread(meso, len(names), n_meso)]
         if kind == "recovery":
             out.append(SeasonWeek(start_week + i, phase, "Recovery Deload (-30%)",
-                                  round(prev_build_factor * RECOVERY_RATIO, 3), 0.0, 0, "recovery", block, i + 1))
+                                  round(prev_build_factor * RECOVERY_RATIO, 3), 0.0, 0, Phase.RECOVERY, block, i + 1))
             continue
         frac = j / (n_build - 1) if n_build > 1 else 1.0
         factor = round(first_factor + (last_factor - first_factor) * frac, 3)
@@ -390,13 +391,13 @@ def _block_weeks(n_weeks: int, build: int, recovery: int, names: List[str], firs
         dur = round(dur_start + (dur_end - dur_start) * frac, 1)
         last_in_cycle = i + 1 >= n_weeks or kinds[i + 1] == "recovery"
         if k == 0 and meso == 0:
-            role, step, heavy = "base", "Base Load", 2   # base-phase default; the profile may cap it
+            role, step, heavy = Phase.BASE, "Base Load", 2   # base-phase default; the profile may cap it
         elif k == 0:
-            role, step, heavy = "build", "Base Load", 1
+            role, step, heavy = Phase.BUILD, "Base Load", 1
         elif last_in_cycle:
-            role, step, heavy = "overload", "Overload (+10%)", 1
+            role, step, heavy = Phase.OVERLOAD, "Overload (+10%)", 1
         else:
-            role, step, heavy = "build", "Build (+10%)", 1
+            role, step, heavy = Phase.BUILD, "Build (+10%)", 1
         out.append(SeasonWeek(start_week + i, phase, step, factor, dur, heavy, role, block, i + 1))
         j += 1
     return out
@@ -438,10 +439,76 @@ def build_season_matrix(
     for t in range(n_taper):
         weeks.append(SeasonWeek(start + n_cycle + t, "Taper & Sharpen",
                                 f"Taper {t + 1} (-{round((1 - taper_f[t]) * 100)}%)",
-                                round(peak * taper_f[t], 3), 10.0, 0, "taper", "race", n_cycle + t + 1))
+                                round(peak * taper_f[t], 3), 10.0, 0, Phase.TAPER, "race", n_cycle + t + 1))
     weeks.append(SeasonWeek(start + total - 1, "Race Week", "Race Week", round(peak * 0.38, 3), 5.0, 0,
-                            "race", "race", total))
+                            Phase.RACE, "race", total))
     return weeks
+
+
+# ---------------------------------------------------------------------------
+# TTE progression mode and the walk-jog re-entry block (TASK-023, ADR-036)
+# ---------------------------------------------------------------------------
+def tte_mode_for(role: Phase) -> str:
+    """How the week's threshold-minute goal (``T^thr_w``) is posed: build / base / overload weeks PROGRESS
+    (``T >= (1 + g) T_ref``), a recovery week CAPS (``T <= 0.6 T_{w-1}``), taper and race weeks leave it off (the
+    taper keeps its sharpening intensity; ``ADR-023`` deload relief owns those weeks)."""
+    role = Phase.parse(role)
+    if role in (Phase.BASE, Phase.BUILD, Phase.OVERLOAD):
+        return "progress"
+    if role is Phase.RECOVERY:
+        return "deload"
+    return "off"
+
+
+@dataclass(frozen=True)
+class WalkJogStage:
+    """One rung of the run/walk ladder: ``run_s`` running then ``walk_s`` walking, repeated, for ``session_min``."""
+    stage: int
+    run_s: int
+    walk_s: int
+    session_min: int
+
+    @property
+    def label(self) -> str:
+        return f"{self.run_s}s:{self.walk_s}s x {self.session_min}min"
+
+    @property
+    def run_fraction(self) -> float:
+        return self.run_s / (self.run_s + self.walk_s)
+
+    def split_minutes(self, minutes: Optional[float] = None) -> Tuple[float, float]:
+        """(run minutes, walk minutes) of a ``minutes`` long session at this rung's ratio."""
+        m = float(self.session_min if minutes is None else minutes)
+        return m * self.run_fraction, m * (1.0 - self.run_fraction)
+
+
+# Return-to-run ladder for a detrained athlete (run CTL below the re-entry exit): 1:1 -> 2:1 -> 3:1 -> 4:1, session
+# length growing 20 -> 35 min. One rung per BUILD week; recovery / taper / race weeks hold the rung. The ladder is
+# the progression RULE; the run/walk library rows that realise it are TASK-058 (they take their load from
+# ``physiology.load_model.run_walk_mechanical_strain``).
+WALKJOG_LADDER: Tuple[WalkJogStage, ...] = (
+    WalkJogStage(1, 60, 60, 20),
+    WalkJogStage(2, 120, 60, 25),
+    WalkJogStage(3, 180, 60, 30),
+    WalkJogStage(4, 240, 60, 35),
+)
+
+
+def next_walkjog_stage(prev_stage: int, role: Phase, run_reentry: bool) -> int:
+    """Walk-jog rung of the coming week: 0 when the athlete is not re-entering (run CTL >= the exit); the first rung
+    on entry; one rung up per build / base / overload week (capped at the top of the ladder); held in deload weeks."""
+    if not run_reentry:
+        return 0
+    role = Phase.parse(role)
+    if prev_stage <= 0:
+        return 1
+    if role.is_deload:
+        return prev_stage
+    return min(prev_stage + 1, len(WALKJOG_LADDER))
+
+
+def walkjog_stage(stage: int) -> Optional[WalkJogStage]:
+    return WALKJOG_LADDER[stage - 1] if 1 <= stage <= len(WALKJOG_LADDER) else None
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +526,7 @@ def is_cp_test_allowed(
 ) -> bool:
     """May an all-out CP/CSS test of ``sport`` be scheduled in ``week``? (ADR-011 / ADR-012 DEC-005)."""
     n = week.week_num
-    if n <= 1 or week.role in ("taper", "race"):
+    if n <= 1 or week.role in (Phase.TAPER, Phase.RACE):
         return False
     lockout = 0
     if reentry_weeks > 0:

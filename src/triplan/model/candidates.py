@@ -22,7 +22,7 @@ class CandidateWorkout:
     aerobic_tss: float                 # Metabolic / cardiovascular TSS
     mechanical_strain: float           # Peripheral orthopedic / eccentric strain
     ans_cost: float                    # Exponentially weighted ANS recovery cost
-    durability_score: float            # Fatigue-resistance stimulus [0.0 .. 10.0]
+    durability_score: float            # Fatigue-resistance stimulus, one 0..10 scale (interval-derived, TASK-023)
     zone_durations: Tuple[float, float, float, float, float]  # Minutes in Z1..Z5
     is_hard_endurance: bool = False    # True for Z3/Z4/Z5 breakthrough sessions
     is_heavy_run: bool = False         # True for tempo/threshold/interval/long runs (>=70m)
@@ -57,6 +57,9 @@ class CandidateWorkout:
     brick_run_minutes: float = 0.0     # running-leg minutes of a Brick workout (0 for non-run bricks)
     brick_run_strain: float = 0.0      # running-leg mechanical strain of a Brick workout
     brick_run_hard: bool = False       # True when the Brick run leg triggers heavy/long-run rules
+    t_thr_min: float = 0.0             # T^thr: Z3/ZY/Z4/Z5 minutes (alactic strides excluded; TASK-023)
+    t_cont_min: float = 0.0            # T^cont: longest continuous threshold block
+    late_min: float = 0.0              # threshold minutes after 60% of the session
     provenance: str = ""               # library source tag ('8020_library', 'agent_authored', 'hand_coded_*', '')
 
 
@@ -151,6 +154,14 @@ class MesoCycleTargetsAndConstraints:
     w_durability: float = 25.0
     w_friction: float = 5.0
     w_double_session: float = 0.5
+    # TASK-023 (ADR-036): TTE progression goal and multi-week variety penalty (both inert without a carry-in)
+    tte_mode: str = "off"            # "progress" (build weeks) | "deload" (recovery week) | "off" (see control.periodization.tte_mode_for)
+    tte_growth: float = 0.05         # g: build weeks aim at T^thr_w >= (1 + g) T^thr_ref
+    tte_deload_ratio: float = 0.60   # recovery week: T^thr_w <= ratio * T^thr_{w-1}
+    w_tte: float = 30.0              # weight of the one-sided TTE shortfall / overshoot (dimensionless, / reference scale)
+    w_variety: float = 4.0           # cost of repeating a key workout code selected in a recent week (recency-weighted)
+    variety_window: int = 3          # weeks of key-workout memory (control.carry keeps VARIETY_MEMORY_WEEKS)
+    walkjog_stage: int = 0           # re-entry walk-jog progression stage (0 = off; control.periodization, TASK-058 reads it)
     w_ans: float = 0.20
     w_rest: float = 18.0
     w_brick: float = 4.0

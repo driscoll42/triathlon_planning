@@ -15,7 +15,7 @@ back one day (48h windows over ``(d, d+1)``, adjacency over ``(d, d+1)``); day -
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 from triplan.solver.safety_constraints import classify_workouts
 
@@ -83,10 +83,15 @@ class WeekCarryIn:
     prev_longest_run_min: float = 0.0     # longest single run of the previous week (ADR-022); held through run-free weeks
     prev_week_tss: float = 0.0
     last_test_week: Dict[str, int] = field(default_factory=dict)   # ADR-011 CP/CSS test hand-off (TASK-026)
+    # TASK-023 (ADR-036): TTE progression and workout variety memory (solver constants, like the EWMA state)
+    prev_tte_min: float = 0.0             # T^thr of the previous solved week (recovery weeks cap relative to it)
+    tte_ref_min: float = 0.0              # T^thr of the last non-deload solved week (build weeks progress from it)
+    recent_key_codes: Tuple[Tuple[str, ...], ...] = ()   # key workout codes of the previous weeks, NEWEST first
 
     @property
     def is_active(self) -> bool:
-        """True when the carry-in changes the model (boundary loads or in-model load dynamics)."""
+        """True when the carry-in changes the model (boundary loads or in-model load dynamics). The TTE / variety
+        memory is symmetric under week reversal (sums and per-workout costs), so it does not count (symmetry row)."""
         return (not self.day_m1.is_empty) or (not self.day_m2.is_empty) or self.load is not None
 
     @classmethod

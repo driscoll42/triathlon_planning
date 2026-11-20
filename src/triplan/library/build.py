@@ -33,6 +33,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from triplan.library.schema import WORKOUT_COLUMNS, ZONE_DISTANCE_COLUMNS, validate_table
+from triplan.library.intervals import apply_interval_features, durability_from_features, interval_features
 from triplan.physiology import load_model as lm
 
 # Explicit, reviewed corrections to scraped rows whose zone minutes did not sum to their duration.
@@ -174,7 +175,7 @@ def long_endurance_rows(profile=None, source: str = "scripts/migrations/m2026_11
             if sport == "Bike":
                 flags.update(is_indoor_bike=False, is_outdoor_bike=True)
             row.update(flags)
-            row.update(endurance_loads(sport, tss, if_, duration, z, False))
+            row.update(endurance_loads(sport, tss, if_, duration, z, False, description=desc))
             rows.append(row)
     return rows
 
@@ -270,7 +271,7 @@ def gap_fill_rows(profile=None, source: str = "scripts/migrations/m2026_11_16_li
         if sport == "Bike" and outdoor:
             flags.update(is_indoor_bike=False, is_outdoor_bike=True)
         row.update(flags)
-        row.update(endurance_loads(sport, tss, if_, duration, z, bool(flags.get("has_strides"))))
+        row.update(endurance_loads(sport, tss, if_, duration, z, bool(flags.get("has_strides")), description=desc))
         rows.append(row)
     for code, v in GAP_STRENGTH_SPECS.items():
         z = v["zones"]
@@ -309,20 +310,6 @@ def zone_tss(z5: List[float], zone_if=BRICK_ZONE_IF) -> float:
 
 def if_from_tss(tss: float, duration_min: float) -> float:
     return round(math.sqrt(tss / (duration_min / 60.0 * 100.0)), 3) if tss > 0 and duration_min > 0 else 0.0
-
-
-def durability(sport: str, duration: float, high: float, code: str) -> float:
-    if duration >= 150:
-        return 8.5
-    if duration >= 120:
-        return 7.0
-    if sport == "Run" and duration >= 70:
-        return 7.5
-    if sport == "Brick":
-        return 8.5
-    if high >= 25.0:
-        return 6.5
-    return 2.0
 
 
 def _blank_row() -> Dict[str, object]:
@@ -431,6 +418,9 @@ def materialize_distance_row(row: Dict[str, object], *, easy_pace_min_per_mile: 
     flags = endurance_flags(sport, str(out["description"]), out["duration_min"], z)
     out.update(flags)
     out.update(endurance_loads(sport, tss, if_, out["duration_min"], z, bool(flags.get("has_strides"))))
+    feats = interval_features({**out, "has_strides": bool(flags.get("has_strides"))})   # ordered-interval parse (TASK-023)
+    out.update(t_thr_min=feats.t_thr_min, t_cont_min=feats.t_cont_min, late_min=feats.late_min,
+               durability_score=durability_from_features(sport, out["duration_min"], feats))
     return out
 
 
@@ -471,9 +461,12 @@ def endurance_flags(sport: str, desc: str, duration: float, z: List[float]) -> D
 
 
 def endurance_loads(sport: str, tss: float, if_: float, duration: float, z: List[float], strides: bool,
-                    z_run: Optional[List[float]] = None) -> Dict[str, float]:
+                    z_run: Optional[List[float]] = None, description: str = "") -> Dict[str, float]:
     """Loads of an endurance row from its zone minutes (``tss`` / ``if_`` only drive the bike neuromuscular rule).
-    ``z_run`` = the run-leg zone minutes of a Brick (default: none, the whole brick on the bike model)."""
+    ``z_run`` = the run-leg zone minutes of a Brick (default: none, the whole brick on the bike model).
+    ``durability_score`` / ``t_thr_min`` / ``t_cont_min`` / ``late_min`` are the interval-derived features of
+    ``library.intervals`` (TASK-023); pass ``description`` for the ordered-interval parse, else they come from the
+    zone minutes alone."""
     if sport == "Brick":
         mech = round(lm.brick_strain(z, z_run if z_run is not None else [0.0] * len(z)), 1)
     else:
@@ -489,8 +482,14 @@ def endurance_loads(sport: str, tss: float, if_: float, duration: float, z: List
         neuro, axial = (round(0.65 * mech, 1), round(0.38 * mech, 1)) if heavy else (round(0.40 * mech, 1), round(0.30 * mech, 1))
     else:  # Brick
         neuro, axial = round(0.55 * mech, 1), round(0.35 * mech, 1)
+    feats = interval_features({
+        "sport": sport, "description": description, "prescription": "time", "has_strides": strides,
+        "brick_run_min": float(sum(z_run)) if z_run else 0.0,
+        **dict(zip(("z1_min", "z2_min", "z3_min", "z4_min", "z5_min"), z[:5]))})
     return {"mechanical_strain": mech, "ans_cost": round(ans_cost(z, strides, duration), 1),
-            "durability_score": durability(sport, duration, high, ""), "neuromuscular_load": neuro, "axial_load": axial}
+            "durability_score": durability_from_features(sport, duration, feats),
+            "t_thr_min": feats.t_thr_min, "t_cont_min": feats.t_cont_min, "late_min": feats.late_min,
+            "neuromuscular_load": neuro, "axial_load": axial}
 
 
 def brick_run_loads(z_run: List[float], run_cp: float = 200.0) -> Dict[str, object]:
@@ -566,7 +565,8 @@ def short_brick_rows(profile=None, source: str = "scripts/migrations/m2026_11_18
         )
         flags = endurance_flags("Brick", str(spec["description"]), duration, z)
         row.update(flags)
-        row.update(endurance_loads("Brick", tss, if_, duration, z, bool(flags.get("has_strides")), z_run=rz))
+        row.update(endurance_loads("Brick", tss, if_, duration, z, bool(flags.get("has_strides")), z_run=rz,
+                                    description=str(spec["description"])))
         row.update(brick_run_loads(rz, profile.run_cp))
         rows.append(row)
     return rows
@@ -633,7 +633,8 @@ def derive_8020_rows(frames: Dict[str, pd.DataFrame], source_files: Dict[str, st
             row.update(z1_min=z[0], z2_min=z[1], z3_min=z[2], z4_min=z[3], z5_min=z[4])
             flags = endurance_flags(sport, row["description"], duration, z)
             row.update(flags)
-            row.update(endurance_loads(sport, tss, row["intensity_factor"], duration, z, bool(flags.get("has_strides"))))
+            row.update(endurance_loads(sport, tss, row["intensity_factor"], duration, z, bool(flags.get("has_strides")),
+                                       description=row["description"]))
             rows.append(row)
     return pd.DataFrame(rows, columns=WORKOUT_COLUMNS)
 

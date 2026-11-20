@@ -9,10 +9,11 @@ directly from this configuration file.
 """
 
 import os
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 from dataclasses import asdict, dataclass, field, fields, replace
 import numpy as np
 
+from triplan.model.phase import Phase
 from triplan.physiology.load_model import ANS_WEIGHTS, ZONES7
 
 # GEMINI.md section 2 global ceilings for the rolling 48h caps (TASK-040): a profile may set tighter values, never looser.
@@ -384,13 +385,15 @@ class AthleteProfile:
             swim_atl=rest_atl * 25.0 / 80.0,
         )
 
-    def to_mesocycle_config(self, phase_name: str = "base", tss_target: Optional[float] = None):
-        """Constructs a MesoCycleTargetsAndConstraints tailored to this profile."""
+    def to_mesocycle_config(self, phase_name: Union[Phase, str] = Phase.BASE, tss_target: Optional[float] = None):
+        """Constructs a MesoCycleTargetsAndConstraints tailored to this profile for a ``Phase`` (or a label that
+        ``Phase.parse`` resolves; unknown labels raise, TASK-023)."""
         from triplan.model.candidates import MesoCycleTargetsAndConstraints
         from triplan.control.mpc import ClosedLoopMPCController
+        phase = Phase.parse(phase_name)
         target_tss = tss_target or self.base_weekly_tss
         base_cfg = ClosedLoopMPCController.configure_mesocycle_phase(
-            phase_name=phase_name,
+            phase_name=phase,
             base_tss=target_tss,
             race_distance=self.target_race_distance,
         )
@@ -417,8 +420,7 @@ class AthleteProfile:
         base_cfg.am_pm_min_gap_h = self.am_pm_min_gap_h
         # Phase-specific override: in taper, recovery, or race week, drop heavy strength but keep
         # maintenance sessions (DECISION-009: strength is co-equal, >=1 maintenance session).
-        is_taper_or_recovery = any(x in phase_name.lower() for x in ("taper", "recovery", "deload", "race"))
-        if is_taper_or_recovery:
+        if phase.is_deload:
             n_maint = self.recovery_week_strength_sessions
             base_cfg.sport_freq_bounds["Strength"] = (n_maint, n_maint)
             base_cfg.required_heavy_strength_sessions = 0
