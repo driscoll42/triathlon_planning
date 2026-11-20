@@ -99,7 +99,8 @@ def to_candidates(df: pd.DataFrame, base_id: int = 0) -> list:
         out.append(CandidateWorkout(
             id=base_id + k, code=r["code"], name=r["name"], sport=r["sport"], duration=float(r["duration_min"]),
             aerobic_tss=float(r["tss"]), mechanical_strain=float(r["mechanical_strain"]), ans_cost=float(r["ans_cost"]),
-            durability_score=float(r["durability_score"]),
+            durability_score=float(r["durability_score"]), t_thr_min=float(r["t_thr_min"]),
+            t_cont_min=float(r["t_cont_min"]), late_min=float(r["late_min"]),
             zone_durations=(float(r["z1_min"]), float(r["z2_min"]), float(r["z3_min"] + r["zx_min"]),
                             float(r["z4_min"] + r["zy_min"]), float(r["z5_min"])),
             zone7=(float(r["z1_min"]), float(r["z2_min"]), float(r["zx_min"]), float(r["z3_min"]),

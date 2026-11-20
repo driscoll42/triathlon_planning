@@ -12,9 +12,9 @@ from triplan.control.mpc import ClosedLoopMPCController
 from triplan.library.candidates import build_default_candidate_library
 from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run_strain
 from triplan.physiology.state import AthletePhysiologicalState
-from triplan.control.carry import initial_carry_in, next_week_carry_in
+from triplan.control.carry import week_tte_min, initial_carry_in, next_week_carry_in
 from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
-                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, apply_keystone_run_support, keystone_kind, KEYSTONE_RIDE_BASE_MIN, KEYSTONE_RUN_BASE_MIN, keystone_ride_minutes, keystone_ride_rungs, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance, progression_guard_bounds)
+                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, apply_keystone_run_support, keystone_kind, KEYSTONE_RIDE_BASE_MIN, KEYSTONE_RUN_BASE_MIN, keystone_ride_minutes, keystone_ride_rungs, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance, progression_guard_bounds, tte_mode_for, next_walkjog_stage, walkjog_stage)
 from triplan.control.feasibility import attribute_single_run_week, peak_48h, run_session_count, season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
@@ -158,6 +158,7 @@ def generate_closed_loop_season_schedule(
     last_keystone_run = 0.0    # longest run actually scheduled in the last long-run keystone week
     last_keystone_ride = 0.0   # TASK-063: longest ride actually scheduled in the last long-ride keystone week
     prev_longest_ride = 0.0    # TASK-063: longest ride of the previous solved week (any role)
+    walkjog_n = 0              # TASK-023: walk-jog re-entry ladder rung (0 = off), advanced one rung per build week
 
     print(f"\n================================================================================")
     print(f"  LAUNCHING CLOSED-LOOP {dist.upper()} SEASON PLANNER ({len(season_matrix)} WEEKS)")
@@ -180,6 +181,11 @@ def generate_closed_loop_season_schedule(
             )
         cfg.target_weekly_tss = target_tss   # the matrix is authoritative (phase defaults re-scale TSS)
         cfg.w_durability = durability_w
+        # TASK-023 (ADR-036): TTE progression mode of the week and the walk-jog re-entry rung (detrained run CTL < exit)
+        cfg.tte_mode = tte_mode_for(wk.role)
+        walkjog_n = next_walkjog_stage(walkjog_n, wk.role, bool(carry.load is not None and carry.load.reentry))
+        cfg.walkjog_stage = walkjog_n
+        tte_ref_in = carry.tte_ref_min if cfg.tte_mode == "progress" else carry.prev_tte_min
         # Strength: heavy lifts follow the phase, capped by the profile's re-entry rule (DECISION-023) while
         # in the re-entry block (or when no re-entry block is planned, the legacy always-capped behavior).
         if profile is not None and (in_reentry or reentry_weeks == 0):
@@ -401,7 +407,8 @@ def generate_closed_loop_season_schedule(
             single_run_binding = ""
             if diagnose_single_run and solved_ok and run_session_count(plan["schedule"]) == 1:
                 single_run_binding = attribute_single_run_week(week_lib, copy.deepcopy(scheduler.cfg), solve_carry)["label"]
-            carry = next_week_carry_in(carry, plan["schedule"], athlete_state, profile, lib, plan["total_tss"])
+            carry = next_week_carry_in(carry, plan["schedule"], athlete_state, profile, lib, plan["total_tss"],
+                                       deload=wk.role.is_deload)
 
             if any(plan["schedule"][d] for d in range(7)):
                 df_week = format_plan_to_dataframe(plan, week_num=week_num, phase_name=phase_name)
@@ -423,6 +430,10 @@ def generate_closed_loop_season_schedule(
                 "Run_Mech_Strain": round(sum(run_strain(w) for d in range(7) for w in plan["schedule"][d]), 1),
                 "Total_ANS_Cost": round(tot_ans, 1),
                 "Durability": round(tot_durability, 1),
+                "TTE_Min": round(week_tte_min(plan["schedule"]), 1),     # TASK-023: week T^thr (threshold-or-harder minutes)
+                "TTE_Ref": round(tte_ref_in, 1),                         # the reference its goal was posed against (0 = no goal)
+                "TTE_Mode": cfg.tte_mode,
+                "WalkJog": (walkjog_stage(walkjog_n).label if walkjog_stage(walkjog_n) else ""),
                 "Long_Run_Ratio": round(plan["max_single_run_ratio"], 3),
                 **{f"Max_48h_{k}": round(v, 1) for k, v in peak_48h(plan["schedule"]).items()},   # TASK-040
                 "Ending_CTL": round(athlete_state.total_ctl, 1),

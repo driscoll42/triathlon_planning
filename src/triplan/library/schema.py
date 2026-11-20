@@ -76,7 +76,8 @@ WORKOUT_COLUMNS = [
     "duration_min", "distance", "distance_unit", "prescription", "description",
     *ZONE_COLUMNS, *ZONE_DISTANCE_COLUMNS,
     "tss", "intensity_factor", "normalized_power",
-    "mechanical_strain", "ans_cost", "durability_score", "neuromuscular_load", "axial_load",
+    "mechanical_strain", "ans_cost", "durability_score", "t_thr_min", "t_cont_min", "late_min",
+    "neuromuscular_load", "axial_load",
     "brick_run_min", "brick_run_strain",
     *BOOL_FLAGS,
     "split_group", "bb_sets", "db_sets",
@@ -119,7 +120,10 @@ class Workout(BaseModel):
     normalized_power: float = Field(ge=0)
     mechanical_strain: float = Field(ge=0)
     ans_cost: float = Field(ge=0)
-    durability_score: float = Field(ge=0)  # hybrid rows use 0..85, others 0..10; unified in TASK-023
+    durability_score: float = Field(ge=0, le=10)  # one 0..10 scale, derived from the interval features (TASK-023)
+    t_thr_min: float = Field(default=0.0, ge=0)    # T^thr: Z3/ZY/Z4/Z5 minutes (alactic strides excluded)
+    t_cont_min: float = Field(default=0.0, ge=0)   # T^cont: longest continuous threshold block
+    late_min: float = Field(default=0.0, ge=0)     # threshold minutes after 60% of the session
     neuromuscular_load: float = Field(ge=0)
     axial_load: float = Field(ge=0)
     brick_run_min: float = Field(default=0.0, ge=0)
@@ -186,6 +190,11 @@ class Workout(BaseModel):
                 raise ValueError(f"{self.code}: distance-prescribed workouts need a distance_unit")
         elif zd > 0:
             raise ValueError(f"{self.code}: time-prescribed workouts must not carry zone distances")
+        tol = 1e-6
+        if self.t_cont_min > self.t_thr_min + tol or self.late_min > self.t_thr_min + tol:
+            raise ValueError(f"{self.code}: need late_min <= t_thr_min and t_cont_min <= t_thr_min")
+        if self.t_thr_min > self.duration_min + ZONE_SUM_TOLERANCE_MIN:
+            raise ValueError(f"{self.code}: t_thr_min {self.t_thr_min} exceeds duration {self.duration_min}")
         s = self.sport
         if s != Sport.RUN.value and (self.is_heavy_run or self.is_long_run):
             raise ValueError(f"{self.code}: run-only flag on a {s} workout")
@@ -242,7 +251,10 @@ WORKOUT_TABLE_SCHEMA = pa.DataFrameSchema(
         "normalized_power": pa.Column(float, pa.Check.ge(0)),
         "mechanical_strain": pa.Column(float, pa.Check.ge(0)),
         "ans_cost": pa.Column(float, pa.Check.ge(0)),
-        "durability_score": pa.Column(float, pa.Check.ge(0)),  # dual scale until TASK-023
+        "durability_score": pa.Column(float, pa.Check.in_range(0, 10)),  # unified scale (TASK-023)
+        "t_thr_min": pa.Column(float, pa.Check.ge(0)),
+        "t_cont_min": pa.Column(float, pa.Check.ge(0)),
+        "late_min": pa.Column(float, pa.Check.ge(0)),
         "neuromuscular_load": pa.Column(float, pa.Check.ge(0)),
         "axial_load": pa.Column(float, pa.Check.ge(0)),
         "brick_run_min": pa.Column(float, pa.Check.ge(0)),

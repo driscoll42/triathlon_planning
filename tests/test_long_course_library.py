@@ -68,7 +68,8 @@ def test_values_come_from_the_shared_build_formulas(rows):
         for k, v in endurance_loads(sport, tss, if_, r["duration_min"], z, False).items():
             assert r[k] == pytest.approx(v), (code, k)
         assert endurance_flags(sport, r["description"], r["duration_min"], z)["is_hard_endurance"] is False
-    assert rows.loc["RUN_LC_Z2_150", "durability_score"] == 8.5 and rows.loc["RUN_LC_Z2_90", "durability_score"] == 7.5
+    # TASK-023: durability is derived from the interval features, one 0..10 scale (longer easy session = more durable)
+    assert 0.0 < rows.loc["RUN_LC_Z2_90", "durability_score"] < rows.loc["RUN_LC_Z2_150", "durability_score"] <= 10.0
 
 
 def test_long_sessions_fit_the_tier0_daily_and_48h_caps(rows):

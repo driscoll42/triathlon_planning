@@ -42,6 +42,7 @@ class BuildContext:
     goals: Dict[str, Any] = field(default_factory=dict)  # name -> SoftGoal | column index
 
     key: Optional[np.ndarray] = None                     # bool per workout: key session (TASK-019)
+    variety: Optional[np.ndarray] = None                 # per-workout recency weight of the variety penalty (TASK-023)
     carry_in: Optional[Any] = None                       # engine.carry_in.WeekCarryIn (TASK-018)
     hooks: Optional[ModelHooks] = None
     reg: Optional[Tier1Registry] = None

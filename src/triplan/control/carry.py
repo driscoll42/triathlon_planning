@@ -7,10 +7,11 @@ running-ACWR and CTL state as constants, and this week's limits (ACWR ceiling, r
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 from triplan.physiology.state import (ALPHA_ACUTE, ALPHA_CHRONIC, ALPHA_ODI_FAST, AthletePhysiologicalState,
                                       alpha_odi_slow)
+from triplan.solver.engine import session_quality as sq
 from triplan.solver.engine.carry_in import DayLoad, LoadState, WeekCarryIn
 from triplan.solver.safety_constraints import run_minutes as run_minutes_of
 
@@ -19,6 +20,7 @@ GLOBAL_ACWR_MIN = 0.80
 MASTERS_ACWR_MAX = 1.15
 GLOBAL_ODI_MAX = 1.35       # INVARIANTS: ODI^run (EWMA_35 / EWMA_120 of run strain) <= 1.35
 MASTERS_ODI_MAX = 1.20
+VARIETY_MEMORY_WEEKS = 4  # weeks of key-workout codes kept in the carry-in (TASK-023); cfg.variety_window <= this
 MASTERS_CTL_RAMP = 2.75   # was 5.0 before exact Banister decay (TASK-021, ADR-034): same weekly TSS ramp
 
 
@@ -39,6 +41,19 @@ def odi_eps_floor(library: Iterable[Any], rho: float, slow_alpha: float) -> floa
     strains = [float(w.mechanical_strain) for w in library
                if getattr(w, "sport", "") == "Run" and float(w.mechanical_strain) > 0]
     return max(ALPHA_ODI_FAST - rho * slow_alpha, 0.0) * min(strains) if strains else 0.0
+
+
+def week_tte_min(schedule: Dict[int, list]) -> float:
+    """``T^thr`` of a solved week: the threshold-or-harder minutes of every scheduled workout (TASK-023)."""
+    return float(sum(float(getattr(w, "t_thr_min", 0.0)) for d in range(7) for w in schedule.get(d, [])))
+
+
+def week_key_codes(schedule: Dict[int, list]) -> Tuple[str, ...]:
+    """Codes of the week's key endurance sessions (hard or long, anchors excluded: a mandatory session cannot be
+    varied), the repeat-avoidance memory of the variety penalty (TASK-023)."""
+    params = sq.SessionQualityParams()
+    return tuple(sorted({str(w.code) for d in range(7) for w in schedule.get(d, [])
+                         if sq.is_key(w, params) and not getattr(w, "is_anchor", False)}))
 
 
 def load_state_for_week(state: AthletePhysiologicalState, profile: Optional[Any], prev_run_minutes: float,
@@ -83,8 +98,12 @@ def initial_carry_in(state: AthletePhysiologicalState, profile: Optional[Any], l
 
 
 def next_week_carry_in(prev: WeekCarryIn, schedule: Dict[int, list], state: AthletePhysiologicalState,
-                       profile: Optional[Any], library: Iterable[Any], week_tss: float) -> WeekCarryIn:
-    """Carry-in for week k+1 from week k's solved ``schedule`` ({0..6: [workouts]}) and the already advanced state."""
+                       profile: Optional[Any], library: Iterable[Any], week_tss: float,
+                       deload: bool = False) -> WeekCarryIn:
+    """Carry-in for week k+1 from week k's solved ``schedule`` ({0..6: [workouts]}) and the already advanced state.
+    ``deload``: week k was a recovery / taper / race week, so its threshold minutes do not become the progression
+    reference of the next build week (TASK-023)."""
+    tte = week_tte_min(schedule)
     run_minutes = float(sum(run_minutes_of(w) for d in range(7) for w in schedule.get(d, [])))  # incl. combo run legs
     longest = max((run_minutes_of(w) for d in range(7) for w in schedule.get(d, [])), default=0.0)
     return WeekCarryIn(
@@ -94,4 +113,7 @@ def next_week_carry_in(prev: WeekCarryIn, schedule: Dict[int, list], state: Athl
         load=load_state_for_week(state, profile, run_minutes, library),
         prev_run_minutes=run_minutes, prev_week_tss=float(week_tss),
         last_test_week=prev.last_test_week,
+        prev_tte_min=tte,
+        tte_ref_min=prev.tte_ref_min if (deload or tte <= 0) else tte,
+        recent_key_codes=((week_key_codes(schedule),) + prev.recent_key_codes)[:VARIETY_MEMORY_WEEKS],
     )

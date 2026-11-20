@@ -1,12 +1,13 @@
 """Three-tier closed-loop MPC controller (Tier 1 readiness, Tier 2 recalibration, Tier 3 mesocycle)."""
 
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Union
 import numpy as np
 import copy
 import logging
 
 
 from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
+from triplan.model.phase import Phase
 from triplan.physiology.state import AthletePhysiologicalState
 
 logger = logging.getLogger(__name__)
@@ -343,7 +344,7 @@ class ClosedLoopMPCController:
 
     @staticmethod
     def configure_hybrid_mesocycle_phase(
-        phase_name: str,
+        phase_name: Union[Phase, str, None] = None,
         week_in_cycle: int = 1,
         base_tss: float = 610.0,
         progression_model: str = "texas_method",
@@ -355,11 +356,19 @@ class ClosedLoopMPCController:
         - Week 3 (Peak Overload / Build 3): 112% Baseline TSS (683.2 TSS), Singles (5x1 @ 96%) or 5/3/1 Wk 3
         - Week 4 (Synchronized Deload): 60% Baseline TSS (366 TSS), -40% endurance TSS, -50% strength sets,
           high intensity (>=85% 1RM) maintained at low reps to shed fatigue without detraining.
+
+        ``week_in_cycle`` selects the wave week. An explicit ``Phase`` (or a label ``Phase.parse`` resolves)
+        overrides it for the two unambiguous cases, ``RECOVERY`` -> week 4 and ``OVERLOAD`` -> week 3; free text that
+        names no phase (``"Mesocycle Week 2"``) is ignored (TASK-023: no substring matching).
         """
         w = max(1, min(4, week_in_cycle))
-        p = phase_name.lower().strip()
+        phase = Phase.try_parse(phase_name)
+        if phase is Phase.RECOVERY:
+            w = 4
+        elif phase is Phase.OVERLOAD:
+            w = 3
 
-        if w == 1 or "build_1" in p:
+        if w == 1:
             # Week 1: 100% baseline TSS
             return MesoCycleTargetsAndConstraints(
                 target_weekly_tss=base_tss,
@@ -373,7 +382,7 @@ class ClosedLoopMPCController:
                 max_weekly_axial_load=320.0,
                 w_durability=20.0,
             )
-        elif w == 2 or "build_2" in p:
+        elif w == 2:
             # Week 2: 106% baseline TSS (+6%)
             scaled_tss = round(base_tss * 1.06, 1)
             return MesoCycleTargetsAndConstraints(
@@ -388,7 +397,7 @@ class ClosedLoopMPCController:
                 max_weekly_axial_load=320.0,
                 w_durability=30.0,
             )
-        elif w == 3 or "build_3" in p or "peak" in p:
+        elif w == 3:
             # Week 3: 112% baseline TSS (+12% peak)
             scaled_tss = round(base_tss * 1.12, 1)
             return MesoCycleTargetsAndConstraints(
@@ -464,22 +473,24 @@ class ClosedLoopMPCController:
     # -------------------------------------------------------------------------
     @staticmethod
     def configure_mesocycle_phase(
-        phase_name: str,
+        phase_name: Union[Phase, str],
         base_tss: float = 540.0,
         race_distance: str = "70.3"
     ) -> MesoCycleTargetsAndConstraints:
         """
-        Generates phase-specific periodization targets:
-        - Base: Polarized TID (80/20), 2 Heavy Strength sessions, low durability weight
-        - Build 1 (Step Wk 1): Pyramidal TID, 1 SM Strength, high durability weight
-        - Build 2 (Step Wk 2): Peak Pyramidal (+8% TSS), 1 SM Strength, max durability weight
-        - Recovery (Step Wk 3): Restoration TID (-35% TSS), 0 Strength, 0 durability weight
-        - Peak / Taper: Sharpening TID, reduced volume, race rehearsal, 0 Strength
+        Generates phase-specific periodization targets for a ``Phase`` (TASK-023: explicit enum, no substring
+        matching; a free-text label is resolved by ``Phase.parse`` and an unknown one raises):
+        - BASE: Polarized TID (80/20), 2 Heavy Strength sessions, low durability weight
+        - BUILD (Build 1, Step Wk 1): Pyramidal TID, 1 SM Strength, high durability weight
+        - OVERLOAD (Build 2, Step Wk 2): Peak Pyramidal (+8% TSS), 1 SM Strength, max durability weight
+        - RECOVERY (Step Wk 3): Restoration TID (-35% TSS), 0 Strength, 0 durability weight
+        - TAPER and RACE (Peak): Sharpening TID, reduced volume, race rehearsal, 0 Strength. RACE used to fall through
+          to the Build 1 targets (its label matched no substring); it now shares the taper targets.
         """
-        p = phase_name.lower().strip()
+        phase = Phase.parse(phase_name)
         dist = race_distance.lower().strip()
 
-        if "base" in p:
+        if phase is Phase.BASE:
             # Base Phase: Polarized TID, 2 Heavy Strength
             return MesoCycleTargetsAndConstraints(
                 target_weekly_tss=base_tss,
@@ -490,7 +501,7 @@ class ClosedLoopMPCController:
                 required_heavy_strength_sessions=2,
                 w_durability=10.0,
             )
-        elif "build_2" in p or "build 2" in p or "overload" in p:
+        elif phase is Phase.OVERLOAD:
             # Build 2: Peak Pyramidal (+8% TSS), 1 Strength, maximal durability weight
             return MesoCycleTargetsAndConstraints(
                 target_weekly_tss=round(base_tss * 1.08, 0),
@@ -501,7 +512,7 @@ class ClosedLoopMPCController:
                 required_heavy_strength_sessions=1,
                 w_durability=35.0,
             )
-        elif "recovery" in p:
+        elif phase is Phase.RECOVERY:
             # Recovery: -35% TSS, 0 Strength, low high-intensity
             return MesoCycleTargetsAndConstraints(
                 target_weekly_tss=round(base_tss * 0.65, 0),
@@ -513,7 +524,7 @@ class ClosedLoopMPCController:
                 sport_freq_bounds={"Swim": (2, 2), "Bike": (2, 3), "Run": (3, 4), "Strength": (0, 0)},
                 w_durability=0.0,
             )
-        elif "taper" in p or "peak" in p:
+        elif phase in (Phase.TAPER, Phase.RACE):
             # Fast-decay exponential taper: maintain intensity frequency, reduce volume
             return MesoCycleTargetsAndConstraints(
                 target_weekly_tss=round(base_tss * 0.55, 0),
@@ -526,7 +537,7 @@ class ClosedLoopMPCController:
                 w_durability=5.0,
             )
         else:
-            # Build 1 (Default): Pyramidal TID, 1 SM Strength
+            # Phase.BUILD (Build 1): Pyramidal TID, 1 SM Strength
             return MesoCycleTargetsAndConstraints(
                 target_weekly_tss=base_tss,
                 nominal_weekly_duration=640.0,

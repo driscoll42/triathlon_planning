@@ -207,7 +207,7 @@ def run_comparison(distances=None, time_limit_per_week=1.5):
                 day_is_hard = (day_rows[COL_INTENSITY] == HARD_LABEL).any()
 
                 # Same duration-bucket heuristic as the book side so the two columns stay comparable
-                # (the library's durability_score mixes 0..10 and 0..85 scales until TASK-023).
+                # (book plans carry no interval descriptions, so the library's interval-derived durability_score, TASK-023, has no book-side counterpart).
                 # HARD/EASY stands in for IF >= / < 0.8; REST rows contribute nothing.
                 for _, r in day_rows[day_rows[COL_INTENSITY] != REST_LABEL].iterrows():
                     proxy_if = 0.85 if r[COL_INTENSITY] == HARD_LABEL else 0.70

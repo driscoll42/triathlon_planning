@@ -3,7 +3,7 @@
 import dataclasses
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 
 from triplan.model.candidates import CandidateWorkout
@@ -104,8 +104,12 @@ def _is_protected(w: Any) -> bool:
 
 
 def prune_dominated_candidates(workouts: Sequence[Any], sport_freq_bounds: Optional[Dict[str, Tuple[int, int]]] = None,
-                               max_copies_default: int = 7) -> Tuple[List[Any], DominanceReport]:
+                               max_copies_default: int = 7,
+                               extra_cost: Optional[Callable[[Any], float]] = None) -> Tuple[List[Any], DominanceReport]:
     """Remove workouts dominated by ``>= cap`` structurally identical workouts (see module notes).
+
+    ``extra_cost`` (lower is better) is a third cost-only attribute, e.g. the multi-week variety penalty of a code
+    (TASK-023): a workout is dropped only if it is no better than every kept one on it as well.
 
     Returns ``(kept_workouts_in_original_order, report)``. Never prunes protected workouts or sports
     outside Swim/Bike/Run/Strength (their per-day multiplicity is not bounded by a sport link).
@@ -117,6 +121,7 @@ def prune_dominated_candidates(workouts: Sequence[Any], sport_freq_bounds: Optio
             continue
         groups.setdefault((w.sport, _signature(w)), []).append(idx)
 
+    xc = extra_cost or (lambda _w: 0.0)
     drop: set = set()
     for (sport, _), idxs in groups.items():
         cap = max(1, min(max_copies_default, int(bounds.get(sport, (0, max_copies_default))[1])))
@@ -126,6 +131,7 @@ def prune_dominated_candidates(workouts: Sequence[Any], sport_freq_bounds: Optio
             idxs,
             key=lambda i: (
                 float(getattr(workouts[i], "preference_penalty", 0.1)),
+                float(xc(workouts[i])),
                 -float(getattr(workouts[i], "durability_score", 2.0)),
                 getattr(workouts[i], "provenance", "") == "8020_library",
                 i,
@@ -136,9 +142,10 @@ def prune_dominated_candidates(workouts: Sequence[Any], sport_freq_bounds: Optio
         kept = ranked[:cap]
         worst_pen = max(float(getattr(workouts[i], "preference_penalty", 0.1)) for i in kept)
         best_dur = min(float(getattr(workouts[i], "durability_score", 2.0)) for i in kept)
+        worst_xc = max(float(xc(workouts[i])) for i in kept)
         for i in ranked[cap:]:
             pen, dur = float(getattr(workouts[i], "preference_penalty", 0.1)), float(getattr(workouts[i], "durability_score", 2.0))
-            if pen >= worst_pen and dur <= best_dur:
+            if pen >= worst_pen and dur <= best_dur and float(xc(workouts[i])) >= worst_xc:
                 drop.add(i)
 
     kept_list = [w for i, w in enumerate(workouts) if i not in drop]

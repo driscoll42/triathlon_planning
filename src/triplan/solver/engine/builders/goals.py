@@ -27,13 +27,41 @@ def cost_terms(ctx: BuildContext) -> Dict[str, object]:
         max_durab = float(tab.durability.max()) if ctx.n else 1.0
         w_dur = float(cfg.get("w_durability", default=25.0))
         w_fric = float(cfg.get("w_friction", default=5.0))
-        x = -w_dur * (tab.durability / max(max_durab, 1e-9)) + w_fric * tab.preference_penalty
+        x = (-w_dur * (tab.durability / max(max_durab, 1e-9)) + w_fric * tab.preference_penalty
+             + float(cfg.get("w_variety", default=4.0)) * _variety(ctx))
         return {"x": x, "double": float(cfg.get("w_double_session", default=0.5)), "rest": 0.0, "brick": 0.0}
     if profile == "hybrid":
-        x = cfg.weight("w_ans", 0.20) * tab.ans_cost - cfg.weight("w_durability", 0.35) * tab.durability
+        x = (cfg.weight("w_ans", 0.20) * tab.ans_cost - cfg.weight("w_durability", 0.35) * tab.durability
+             + cfg.weight("w_variety", 4.0) * _variety(ctx))
         return {"x": x, "double": cfg.weight("w_double", 5.0), "rest": -cfg.weight("w_rest", 18.0),
                 "brick": -cfg.weight("w_brick", 4.0)}
     return {"x": zeros, "double": 0.0, "rest": 0.0, "brick": 0.0}
+
+
+def _variety(ctx: BuildContext) -> np.ndarray:
+    """Per-workout recency weight of the multi-week variety penalty (``variety.py``); zeros without carry-in memory."""
+    return ctx.variety if ctx.variety is not None else np.zeros(ctx.n)
+
+
+def _tte_reference(ctx: BuildContext):
+    """``(mode, reference minutes, target minutes)`` of the week's TTE goal, or ``None`` when it is off (TASK-023).
+
+    Build weeks (``progress``) aim at ``T^thr_w >= (1 + g) T^thr_ref`` with ``T_ref`` the last non-deload solved week;
+    a recovery week (``deload``) caps ``T^thr_w <= ratio * T^thr_{w-1}``. No carry-in memory (an isolated week, the first
+    week, or a reference of 0 threshold minutes) means no goal."""
+    cfg, ci = ctx.cfg, ctx.carry_in
+    mode = str(cfg.get("tte_mode", default="off"))
+    if ci is None or mode == "off":
+        return None
+    if mode == "progress":
+        ref = float(ci.tte_ref_min)
+        target = (1.0 + float(cfg.get("tte_growth", default=0.05))) * ref
+    elif mode == "deload":
+        ref = float(ci.prev_tte_min)
+        target = float(cfg.get("tte_deload_ratio", default=0.60)) * ref
+    else:
+        raise ValueError(f"unknown tte_mode {mode!r}")
+    return (mode, ref, target) if ref > 0 else None
 
 
 # ----------------------------------------------------------------------------- declare
@@ -55,6 +83,14 @@ def declare_goals(ctx: BuildContext) -> None:
         bs = m.declare_soft_goals([f"stss_{s}" for s in ("Bike", "Run")], [max(target, 1.0)] * 2,
                                   float(cfg.get("w_sport_tss", default=45.0)))
         G["stss"] = dict(zip(("Bike", "Run"), bs))
+        tte = _tte_reference(ctx)
+        if tte is not None:
+            mode, ref, target = tte
+            w_tte = float(cfg.get("w_tte", default=30.0))
+            # one-sided: progress penalizes only the SHORTFALL (neg), deload only the OVERSHOOT (pos)
+            G["tte"] = m.declare_soft_goal("tte", max(ref, 1.0), w_tte, pos_weight=0.0 if mode == "progress" else w_tte,
+                                           neg_weight=w_tte if mode == "progress" else 0.0)
+            G["tte_target"] = target
     elif profile == "hybrid":
         t_tss = cfg.get("target_tss", "target_sport_tss", default={"Swim": 100.0, "Bike": 260.0, "Run": 198.0,
                                                                   "Strength": 52.0})
@@ -106,6 +142,8 @@ def _meso_rows(ctx: BuildContext) -> None:
     tab, cfg, m, G = ctx.table, ctx.cfg, ctx.model, ctx.goals
     target = float(cfg.get("target_weekly_tss", default=540.0))
     m.goal_row(G["tss"], ctx.per_week(tab.aerobic_tss), target)
+    if "tte" in G:
+        m.goal_row(G["tte"], ctx.per_week(tab.t_thr), float(G["tte_target"]))
 
     zpcts = cfg.get("target_zone_pcts", default={})
     for z in ZONES:
