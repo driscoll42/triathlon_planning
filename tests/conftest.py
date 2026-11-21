@@ -4,8 +4,12 @@ The ``triplan`` package is importable via ``pip install -e ".[test]"`` (or pytes
 """
 import contextlib
 import io
+import os
 
 import pytest
+
+if os.environ.get("PYTEST_XDIST_WORKER"):
+    os.environ.setdefault("TRI_HIGHS_THREADS", "1")
 
 
 @pytest.fixture(scope="session")
