@@ -20,6 +20,7 @@ dependencies = [
     "pandera>=0.20",
     "PyYAML>=6",
     "tqdm>=4.66",  # progress bar for TrainingPeaks sync (triplan.io.trainingpeaks)
+    "fitparse>=1.2",  # multi-device .fit activity ingestion (triplan.io.fit_ingest)
 ]
 
 [project.optional-dependencies]

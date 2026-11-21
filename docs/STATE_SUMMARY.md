@@ -4,7 +4,7 @@
 The **Triathlon Workout & Season Planner** is a high-performance mathematical modeling and closed-loop scheduling platform. It combines empirical **80/20 endurance principles** (Seiler, Fitzgerald, Friel) and **Hybrid Athlete strength science** with **Mixed-Integer Linear Programming (MILP)** and **Model Predictive Control (MPC)** to synthesize optimal, injury-resistant multi-sport schedules balancing Running, Cycling, Swimming, and Barbell/Dumbbell lifting.
 
 - **Primary Stack:** Python 3.14+, `highspy` (HiGHS C++ MILP solver), `pandas`, `numpy`, `openpyxl`.
-- **Integrations:** TrainingPeaks Private REST API, Garmin Health API / Connect, 80/20 Endurance Library scraper. *(Recorded-activity FIT parsing is specified in `SPEC.md`/`ADR-010` but **not yet implemented** — `TASK-024`.)*
+- **Integrations:** TrainingPeaks Private REST API, Garmin Health API / Connect, 80/20 Endurance Library scraper, and multi-device `.fit` activity parser (`src/triplan/io/fit_ingest.py`, `TASK-024`, `SPEC.md`/`ADR-010`).
 - **Lineage & Context Engine:** SQLite WAL + FTS5 BM25 (`docs/.context/lode.db`) managed via `scripts/lodectx.py`.
 - **Primary Data Sources:** `data/workout_library.csv` (single validated workout library, 7-zone, explicit flags; `ADR-014`) and `config/athlete_profile.yaml` (validated athlete profile). `data/{Run,Bike,Swim}.xlsx` are the raw 80/20 scrape cache, read only at build time.
 
@@ -18,7 +18,7 @@ Domain → module routing lives in `CLAUDE.md` §5 and `docs/LODE_MAP.md`; per-d
 | `mpc` | `control/` | 3-tier closed loop (`ADR-005`), season generation. |
 | `physiology` | `physiology/` | Athlete profile (YAML), PMC + tissue-remodeling state, ANS cost. |
 | `workouts` | `library/` | Canonical library load/validate/build (`ADR-014`), 7-zone conversions, strength blueprints. |
-| `integrations` | `io/`, `library/clean_file.py` | TrainingPeaks sync, 80/20 scrape. Activity FIT parser **not implemented** (`TASK-024`). |
+| `integrations` | `io/`, `library/clean_file.py` | TrainingPeaks sync, multi-device `.fit` activity parser (`io/fit_ingest.py`), 80/20 scrape. |
 | `perf` | `perf/` | 11 stress scenarios, core-scaling benchmarks. |
 
 ## 3. Data Pipeline & Optimization Flow
