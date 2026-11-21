@@ -16,7 +16,7 @@ Phases 0–2 ✅ (through 2026-11-18; details in `docs/archive/TASKS_COMPLETED.m
 
 ### Phase 4 — Telemetry & Closed Loop
 
-- [ ] `TASK-024` (`integrations`): multi-device `.fit` activity parser + 300s ride dedup (`SPEC.md`, `ADR-010`).
+- [~] `TASK-024` (`integrations`): multi-device `.fit` activity parser + 300s ride dedup (`SPEC.md`, `ADR-010`) — [PR #35](https://github.com/driscoll42/triathlon_planning/pull/35).
 - [ ] `TASK-025` (`mpc`): actuals store, unified readiness α_d (absorbs `TASK-003`), intra-week re-solve.
 - [ ] `TASK-002` (`workouts`): swim structured-workout ingestion + TP export; 1–3s jitter in all sync scripts.
 

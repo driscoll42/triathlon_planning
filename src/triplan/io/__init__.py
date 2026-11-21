@@ -1,1 +1,1 @@
-"""External I/O: TrainingPeaks sync."""
+"""External I/O: TrainingPeaks sync and multi-device FIT activity ingestion."""

@@ -3,10 +3,11 @@
 ## 1. Scope & Responsibility
 TrainingPeaks private REST API authentication and workout syncing, 80/20 Endurance `.xlsx`/HTML library ingestion (`clean_file.py`), and multi-device hardware telemetry / `.fit` ingestion specifications (`SPEC.md`, `ADR-010`).
 
-> **Implementation Status:** `TrainingPeaksClient` (`io/trainingpeaks.py`) and the 80/20 library scraper/builder (`library/clean_file.py`) are implemented. **Recorded-activity `.fit` parsing (`TASK-024`), the actuals store (`TASK-025`), and swim structured-workout TP export (`TASK-002`) are specified in `SPEC.md`/`ADR-010` but NOT yet implemented.**
+> **Implementation Status:** `TrainingPeaksClient` (`io/trainingpeaks.py`), the 80/20 library scraper/builder (`library/clean_file.py`), and the multi-device `.fit` activity parser (`io/fit_ingest.py`, `TASK-024`) are implemented. **The actuals store (`TASK-025`) and swim structured-workout TP export (`TASK-002`) are not yet implemented.**
 
 ## 2. Key Modules & Entrypoints
 - [`src/triplan/io/trainingpeaks.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/io/trainingpeaks.py): `TrainingPeaksClient`, repo-root-anchored credential loading via `triplan.paths.CONFIG_DIR` (`TASK-031`), structured step serialization (`Warmup`, `Active`, `Recovery`, `Cooldown`), and folder sync.
+- [`src/triplan/io/fit_ingest.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/io/fit_ingest.py): Multi-device `.fit` activity parser (`parse_fit_file`, `ParsedActivity`, `deduplicate_activities`, `audit_corpus`, CLI `python -m triplan.io.fit_ingest --audit-corpus <dir>`) enforcing `SPEC.md` §3 and `ADR-010` invariants (Stryd CIQ `Power`/`Form Power`/`Leg Spring Stiffness`/`Air Power` without native `record.power` fallback, treadmill flag, active-only pool swim duration/sTSS with drill-excluded SWOLF, Neo 2T 0W inclusion & `left_right_balance` ignore, 80/20 7-zone TiZ, and 300s ride deduplication preferring Edge 530).
 - [`src/triplan/library/clean_file.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/library/clean_file.py): 80/20 `.xlsx`/HTML scraper, mile/swim prescription parsers, `calculate_TSS()`, `calculate_sTSS()`, and `refresh_from_8020_scrape()`.
 - [`SPEC.md`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/SPEC.md): Authoritative hardware telemetry specification, `.fit` field extraction rules, and 7-zone math for the queued `TASK-024` parser.
 - [`config/`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/config/): Gitignored secrets (`config/.env`, `config/trainingpeak.env`, `config/garmin.env`); example template at `config/.env.example`.
@@ -25,7 +26,7 @@ TrainingPeaks private REST API authentication and workout syncing, 80/20 Enduran
 - **Swimming (`sTSS`):** Cubic hydrodynamic drag scaling ($sIF = \text{NSS}/\text{CSS}$, $sTSS = \frac{T \cdot (sIF)^3 \cdot 100}{3600}$).
 - **Execution Compliance (Target for `TASK-025`):** Fractional duration/TSS/IF errors ($\epsilon_{\text{dur}}, \epsilon_{\text{tss}}, \epsilon_{\text{int}}$) and Moderate-Intensity Rut reclassification ($IF_{\text{real}} > 0.78$ or $HR > LT_1 \implies hard_d = 1$).
 
-## 4. Hardware Telemetry & FIT Ingestion Specification (`SPEC.md`, `ADR-010` — Queued `TASK-024`)
+## 4. Hardware Telemetry & FIT Ingestion (`SPEC.md`, `ADR-010` — `io/fit_ingest.py`, `TASK-024`)
 
 1. **Stryd Foot Pod (Wind Model 17, `HEUR-005`):**
    - Extract Connect IQ developer field `Power` (`field.is_dev == True`, `field.name == 'Power'`); **never** read native `record.power` (+20% to +30% inflation). Also extract `Form Power`, `Leg Spring Stiffness`, and `Air Power` (`0W` on treadmills).
