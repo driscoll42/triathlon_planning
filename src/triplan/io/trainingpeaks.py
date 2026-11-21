@@ -11,16 +11,20 @@ import argparse
 import json
 import logging
 import os
+import random
 import re
 import sys
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 from triplan.paths import CONFIG_DIR, DATA_DIR
+from triplan.physiology.athlete_profile import CURRENT_ATHLETE
 
 # Optional tqdm for progress bar
 try:
@@ -45,7 +49,7 @@ for env_path in [
         load_dotenv(env_path)
 
 # Target 80/20 running categories
-TARGET_CATEGORIES: Dict[str, str] = {
+RUN_TARGET_CATEGORIES: Dict[str, str] = {
     "RCI": "Run Cruise Intervals",
     "RFF": "Run Fast Finish",
     "RHR": "Run Hill Repeats",
@@ -55,6 +59,30 @@ TARGET_CATEGORIES: Dict[str, str] = {
     "RMI": "Run Mixed Intervals",
     "RSP": "Run Speed Play",
     "RT": "Run Tempo",
+}
+
+# Target 80/20 swimming categories
+SWIM_TARGET_CATEGORIES: Dict[str, str] = {
+    "SRe": "Swim Recovery",
+    "SF": "Swim Foundation",
+    "SAe": "Swim Aerobic",
+    "SCI": "Swim Cruise Intervals",
+    "ST": "Swim Tempo",
+    "SMI": "Swim Mixed Intervals",
+    "SSI": "Swim Speed Intervals",
+    "SSP": "Swim Speed Play",
+    "STa": "Swim Taper",
+    "STT": "Swim Time Trial",
+}
+
+# Backwards-compatible default alias
+TARGET_CATEGORIES: Dict[str, str] = RUN_TARGET_CATEGORIES
+ALL_TARGET_CATEGORIES: Dict[str, str] = {**RUN_TARGET_CATEGORIES, **SWIM_TARGET_CATEGORIES}
+
+SPORT_WORKOUT_TYPE_IDS: Dict[str, int] = {
+    "swim": 1,
+    "bike": 2,
+    "run": 3,
 }
 
 # 8020 Running Power ranges (% of rFTP / Running FTP)
@@ -75,6 +103,15 @@ ZONE_PACE_RANGES: Dict[int, Tuple[int, int]] = {
     5: (105, 111),
 }
 
+# 80/20 Swimming pace ranges (% of Critical Swim Speed / CSS)
+SWIM_ZONE_PACE_RANGES: Dict[int, Tuple[int, int]] = {
+    1: (75, 84),
+    2: (84, 91),
+    3: (96, 100),
+    4: (101, 107),
+    5: (108, 115),
+}
+
 # 80/20 Power/Pace multipliers for TSS/IF estimation
 ZONE_POWER_MULTIPLIERS: Dict[int, float] = {
     1: 0.63,
@@ -82,6 +119,15 @@ ZONE_POWER_MULTIPLIERS: Dict[int, float] = {
     3: 0.97,
     4: 1.115,
     5: 1.35,
+}
+
+# 80/20 Swim CSS speed multipliers for sTSS/sIF calibration (matches triVariables & library.build)
+SWIM_ZONE_CSS_MULTIPLIERS: Dict[int, float] = {
+    1: 0.795,
+    2: 0.875,
+    3: 0.98,
+    4: 1.04,
+    5: 1.10,
 }
 
 SOURCE_URL = "https://www.8020endurance.com/8020-workout-library/"
@@ -118,24 +164,22 @@ def fetch_8020_workouts(
     html_content: Optional[str] = None,
     target_categories: Optional[Dict[str, str]] = None,
     local_cache_file: Optional[str] = "workout_library.html",
+    sport: str = "run",
 ) -> List[Dict[str, Any]]:
     """
     Fetch the 80/20 Workout Library page, filter rows for target categories,
     and extract workout metadata.
 
-    Returns a list of dictionaries with keys:
-      - 'code': Normalized workout code (e.g., 'RCI01')
-      - 'title': Human-readable workout title (e.g., 'Run Cruise Intervals 01')
-      - 'total_duration': Duration in seconds (None if distance-based)
-      - 'total_distance': Distance in meters (None if duration-based)
-      - 'description': Cleaned workout description
-      - 'category': Category code (e.g., 'RCI')
-      - 'category_name': Category full name (e.g., 'Run Cruise Intervals')
-      - 'raw_code': Raw code from table (e.g., 'RCI1')
-      - 'raw_duration': Raw duration string from table (e.g., '60' or '6 mi')
+    Supports ``sport`` in ``("run", "swim", "all")``.
     """
+    sport_norm = sport.lower().strip()
     if target_categories is None:
-        target_categories = TARGET_CATEGORIES
+        if sport_norm == "swim":
+            target_categories = SWIM_TARGET_CATEGORIES
+        elif sport_norm == "all":
+            target_categories = ALL_TARGET_CATEGORIES
+        else:
+            target_categories = RUN_TARGET_CATEGORIES
 
     if not html_content:
         # Check local cache first or fetch from web
@@ -209,8 +253,15 @@ def fetch_8020_workouts(
             # Parse table duration/distance
             total_duration_sec: Optional[int] = None
             total_distance_m: Optional[int] = None
+            row_sport = "swim" if matched_cat in SWIM_TARGET_CATEGORIES else "run"
 
-            if "mi" in raw_duration.lower():
+            if row_sport == "swim":
+                if raw_duration:
+                    try:
+                        total_distance_m = round(float(re.findall(r"[\d\.]+", raw_duration)[0]))
+                    except (IndexError, ValueError):
+                        pass
+            elif "mi" in raw_duration.lower():
                 try:
                     miles_val = float(re.findall(r"[\d\.]+", raw_duration)[0])
                     total_distance_m = round(miles_val * 1609.344)
@@ -226,6 +277,7 @@ def fetch_8020_workouts(
             workouts.append({
                 "code": normalized_code,
                 "title": title,
+                "sport": row_sport,
                 "total_duration": total_duration_sec,
                 "total_distance": total_distance_m,
                 "description": cleaned_description,
@@ -241,7 +293,53 @@ def fetch_8020_workouts(
         return (w["category"], int(m.group(1)) if m else 0)
 
     workouts.sort(key=sort_key)
-    logger.info("Scraped %d target running workouts across %d categories.", len(workouts), len(target_categories))
+    logger.info("Scraped %d target workouts across %d categories.", len(workouts), len(target_categories))
+    return workouts
+
+
+def load_8020_swim_workouts_from_library(
+    csv_path: Optional[Path] = None,
+    categories: Optional[Dict[str, str]] = None,
+) -> List[Dict[str, Any]]:
+    """Ingest 80/20 swimming structured workouts from ``data/workout_library.csv``."""
+    path = Path(csv_path) if csv_path is not None else (DATA_DIR / "workout_library.csv")
+    df = pd.read_csv(path)
+    swim_df = df[(df["sport"] == "Swim") & (df["provenance"] == "8020_library")].copy()
+    target_cats = categories or SWIM_TARGET_CATEGORIES
+    sorted_cat_keys = sorted(target_cats.keys(), key=len, reverse=True)
+
+    workouts: List[Dict[str, Any]] = []
+    for _, row in swim_df.iterrows():
+        raw_code = str(row["code"]).strip()
+        matched_cat = None
+        matched_num = None
+        for cat in sorted_cat_keys:
+            m = re.match(rf"^({re.escape(cat)})(\d+)$", raw_code, re.I)
+            if m:
+                matched_cat = cat
+                matched_num = int(m.group(2))
+                break
+        if matched_cat is None or matched_num is None:
+            continue
+
+        dist_cols = [c for c in ("z1_dist", "z2_dist", "z3_dist", "z4_dist", "z5_dist") if c in swim_df.columns]
+        total_dist = sum(float(row[c] or 0.0) for c in dist_cols)
+        normalized_code = f"{matched_cat}{matched_num:02d}"
+        cat_name = target_cats[matched_cat]
+        workouts.append({
+            "code": normalized_code,
+            "title": f"{cat_name} {matched_num:02d}",
+            "sport": "swim",
+            "total_duration": None,
+            "total_distance": round(total_dist) if total_dist > 0 else None,
+            "description": clean_description_text(str(row.get("description") or "")),
+            "category": matched_cat,
+            "category_name": cat_name,
+            "raw_code": raw_code,
+            "raw_duration": str(round(total_dist)) if total_dist > 0 else "",
+        })
+
+    workouts.sort(key=lambda w: (w["category"], int(re.search(r"(\d+)$", w["code"]).group(1))))
     return workouts
 
 
@@ -249,31 +347,70 @@ def fetch_8020_workouts(
 # 2. Structured Step Parser (parse_intervals_to_tp_structure)
 # ============================================================================
 
-def _parse_single_step(token: str, context: str = "active", metric: str = "power") -> Dict[str, Any]:
-    """Parse an individual step string like '5 minutes Zone 1' or '30 seconds Zone 5 uphill'."""
+def _parse_single_step(
+    token: str,
+    context: str = "active",
+    metric: str = "power",
+    sport: str = "run",
+    distance_unit: str = "meter",
+) -> Dict[str, Any]:
+    """Parse an individual step string like '5 minutes Zone 1', '500 Zone 2', or '60\" rest'."""
+    tok = token.strip()
+    # Handle swim/interval rest tokens like '60" rest', '15s rest', '1 min rest'
+    rest_match = re.match(
+        r'^\s*([\d\.]+)\s*("|sec(?:onds?)?|s|min(?:utes?)?)\s*rest\s*$',
+        tok,
+        re.I,
+    )
+    if rest_match:
+        r_val = float(rest_match.group(1))
+        r_unit = rest_match.group(2).lower()
+        length_val = round(r_val * 60) if r_unit.startswith("min") else round(r_val)
+        return {
+            "name": "Rest",
+            "length": {"value": length_val, "unit": "second"},
+            "targets": [],
+            "intensityClass": "rest",
+            "openDuration": False,
+            "_zone": 0,
+        }
+
     pattern = (
-        r"^\s*([\d\.]+)\s*(minutes?|seconds?|miles?|min|sec|mi)\s+"
+        r"^\s*([\d\.]+)\s*(?:(minutes?|seconds?|miles?|meters?|yards?|min|sec|mi|m|yd)\s+)?"
         r"Zone\s*(\d)(?:\s*uphill)?\s*$"
     )
-    m = re.match(pattern, token.strip(), re.I)
+    m = re.match(pattern, tok, re.I)
     if not m:
         raise ValueError(f"Could not parse interval step: '{token}'")
 
     val = float(m.group(1))
-    unit_str = m.group(2).lower()
+    unit_str = (m.group(2) or "").lower()
     zone = int(m.group(3))
 
     if "mile" in unit_str or unit_str == "mi":
         unit = "meter"
         length_val = round(val * 1609.344)
+    elif unit_str in ("yd", "yard", "yards"):
+        unit = "yard"
+        length_val = round(val)
+    elif unit_str in ("m", "meter", "meters"):
+        unit = "meter"
+        length_val = round(val)
     elif "sec" in unit_str:
         unit = "second"
         length_val = round(val)
-    else:  # minutes
+    elif "min" in unit_str:
         unit = "second"
         length_val = round(val * 60)
+    elif sport == "swim":
+        unit = distance_unit
+        length_val = round(val)
+    else:
+        raise ValueError(f"Could not parse interval step unit: '{token}'")
 
-    if metric == "power":
+    if sport == "swim":
+        min_target, max_target = SWIM_ZONE_PACE_RANGES.get(zone, (75, 84))
+    elif metric == "power":
         min_target, max_target = ZONE_POWER_RANGES.get(zone, (50, 76))
     else:
         min_target, max_target = ZONE_PACE_RANGES.get(zone, (73, 83))
@@ -338,6 +475,8 @@ def _parse_block(
     is_last: bool = False,
     has_preceding_rep: bool = False,
     metric: str = "power",
+    sport: str = "run",
+    distance_unit: str = "meter",
 ) -> Dict[str, Any]:
     """Recursively parse a step token or a repeat loop like '3 x (5 min Zone 3 / 3 min Zone 1)'."""
     repeat_match = re.match(r"^(\d+)\s*x\s*\((.*)\)$", item_str.strip(), re.I | re.DOTALL)
@@ -350,14 +489,16 @@ def _parse_block(
         for idx, tok in enumerate(inner_tokens):
             if re.match(r"^\d+\s*x\s*\(", tok.strip(), re.I):
                 # Nested repeat loop
-                nested_block = _parse_block(tok, metric=metric)
+                nested_block = _parse_block(tok, metric=metric, sport=sport, distance_unit=distance_unit)
                 inner_steps.append(nested_block)
             else:
                 m_zone = re.search(r"Zone\s*(\d)", tok, re.I)
                 z = int(m_zone.group(1)) if m_zone else 1
-                # In intervals, first is active interval, second is rest if Zone 1
-                ctx = "rest" if (idx > 0 and z == 1) else "interval"
-                step_obj = _parse_single_step(tok, context=ctx, metric=metric)
+                # In intervals, first is active interval, second is rest if Zone 1 or 'rest'
+                ctx = "rest" if (idx > 0 and (z == 1 or "rest" in tok.lower())) else "interval"
+                step_obj = _parse_single_step(
+                    tok, context=ctx, metric=metric, sport=sport, distance_unit=distance_unit
+                )
                 step_obj["type"] = "step"
                 inner_steps.append(step_obj)
 
@@ -370,14 +511,18 @@ def _parse_block(
         m_zone = re.search(r"Zone\s*(\d)", item_str, re.I)
         z = int(m_zone.group(1)) if m_zone else 1
         ctx = "active"
-        if is_first and z == 1:
+        if "rest" in item_str.lower():
+            ctx = "rest"
+        elif is_first and z == 1:
             ctx = "warmUp"
         elif is_last and z == 1:
             ctx = "coolDown"
         elif has_preceding_rep and z == 1:
             ctx = "recovery"
 
-        step_obj = _parse_single_step(item_str, context=ctx, metric=metric)
+        step_obj = _parse_single_step(
+            item_str, context=ctx, metric=metric, sport=sport, distance_unit=distance_unit
+        )
         return {
             "type": "step",
             "length": {"value": 1, "unit": "repetition"},
@@ -385,19 +530,35 @@ def _parse_block(
         }
 
 
-def _calculate_block_length(block: Dict[str, Any]) -> int:
-    """Calculate the cumulative length (seconds or meters) of a block."""
+def _calculate_block_length(block: Dict[str, Any], primary_unit: Optional[str] = None) -> int:
+    """Calculate the cumulative length (seconds or meters/yards) of a block.
+
+    When ``primary_unit`` is provided (e.g., ``'meter'`` for swim workouts that mix
+    distance intervals and timed rest), only steps matching distance units are summed
+    for timeline ``begin``/``end`` offsets.
+    """
+    def _matches(step_unit: str) -> bool:
+        if primary_unit is None:
+            return True
+        if primary_unit in ("meter", "yard"):
+            return step_unit in ("meter", "yard")
+        return step_unit == primary_unit
+
     if block.get("type") == "repetition":
         rep_count = block["length"]["value"]
         inner_sum = 0
         for s in block.get("steps", []):
             if s.get("type") == "repetition":
-                inner_sum += _calculate_block_length(s)
-            else:
+                inner_sum += _calculate_block_length(s, primary_unit=primary_unit)
+            elif _matches(s["length"]["unit"]):
                 inner_sum += s["length"]["value"]
         return rep_count * inner_sum
     else:
-        return sum(s["length"]["value"] for s in block.get("steps", []))
+        return sum(
+            s["length"]["value"]
+            for s in block.get("steps", [])
+            if _matches(s["length"]["unit"])
+        )
 
 
 def _clean_private_keys(obj: Any) -> None:
@@ -413,7 +574,12 @@ def _clean_private_keys(obj: Any) -> None:
             _clean_private_keys(item)
 
 
-def parse_intervals_to_tp_structure(description_text: str, metric: str = "power") -> List[Dict[str, Any]]:
+def parse_intervals_to_tp_structure(
+    description_text: str,
+    metric: str = "power",
+    sport: str = "run",
+    distance_unit: str = "meter",
+) -> List[Dict[str, Any]]:
     """
     Parse 80/20 textual interval syntax into an array of structured step
     dictionaries compatible with TrainingPeaks.
@@ -422,6 +588,7 @@ def parse_intervals_to_tp_structure(description_text: str, metric: str = "power"
       - Sequential steps separated by commas
       - Repeat loops: 'N x (step1 / step2)'
       - Nested repeat loops recursively
+      - Swim distance & rest steps (e.g. '4 x (500 Zone 2, 60" rest)')
       - Correct TrainingPeaks 'begin' and 'end' timeline offsets
 
     Returns:
@@ -429,6 +596,7 @@ def parse_intervals_to_tp_structure(description_text: str, metric: str = "power"
     """
     cleaned_desc = clean_description_text(description_text)
     items = _split_respecting_parentheses(cleaned_desc, delimiters=",")
+    primary_unit = distance_unit if sport == "swim" else None
 
     blocks: List[Dict[str, Any]] = []
     current_offset = 0
@@ -444,8 +612,10 @@ def parse_intervals_to_tp_structure(description_text: str, metric: str = "power"
             is_last=is_last,
             has_preceding_rep=has_rep,
             metric=metric,
+            sport=sport,
+            distance_unit=distance_unit,
         )
-        block_len = _calculate_block_length(block)
+        block_len = _calculate_block_length(block, primary_unit=primary_unit)
 
         block["begin"] = current_offset
         block["end"] = current_offset + block_len
@@ -509,47 +679,125 @@ def calculate_estimated_metrics(
     return tss, if_val
 
 
+def calculate_swim_metrics(
+    blocks: List[Dict[str, Any]],
+    swim_css: Optional[float] = None,
+) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
+    """Calibrate active swim duration (hours), distance, sTSS, and sIF from CSS.
+
+    Uses the canonical cubic hydrodynamic drag formula (SPEC.md):
+    ``sIF = NSS / CSS``, ``sTSS = (T_active_min / 60) * sIF^3 * 100``.
+    Rest steps (``_zone == 0``) are excluded from active swim time and distance.
+    """
+    css = float(swim_css if swim_css is not None else CURRENT_ATHLETE.swim_css)
+    if css <= 0:
+        return None, None, None, None
+
+    zone_dists: Dict[int, float] = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0}
+
+    def _collect_dists(block: Dict[str, Any], multiplier: int = 1) -> None:
+        if block.get("type") == "repetition":
+            rep_count = block["length"]["value"] * multiplier
+            for s in block.get("steps", []):
+                if s.get("type") == "repetition":
+                    _collect_dists(s, rep_count)
+                else:
+                    z = s.get("_zone", 0)
+                    if z in zone_dists and s["length"]["unit"] in ("meter", "yard"):
+                        zone_dists[z] += float(s["length"]["value"]) * rep_count
+        else:
+            for s in block.get("steps", []):
+                z = s.get("_zone", 0)
+                if z in zone_dists and s["length"]["unit"] in ("meter", "yard"):
+                    zone_dists[z] += float(s["length"]["value"]) * multiplier
+
+    for b in blocks:
+        _collect_dists(b)
+
+    total_dist = sum(zone_dists.values())
+    if total_dist <= 0:
+        return None, None, None, None
+
+    active_min = sum(
+        dist / (css * SWIM_ZONE_CSS_MULTIPLIERS[z])
+        for z, dist in zone_dists.items()
+        if dist > 0
+    )
+    if active_min <= 0:
+        return None, None, None, None
+
+    nss = total_dist / active_min
+    sif = nss / css
+    stss = (active_min / 60.0) * (sif ** 3) * 100.0
+    return (
+        round(active_min / 60.0, 4),
+        float(total_dist),
+        round(stss, 1),
+        round(sif, 2),
+    )
+
+
 def build_tp_workout_payload(
     workout: Dict[str, Any],
     library_id: int,
-    metric: str = "power",
+    metric: Optional[str] = None,
+    sport: Optional[str] = None,
+    swim_css: Optional[float] = None,
+    distance_unit: str = "meter",
 ) -> Dict[str, Any]:
     """
     Assemble the complete TrainingPeaks POST/PUT payload for an exercise library item.
+    Supports both Running (``workoutTypeId=3``) and Swimming (``workoutTypeId=1``).
     """
-    blocks = parse_intervals_to_tp_structure(workout["description"], metric=metric)
+    inferred_sport = (sport or workout.get("sport") or "").lower().strip()
+    if not inferred_sport:
+        cat = str(workout.get("category") or "")
+        inferred_sport = "swim" if cat in SWIM_TARGET_CATEGORIES else "run"
 
-    # Determine if primary metric is distance or duration
-    is_distance = (
-        workout.get("total_distance") is not None
-        or "mile" in workout["description"].lower()
-        or " mi " in workout["description"].lower()
+    resolved_metric = metric or ("pace" if inferred_sport == "swim" else "power")
+    blocks = parse_intervals_to_tp_structure(
+        workout["description"],
+        metric=resolved_metric,
+        sport=inferred_sport,
+        distance_unit=distance_unit,
     )
 
-    tss, if_val = calculate_estimated_metrics(blocks, is_distance)
+    if inferred_sport == "swim":
+        total_time_hours, calc_dist, tss, if_val = calculate_swim_metrics(blocks, swim_css=swim_css)
+        distance_meters = float(workout.get("total_distance") or calc_dist or 0.0)
+        primary_metric = "distance"
+        vis_dist_unit: Optional[str] = distance_unit
+        is_distance = True
+    else:
+        # Determine if primary metric is distance or duration
+        is_distance = (
+            workout.get("total_distance") is not None
+            or "mile" in workout["description"].lower()
+            or " mi " in workout["description"].lower()
+        )
+        tss, if_val = calculate_estimated_metrics(blocks, is_distance)
+        total_time_hours = None
+        distance_meters = None
+        if is_distance:
+            if workout.get("total_distance"):
+                distance_meters = float(workout["total_distance"])
+            else:
+                distance_meters = float(blocks[-1]["end"]) if blocks else 0.0
+            primary_metric = "distance"
+            vis_dist_unit = "mile"
+        else:
+            if workout.get("total_duration"):
+                total_time_hours = round(workout["total_duration"] / 3600.0, 4)
+            else:
+                total_sec = blocks[-1]["end"] if blocks else 0
+                total_time_hours = round(total_sec / 3600.0, 4)
+            primary_metric = "duration"
+            vis_dist_unit = None
 
     # Clean internal helper keys (_zone) before final assembly
     _clean_private_keys(blocks)
 
-    total_time_hours: Optional[float] = None
-    distance_meters: Optional[float] = None
-
-    if is_distance:
-        if workout.get("total_distance"):
-            distance_meters = float(workout["total_distance"])
-        else:
-            # Sum up from blocks
-            distance_meters = float(blocks[-1]["end"]) if blocks else 0.0
-        primary_metric = "distance"
-    else:
-        if workout.get("total_duration"):
-            total_time_hours = round(workout["total_duration"] / 3600.0, 4)
-        else:
-            total_sec = blocks[-1]["end"] if blocks else 0
-            total_time_hours = round(total_sec / 3600.0, 4)
-        primary_metric = "duration"
-
-    intensity_metric_str = "percentOfFtp" if metric == "power" else "percentOfThresholdPace"
+    intensity_metric_str = "percentOfFtp" if resolved_metric == "power" else "percentOfThresholdPace"
 
     structure_dict: Dict[str, Any] = {
         "structure": blocks,
@@ -557,14 +805,14 @@ def build_tp_workout_payload(
         "primaryIntensityMetric": intensity_metric_str,
         "primaryIntensityTargetOrRange": "range",
     }
-    if is_distance:
-        structure_dict["visualizationDistanceUnit"] = "mile"
+    if is_distance and vis_dist_unit:
+        structure_dict["visualizationDistanceUnit"] = vis_dist_unit
 
     payload: Dict[str, Any] = {
         "exerciseLibraryId": int(library_id),
         "exerciseLibraryItemType": "WorkoutTemplate",
         "itemName": workout["code"],
-        "workoutTypeId": 3,  # 3 = Running
+        "workoutTypeId": SPORT_WORKOUT_TYPE_IDS.get(inferred_sport, 3),
         "totalTimePlanned": total_time_hours,
         "distancePlanned": distance_meters,
         "caloriesPlanned": None,
@@ -592,9 +840,18 @@ class TrainingPeaksClient:
 
     BASE_URL = "https://tpapi.trainingpeaks.com/exerciselibrary/v1"
 
-    def __init__(self, auth_cookie: str, library_id: int):
+    def __init__(
+        self,
+        auth_cookie: str,
+        library_id: int,
+        jitter_range: Tuple[float, float] = (1.0, 3.0),
+    ):
         self.auth_cookie = auth_cookie.strip('"').strip("'")
         self.library_id = int(library_id)
+        lo, hi = float(jitter_range[0]), float(jitter_range[1])
+        if lo < 1.0 or hi < lo:
+            raise ValueError(f"jitter_range must satisfy 1.0 <= min <= max, got {jitter_range}")
+        self.jitter_range: Tuple[float, float] = (lo, hi)
         self.session = requests.Session()
         self.session.headers.update({
             "Cookie": f"Production_tpAuth={self.auth_cookie}",
@@ -604,13 +861,14 @@ class TrainingPeaksClient:
             "Referer": "https://app.trainingpeaks.com/",
         })
         self.last_request_time = 0.0
-        self.min_interval = 0.5  # 500ms rate limiting
 
     def _rate_limit(self) -> None:
-        """Enforce at least 500ms between consecutive requests."""
-        elapsed = time.time() - self.last_request_time
-        if elapsed < self.min_interval:
-            time.sleep(self.min_interval - elapsed)
+        """Enforce 1.0-3.0s random jitter between consecutive requests."""
+        target_interval = random.uniform(*self.jitter_range)
+        if self.last_request_time > 0.0:
+            elapsed = time.time() - self.last_request_time
+            if elapsed < target_interval:
+                time.sleep(target_interval - elapsed)
         self.last_request_time = time.time()
 
     def get_library_items(self) -> Tuple[bool, List[Dict[str, Any]]]:
@@ -732,10 +990,23 @@ def parse_cli_args() -> argparse.Namespace:
         help="Execute upload to TrainingPeaks Exercise Library.",
     )
     parser.add_argument(
+        "--sport",
+        type=str,
+        choices=["run", "swim", "all"],
+        default="run",
+        help="Sport library to sync: 'run', 'swim', or 'all' (default: 'run').",
+    )
+    parser.add_argument(
+        "--from-library",
+        action="store_true",
+        default=False,
+        help="Ingest swim workouts from canonical data/workout_library.csv instead of scraping HTML.",
+    )
+    parser.add_argument(
         "--category",
         type=str,
         default=None,
-        help="Optional single category filter (e.g., 'RCI', 'RL', 'RT').",
+        help="Optional single category filter (e.g., 'RCI', 'RL', 'SCI', 'SF').",
     )
     parser.add_argument(
         "--metric",
@@ -794,24 +1065,35 @@ def main() -> None:
     library_id_str = os.getenv("TP_LIBRARY_ID", "").strip()
 
     # Determine target categories
-    target_cats = TARGET_CATEGORIES
+    if args.sport == "swim":
+        target_cats = SWIM_TARGET_CATEGORIES
+    elif args.sport == "all":
+        target_cats = ALL_TARGET_CATEGORIES
+    else:
+        target_cats = RUN_TARGET_CATEGORIES
+
     if args.category:
-        cat_key = args.category.upper().strip()
-        if cat_key not in TARGET_CATEGORIES:
+        cat_match = next(
+            (k for k in target_cats if k.lower() == args.category.strip().lower()),
+            None,
+        )
+        if cat_match is None:
             logger.error(
                 "Invalid category '%s'. Must be one of: %s",
-                args.category, ", ".join(TARGET_CATEGORIES.keys())
+                args.category, ", ".join(target_cats.keys())
             )
             sys.exit(1)
-        target_cats = {cat_key: TARGET_CATEGORIES[cat_key]}
+        target_cats = {cat_match: target_cats[cat_match]}
 
-    target_intensity_metric = "percentOfFtp" if args.metric == "power" else "percentOfThresholdPace"
+    effective_metric = "pace" if args.sport == "swim" else args.metric
+    target_intensity_metric = "percentOfFtp" if effective_metric == "power" else "percentOfThresholdPace"
 
     print("=" * 70)
     print("  80/20 ENDURANCE -> TRAININGPEAKS WORKOUT LIBRARY SYNC")
     print("=" * 70)
     print(f"Mode              : {'PUSH (Upload/Update TrainingPeaks)' if push_mode else 'DRY RUN (Preview only)'}")
-    print(f"Target Metric     : {args.metric.upper()} ({target_intensity_metric})")
+    print(f"Sport             : {args.sport.upper()}")
+    print(f"Target Metric     : {effective_metric.upper()} ({target_intensity_metric})")
     print(f"Categories        : {', '.join(target_cats.keys())}")
     print(f"TP Library ID     : {library_id_str if library_id_str else '[Not Set]'}")
     print(f"TP Auth Cookie    : {'[Present]' if auth_cookie else '[Missing]'}")
@@ -819,11 +1101,15 @@ def main() -> None:
     print("=" * 70)
 
     # 1. Scrape & parse 80/20 workouts
-    scraped_workouts = fetch_8020_workouts(
-        url=args.source_url,
-        target_categories=target_cats,
-        local_cache_file=args.html_cache,
-    )
+    if args.from_library and args.sport == "swim":
+        scraped_workouts = load_8020_swim_workouts_from_library(categories=target_cats)
+    else:
+        scraped_workouts = fetch_8020_workouts(
+            url=args.source_url,
+            target_categories=target_cats,
+            local_cache_file=args.html_cache,
+            sport=args.sport,
+        )
 
     if not scraped_workouts:
         logger.error("No workouts found matching the specified categories.")
@@ -835,7 +1121,8 @@ def main() -> None:
 
     for wkt in scraped_workouts:
         try:
-            payload = build_tp_workout_payload(wkt, dummy_library_id, metric=args.metric)
+            w_metric = "pace" if wkt.get("sport") == "swim" else args.metric
+            payload = build_tp_workout_payload(wkt, dummy_library_id, metric=w_metric)
             payloads.append(payload)
         except Exception as e:
             logger.error("Failed to build TP payload for %s: %s", wkt["code"], e)

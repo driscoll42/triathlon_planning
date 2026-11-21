@@ -7,7 +7,8 @@
 ## Phase 3: Physiology Calibration & Periodization
 
 ## Phase 4: Telemetry, Readiness & Closed-Loop Integrations
-- [ ] **`TASK-002` (`workouts`):** **Swim Structured Workout Ingestion & TrainingPeaks Export** — Ingest and calibrate 80/20 swimming structured workouts into TrainingPeaks JSON format; enforce 1.0–3.0s random jitter rate limiting in both `src/sync_8020_to_tp.py:617` (currently fixed 0.5s) and `scripts/sync_garmin_data.py` (currently 0.05–0.12s); wire `evaluate_cp_retest_triggers` to real parsed decoupling/EF telemetry.
+
+*(No open tasks; `TASK-002` archived to `docs/archive/TASKS_COMPLETED.md`.)*
 
 ---
 

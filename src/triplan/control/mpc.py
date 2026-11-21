@@ -267,18 +267,27 @@ class ClosedLoopMPCController:
         rolling_ef_change_pct: Optional[float] = None,
         consecutive_breakthroughs: int = 0,
         is_reentry_phase: bool = False,
+        actuals_store: Optional[ActualsStore] = None,
+        as_of_date: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Closed-Loop Critical Power Retesting & Recalibration Engine (ADR-011).
 
         Dual-trigger evaluation:
         1. Mesocycle synchronization (every 6-8 weeks during recovery deloads).
-        2. Real-data telemetry triggers:
+        2. Real-data telemetry triggers (from args or ``actuals_store``):
            - Aerobic decoupling (Pw:HR or Pa:HR) < 3.0% over steady Z2.
            - Efficiency Factor (EF) improvement >= 5.0% over 28 days.
            - Consecutive breakthrough completions (>=3) at low RPE.
         """
         sport = sport.lower().strip()
         weeks_since_test = current_week - last_test_week
+
+        if actuals_store is not None and (rolling_decoupling_pct is None or rolling_ef_change_pct is None):
+            telemetry = actuals_store.rolling_cp_telemetry(sport, as_of_date=as_of_date)
+            if rolling_decoupling_pct is None:
+                rolling_decoupling_pct = telemetry["rolling_decoupling_pct"]
+            if rolling_ef_change_pct is None:
+                rolling_ef_change_pct = telemetry["rolling_ef_change_pct"]
 
         # 1. Re-entry Orthopedic & Biomechanical Safety Guard
         if is_reentry_phase:
@@ -326,6 +335,8 @@ class ClosedLoopMPCController:
                 "reason": f"Telemetry indicates significant aerobic expansion: {'; '.join(reasons)}.",
                 "suggested_protocol": "Two-Point CP Test (P3 180s + P12 720s) in upcoming recovery week",
                 "auto_bump_candidate_watts": 5.0,
+                "rolling_decoupling_pct": rolling_decoupling_pct,
+                "rolling_ef_change_pct": rolling_ef_change_pct,
             }
 
         # 3. Scheduled Mesocycle Horizon Trigger (6 to 8 weeks)
@@ -340,6 +351,8 @@ class ClosedLoopMPCController:
                 ),
                 "suggested_protocol": "Two-Point CP Test (P3 180s + P12 720s)",
                 "auto_bump_candidate_watts": None,
+                "rolling_decoupling_pct": rolling_decoupling_pct,
+                "rolling_ef_change_pct": rolling_ef_change_pct,
             }
 
         # 4. Nominal Status
@@ -352,7 +365,32 @@ class ClosedLoopMPCController:
                 f"Continue 80/20 volume accumulation without premature retesting."
             ),
             "suggested_protocol": None,
+            "rolling_decoupling_pct": rolling_decoupling_pct,
+            "rolling_ef_change_pct": rolling_ef_change_pct,
         }
+
+    @classmethod
+    def evaluate_cp_retest_from_actuals(
+        cls,
+        store: ActualsStore,
+        sport: str,
+        current_week: int,
+        last_test_week: int,
+        *,
+        as_of_date: Optional[str] = None,
+        consecutive_breakthroughs: int = 0,
+        is_reentry_phase: bool = False,
+    ) -> Dict[str, Any]:
+        """Convenience wrapper wiring ``ActualsStore`` decoupling/EF telemetry into ``evaluate_cp_retest_triggers``."""
+        return cls.evaluate_cp_retest_triggers(
+            sport=sport,
+            current_week=current_week,
+            last_test_week=last_test_week,
+            consecutive_breakthroughs=consecutive_breakthroughs,
+            is_reentry_phase=is_reentry_phase,
+            actuals_store=store,
+            as_of_date=as_of_date,
+        )
 
     @staticmethod
     def configure_hybrid_mesocycle_phase(
