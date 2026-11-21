@@ -169,13 +169,10 @@ def add_day_counts(ctx: BuildContext) -> None:
         for d in ctx.days:
             m.add_row((ctx.X[:, d], ones), 0.0, 1.0 if caps[d] > 0 else 0.0)
         return
-    # per_sport_cap: duration cap, <= 2 workouts/day, <= 1 workout per sport per day
+    # per_sport_cap: duration cap, <= 2 workouts/day (<= 1/sport/day is enforced by add_session_links equality)
     for d in ctx.days:
         m.add_row((ctx.X[:, d], tab.duration), 0.0, float(caps[d]))
         m.add_row((ctx.X[:, d], ones), 0.0, 2.0)
-        for s in ctx.sports:
-            ids = tab.ids(s)
-            m.add_row((ctx.X[ids, d], np.ones(len(ids))), 0.0, 1.0)
 
 
 def add_session_partition(ctx: BuildContext) -> None:
@@ -209,13 +206,14 @@ def add_session_links(ctx: BuildContext) -> None:
     ones = np.ones(ctx.n)
     for d in ctx.days:
         m.add_row((np.append(ctx.X[:, d], ctx.double[d]), np.append(ones, -1.0)), -INF, 1.0)
-        for i in range(ctx.n):
-            m.add_row({ctx.rest[d]: 1.0, ctx.x(i, d): 1.0}, 0.0, 1.0)
+        # sum_i x[i,d] <= 2 (add_day_counts), so sum_i x[i,d] + 2*rest[d] <= 2 is exact.
+        m.add_row((np.append(ctx.X[:, d], ctx.rest[d]), np.append(ones, 2.0)), -INF, 2.0)
         for s in ctx.sports:
             ids = tab.ids(s)
-            for i in ids:
-                m.add_row({ctx.x(i, d): 1.0, ctx.y[(s, d)]: -1.0}, -INF, 0.0)
-            m.add_row((np.append(ctx.X[ids, d], ctx.y[(s, d)]), np.append(-np.ones(len(ids)), 1.0)), -INF, 0.0)
+            # <= 1 workout per sport per day and y[s,d] in {0,1}, so sum_{i in s} x[i,d] == y[s,d] is exact.
+            cols = np.concatenate([ctx.X[ids, d], [ctx.y[(s, d)]]])
+            vals = np.concatenate([np.ones(len(ids)), [-1.0]])
+            m.add_row((cols, vals), 0.0, 0.0)
         m.add_row({ctx.brick[d]: 1.0, ctx.y[("Bike", d)]: -1.0}, -INF, 0.0)
         m.add_row({ctx.brick[d]: 1.0, ctx.y[("Run", d)]: -1.0}, -INF, 0.0)
     # rest day is exact: rest_d = 1 iff no workout on day d (rest_d + x_id <= 1 above; here >= 1)

@@ -27,13 +27,22 @@ def add_split_coherence(ctx: BuildContext) -> None:
 
 
 def add_muscle_links(ctx: BuildContext) -> None:
-    """``u[muscle, d] >= x[i, d]`` for every workout that trains the muscle pattern."""
+    """``u[muscle, d] >= x[i, d]`` for every workout that trains the muscle pattern.
+
+    Aggregated per ``(muscle, day)`` using the daily per-sport cap (1) when all contributing
+    workouts share one sport, or the daily session cap (2) otherwise.
+    """
     tab = ctx.table
-    for d in ctx.days:
-        for mu in ctx.muscles:
-            sets = tab.muscle_sets(mu)
-            for i in np.flatnonzero(sets > 0):
-                ctx.model.add_row({ctx.x(int(i), d): 1.0, ctx.u[(mu, d)]: -1.0}, -INF, 0.0)
+    for mu in ctx.muscles:
+        idx = np.flatnonzero(tab.muscle_sets(mu) > 0)
+        if len(idx) == 0:
+            continue
+        big_m = 1.0 if len({str(tab.sport[i]) for i in idx}) <= 1 else 2.0
+        ones = np.ones(len(idx))
+        for d in ctx.days:
+            cols = np.concatenate([ctx.X[idx, d], [ctx.u[(mu, d)]]])
+            vals = np.concatenate([ones, [-big_m]])
+            ctx.model.add_row((cols, vals), -INF, 0.0)
 
 
 def add_barbell_share(ctx: BuildContext) -> None:
