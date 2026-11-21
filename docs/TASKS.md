@@ -20,4 +20,4 @@ Phases 0–2 ✅ (through 2026-11-18; details in `docs/archive/TASKS_COMPLETED.m
 
 ## P2 — Queued Experiments (`docs/experiments/`)
 
-- [ ] `EXP-006` (`physiology`): load-model calibration against historical Garmin/lifting telemetry.
+*(No open experiments; `EXP-001`..`EXP-010` completed.)*
