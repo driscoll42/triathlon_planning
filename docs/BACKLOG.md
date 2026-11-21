@@ -14,6 +14,6 @@
 
 ## Queued Empirical Experiments (`docs/experiments/`)
 
-- [ ] **`EXP-004` (`optimizer`):** **Goal-Weight Sensitivity & Session-Structure Constraints** — Sweep 81 combinations ($\times 0.25, \times 1, \times 4$) of dimensionless soft-goal weights across 300/500/700 TSS with and without key-session ($2 \le \text{key} \le 3$) and grey-zone pre-filtering constraints; establish Pareto frontier and default weights.
+- [ ] **`EXP-002` (`safety`):** **Closed-Loop 16-Week Season Simulation Under Real Profile and Perturbations** — Verify 16-week closed-loop season simulation on `CURRENT_ATHLETE` (`config/athlete_profile.yaml`) via `generate_closed_loop_season_schedule` and `scripts/stress_test_season_perturbations.py` under nominal, illness, pool-closure, travel, and $n=20$ Monte Carlo stochastic execution noise regimes.
 - [ ] **`EXP-005` (`integrations`):** **FIT Ingestion Parser & Multi-Device Validation** — Validate `src/fit_ingest.py` against synthetic and real `.fit` fixtures covering Stryd developer `Power`, active swim lengths, 300s ride deduplication, Neo 2T `left_right_balance` exclusion, and treadmill `Air Power = 0`.
 - [ ] **`EXP-006` (`physiology`):** **Load-Model Calibration Against Athlete's Historical Garmin & Lifting Telemetry** — Calibrate planned vs actual zone midpoints, Banister PMC $\alpha = 1 - e^{-1/\tau}$ vs $2/(N+1)$ divergence, running mechanical strain exponent $\beta \in \{1, 1.5, 2, 3\}$, and 28-day rolling HRV/RHR readiness z-score mapping across the 2,020 local Garmin activities and 270 HRV nights on disk.
