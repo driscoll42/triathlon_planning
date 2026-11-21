@@ -15,9 +15,15 @@ def add_split_coherence(ctx: BuildContext) -> None:
     for i in range(ctx.n):
         grp = tab.split_group[i]
         if grp == "UL":
-            m.add_row((np.append(ctx.X[i], ctx.z_split), np.append(np.ones(7), -1.0)), -INF, 0.0)
+            if ctx.s is not None:
+                m.add_row(([ctx.s[i], ctx.z_split], [1.0, -1.0]), -INF, 0.0)
+            else:
+                m.add_row((np.append(ctx.X[i], ctx.z_split), np.append(np.ones(7), -1.0)), -INF, 0.0)
         elif grp == "HLM":
-            m.add_row((np.append(ctx.X[i], ctx.z_split), np.ones(8)), 0.0, 1.0)
+            if ctx.s is not None:
+                m.add_row(([ctx.s[i], ctx.z_split], [1.0, 1.0]), 0.0, 1.0)
+            else:
+                m.add_row((np.append(ctx.X[i], ctx.z_split), np.ones(8)), 0.0, 1.0)
 
 
 def add_muscle_links(ctx: BuildContext) -> None:

@@ -454,4 +454,5 @@ def test_carry_in_run_minutes_and_acwr_rows_see_the_combo_run_leg():
     starts, idx, val, rlb, rub = ctx.model.csr()
     r = names.index("run_minutes_cap")
     coef = dict(zip(idx[starts[r]:starts[r + 1]], val[starts[r]:starts[r + 1]]))
-    assert coef[ctx.x(i, 0)] == 20.0            # the run leg (20 min), not the 60 min session
+    col = int(ctx.s[i]) if ctx.s is not None else ctx.x(i, 0)
+    assert coef[col] == 20.0            # the run leg (20 min), not the 60 min session

@@ -14,51 +14,72 @@ from triplan.solver.engine.model import INF
 # ----------------------------------------------------------------------------- unary gating
 
 def make_allowed(table: WorkoutTable, cfg: WeekConfig, opt: EngineOptions) -> Callable[[int, int], bool]:
-    """Unary Tier-0 gating ``allowed(i, d)`` for the selected ``allowed_rule``."""
-    caps = cfg.daily_caps
-    access = cfg.facility_access
+    """Unary Tier-0 gating ``allowed(i, d)`` for the selected ``allowed_rule`` (precomputed matrix)."""
+    n = table.n
     rule = opt.allowed_rule
+    if rule == "none" or n == 0:
+        mat = np.ones((n, 7), dtype=bool)
+    else:
+        caps = np.asarray(cfg.daily_caps, dtype=np.float64)
+        access = cfg.facility_access or {}
+        mat = table.duration[:, None] <= caps[None, :] + 1e-9
+        acc_masks = {sp: np.asarray(access.get(sp, [True] * 7), dtype=bool)
+                     for sp in ("Swim", "Bike", "Run", "Strength", "Brick")}
+        if rule == "meso":
+            wd_idx = np.asarray(WEEKDAYS, dtype=np.int64)
+            for i in range(n):
+                sport = table.sport[i]
+                if sport == "Brick":
+                    sports = (["Bike", "Run"] if (table.brick_run_minutes[i] > 0 or not table.flags[i].get("pool", 0))
+                              else ["Swim", "Bike"])
+                else:
+                    sports = [sport]
+                if table.cardio_sport[i]:
+                    sports = sports + [table.cardio_sport[i]]
+                for sp in sports:
+                    m_sp = acc_masks.get(sp)
+                    if m_sp is None:
+                        m_sp = np.asarray(access.get(sp, [True] * 7), dtype=bool)
+                        acc_masks[sp] = m_sp
+                    mat[i] &= m_sp
+                if sport == "Bike" and not table.is_indoor_bike[i]:
+                    mat[i, wd_idx] = False
+        else:
+            pool_days = set(cfg.get("pool_open_days", default=[0, 2, 4]))
+            bike_days = set(cfg.get("outdoor_bike_days", default=[5, 6]))
+            pool_mask = np.asarray([d in pool_days for d in range(7)], dtype=bool)
+            bike_mask = np.asarray([d in bike_days for d in range(7)], dtype=bool)
+            for i in range(n):
+                flg = table.flags[i]
+                if flg.get("pool", 0) == 1:
+                    mat[i] &= pool_mask
+                if flg.get("outdoor_bike", 0) == 1:
+                    mat[i] &= bike_mask
+                if access:
+                    sport = table.sport[i]
+                    sports = (sport, table.cardio_sport[i]) if table.cardio_sport[i] else (sport,)
+                    for sp in sports:
+                        m_sp = acc_masks.get(sp)
+                        if m_sp is None:
+                            m_sp = np.asarray(access.get(sp, [True] * 7), dtype=bool)
+                            acc_masks[sp] = m_sp
+                        mat[i] &= m_sp
 
     def allowed(i: int, d: int) -> bool:
-        if rule == "none":
-            return True
-        if table.duration[i] > float(caps[d]) + 1e-9:
-            return False
-        sport = table.sport[i]
-        if rule == "meso":
-            if sport == "Brick":
-                sports = (["Bike", "Run"] if (table.brick_run_minutes[i] > 0 or not table.flags[i].get("pool", 0))
-                          else ["Swim", "Bike"])
-            else:
-                sports = [sport]
-            if table.cardio_sport[i]:  # lift + easy cardio combo needs the cardio sport's facility too
-                sports = sports + [table.cardio_sport[i]]
-            if not all((access or {}).get(s, [True] * 7)[d] for s in sports):
-                return False
-            if sport == "Bike" and d in WEEKDAYS and not table.is_indoor_bike[i]:
-                return False
-            return True
-        # hybrid
-        flg = table.flags[i]
-        if flg.get("pool", 0) == 1 and d not in set(cfg.get("pool_open_days", default=[0, 2, 4])):
-            return False
-        if flg.get("outdoor_bike", 0) == 1 and d not in set(cfg.get("outdoor_bike_days", default=[5, 6])):
-            return False
-        for s in ([sport, table.cardio_sport[i]] if table.cardio_sport[i] else [sport]):
-            if access and not access.get(s, [True] * 7)[d]:
-                return False
-        return True
+        return bool(mat[i, d])
 
+    allowed.matrix = mat  # type: ignore[attr-defined]
     return allowed
 
 
 # ----------------------------------------------------------------------------- columns
 
 def add_variables(ctx: BuildContext, costs: dict) -> None:
-    """Create the decision/auxiliary columns for the selected session model, in legacy column order."""
+    """Create the decision/auxiliary columns for the selected session model, plus weekly indicators ``s``."""
     m, opt = ctx.model, ctx.opt
     n = ctx.n
-    ctx.X = m.add_vars(n * 7, 0.0, 1.0, cost=np.repeat(costs["x"], 7), integer=True).reshape(n, 7)
+    ctx.X = m.add_vars(n * 7, 0.0, 1.0, cost=0.0, integer=True).reshape(n, 7)
+    ctx.s = m.add_vars(n, 0.0, 1.0, cost=costs["x"], integer=True)
     if opt.session_model == "single_per_day":
         return
     for s in ctx.sports:
@@ -87,9 +108,10 @@ def add_variables(ctx: BuildContext, costs: dict) -> None:
 # ----------------------------------------------------------------------------- rows
 
 def add_uniqueness(ctx: BuildContext) -> None:
-    """Each workout is used at most once per week (anchors are handled in Tier 1)."""
+    """Link weekly indicator ``s[i] = sum_d x[i, d]`` (enforces ``<= 1`` use per week since ``s[i] in {0, 1}``)."""
+    ones_neg = np.array([1.0] * 7 + [-1.0], dtype=np.float64)
     for i in range(ctx.n):
-        ctx.model.add_row((ctx.X[i], np.ones(7)), 0.0, 1.0)
+        ctx.model.add_row((np.append(ctx.X[i], ctx.s[i]), ones_neg), 0.0, 0.0)
 
 
 def add_fixed_days(

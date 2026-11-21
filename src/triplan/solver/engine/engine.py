@@ -247,8 +247,31 @@ class UnifiedWeekEngine:
         plans: List[Dict[str, Any]] = []
         name = _LOG_NAME[opt.plan_format]
 
+        def _build_phase_a() -> "highspy.Highs":
+            h_a = self._new_solver(ctx, time_limit)
+            if opt.goal_profile != "hybrid":
+                drop = [
+                    i for i, nm in enumerate(ctx.model.row_names)
+                    if nm and (nm.startswith("goal:") or nm in ("8020_low_target", "8020_zone_x"))
+                ]
+                if drop:
+                    h_a.deleteRows(len(drop), np.array(drop, dtype=np.int32))
+            return h_a
+
+        run_bounds = (self.cfg.get("sport_freq_bounds", default=None) or {}).get("Run")
+        run_slack_cols = ([s.col for s in reg.slacks if s.category == "reduce_frequency:Run"]
+                          if reg is not None else None)
+
         for rank in range(k):
-            res = lexicographic_solve(h, tier1_costs, lex)
+            res = lexicographic_solve(
+                h,
+                tier1_costs,
+                lex,
+                phase_a_factory=_build_phase_a if (rank == 0 and tier1_costs and not lex.locked) else None,
+                run_bounds=tuple(run_bounds) if run_bounds is not None else None,
+                run_share_model=ctx.run_share_model,
+                run_slack_cols=run_slack_cols,
+            )
             if rank == 0:
                 self.last_status = res.status
             if not res.has_solution:
@@ -286,7 +309,7 @@ class UnifiedWeekEngine:
             # s_i = sum_d x[i,d] (<= 1 by uniqueness); sum_{i in S} s_i <= |S| - m: the next plan must
             # drop at least m of the workouts chosen here, so plans differ in selection, not layout.
             chosen = sorted({i for i, _ in pairs})
-            cols = [ctx.x(i, d) for i in chosen for d in ctx.days]
+            cols = [int(ctx.s[i]) for i in chosen] if ctx.s is not None else [ctx.x(i, d) for i in chosen for d in ctx.days]
             rhs = len(chosen) - m
         else:
             raise ValueError(f"unknown cut_mode {mode!r}")
