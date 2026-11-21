@@ -59,6 +59,10 @@ Commercial 5-zone systems place Zone 2 across $LT_1$ into the moderate grey zone
    - 14 `lib_default` sessions filling short-duration and dual-purpose gaps: `RUN_AE1_15/20`, `RUN_AE1_STR25`, `BIKE_AE1_20`, `BIKE_AE2_120`, `BIKE_AE2_OUT_120`, `BIKE_TE_Z3_45`, `BIKE_TH_45`, `BIKE_TH_STR_45`, `BIKE_TE_Z3_STR_45` (hard + cadence bursts counted as strides), `SWIM_AE1_20/40`, `SWIM_AE2_65`, `STR_PREHAB_25`.
 4. **Bricks & Explicit Run-Leg Schema (`TASK-059`, `ADR-030`):**
    - All `Brick` rows declare `brick_run_min`, `brick_run_strain`, and `is_brick_run_hard` (0 for Swim→Bike `SW_T1_BRICK`; computed for Bike→Run bricks including the 3 short default bricks `BRICK_AE_45_30B_15R`, `BRICK_AE_60_45B_15R`, `BRICK_TH_60_40B_20R`).
+5. **Run/Walk Re-Entry Rows (`TASK-058`, `ADR-037`, `EXP-010`):**
+   - 4 `lib_default`, `needs_review` rows `RUN_RW_1_1_20`, `RUN_RW_2_1_20`, `RUN_RW_1_1_30`, `RUN_RW_2_1_30` (run:walk 1:1 / 2:1 at 20 / 30 min), specified in `library/build.py::RUN_WALK_SPECS` and written by `scripts/migrations/m2026_11_19_run_walk_rows.py` (idempotent; re-run it on a fresh checkout because `data/` is gitignored). The schema has no walk column, so a row is a `Run` row whose walked minutes are Zone 1 minutes (80/20 low intensity, zero ANS).
+   - **Loads come from the `TASK-023` impact model, never typed:** `mechanical_strain = load_model.run_walk_mechanical_strain` (run minutes on the zone model + walked minutes at `walk_dose_fraction()` ≈ 0.21 of a Z1 run minute, ×2 safety factor included); neuro / axial follow it by the ordinary non-heavy-run rule. `duration_min` is the whole session and `tss` treats walking as Zone 1 running, so run-minute guard, `ADR-022` longest-run cap, run share and the weekly run-minute ramp see walking as running: only strain is relieved (strictly above the run minutes alone, strictly below the continuous run of the same length).
+   - **Ladder gate:** `control/periodization.py::filter_walkjog_workouts` (called once per week in `control/season.py`) removes rows the week's `WALKJOG_LADDER` rung does not allow (rung 0 = not re-entering: none; rung 1: 1:1 × 20 only; rung 2: + 2:1 × 20; rung 3+: all four). It only removes candidates, so reference/trained seasons keep their pool. `recompute_load_columns` and `tests/test_load_model.py` know the run/walk exception; add new run/walk rows to `RUN_WALK_SPECS`, never edit the CSV.
 
 <!-- LODE_AUTOGEN_START -->
 <!-- Auto-rendered by lodectx.py sync-docs; edit narrative sections above, not this block. -->
@@ -69,6 +73,7 @@ Commercial 5-zone systems place Zone 2 across $LT_1$ into the moderate grey zone
 - **`ADR-014` — Adopt Single Validated Canonical Workout Library and YAML Athlete Profile:** All workouts live in data/workout_library.csv (Pandera+Pydantic, explicit flags); the athlete lives in config/athlete_profile.yaml. Never infer flags at solve time.
 - **`ADR-024` — Long-Course Library Rows, Profile-Level 48h Caps Bounded By The Charter:** Long Z1/Z2 runs (90-150) and rides (210-360) live in the library; 48h TSS/strain caps are profile fields validated <= the charter ceilings, never looser.
 - **`ADR-029` — Include 80/20 Endurance Library Options in Default and Hybrid MILP Pools:** Default and hybrid MILP candidate builders include 8020_library workouts by default, pruned per-week by feasibility and stratified duration/intensity buckets.
+- **`ADR-037` — Run/Walk Library Rows: Impact-Model Strain, Conservative Duration/TSS, Ladder-Gated Candidates:** RUN_RW_* rows take strain from run_walk_mechanical_strain, count walking as Z1 running in duration/TSS, and are offered only at the WALKJOG_LADDER rung that allows them.
 
 ### Active Operational Heuristics (`HEUR`)
 - **`HEUR-003` — Specify Openpyxl Engine Explicitly in pandas read_excel:** Always pass engine='openpyxl' to pd.read_excel to prevent xlrd failures on .xlsx workout databases.
@@ -77,4 +82,5 @@ Commercial 5-zone systems place Zone 2 across $LT_1$ into the moderate grey zone
 ### Empirical Experiments (`EXP`)
 - **`EXP-008` [`ACTIVE` | `TIER_1_ISOLATED`] — Per-Sport Library Gap Audit Against Solver Demand:** The season solver sees only 38 lib_default rows; 14 audited gap-fill rows cut CURRENT_ATHLETE relaxations 25-30% and single-run weeks 44-62%, at +50-90% wall time on CURRENT_ATHLETE.
 - **`EXP-009` [`ACTIVE` | `TIER_1_ISOLATED`] — Include 80/20 Endurance Library Options in Default and Hybrid MILP Pools:** Including pruned feasible 8020_library options in default/hybrid pools keeps 0 fallback/0 violations across all 8 seasons and lets MILP pick 80/20 sessions.
+- **`EXP-010` [`ACTIVE` | `TIER_1_ISOLATED`] — Run/Walk Re-Entry Library Rows On The TASK-023 Impact Model:** Four RUN_RW_* rows (1:1 / 2:1 x 20 / 30 min) are all picked in every CURRENT_ATHLETE season: single-run weeks 5-6 -> 3, max raw running ACWR 1.46 -> 1.41, 0 violations, no row loosened.
 <!-- LODE_AUTOGEN_END -->

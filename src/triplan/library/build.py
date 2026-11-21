@@ -189,8 +189,8 @@ def long_endurance_rows(profile=None, source: str = "scripts/migrations/m2026_11
 # rules: ``power_tss`` (runs / rides; same 4th-power zone mean as ``calculate_TSS``), ``swim_time_tss`` (swims; same
 # sTSS = IF^3 x hours x 100 as the distance-prescribed 80/20 swims), ``endurance_flags`` and ``endurance_loads``.
 # A row is "hard" by the library rule (>= 15 min Z3+ or >= 5 min Z4+, i.e. q_i >= 5), otherwise it is 100% Z1/Z2 (a few
-# stride seconds excepted). Walk-jog rows are deliberately NOT here: the schema has no walk component and an invented
-# reduced impact load would loosen the ACWR / strain rows (TASK-058).
+# stride seconds excepted). Walk-jog rows are NOT here: the schema has no walk component, so they are authored
+# separately in ``RUN_WALK_SPECS`` with their strain taken from the TASK-023 impact model (TASK-058).
 GAP_ENDURANCE_SPECS = {
     # code: (sport, (Z1, Z2, Z3, Z4, Z5), description, adaptation, outdoor)
     "RUN_AE1_15": ("Run", (15, 0, 0, 0, 0), "15 minutes Zone 1 easy jog",
@@ -294,6 +294,88 @@ def gap_fill_rows(profile=None, source: str = "scripts/migrations/m2026_11_16_li
                    sets_posterior_chain=v["sets"][1], sets_push=v["sets"][2], sets_pull=v["sets"][3],
                    target_adaptations=v["adaptations"], preference_penalty=0.1,
                    notes="Library gap-fill (TASK-051, EXP-008); maintenance (non-heavy) lift; loads estimated (TASK-021 unified model: set-intensity strain, 10-20 TSS/h).")
+        rows.append(row)
+    return rows
+
+
+# -----------------------------------------------------------------------------
+# Walk-jog (run/walk) re-entry rows (TASK-058, EXP-008 Finding 6, ADR-036)
+# -----------------------------------------------------------------------------
+# The canonical schema has no walk component (zone minutes, ONE mechanical_strain / neuromuscular_load / axial_load), so a
+# run/walk row is stored as a Run row whose walked minutes are counted as Zone 1 minutes (brisk walking is below the Zone 1
+# run band: 80/20 low intensity, zero ANS cost). What differs from a continuous Zone 1 run is ONLY the impact load, and
+# that comes from the TASK-023 impact model, never a typed-in number:
+#     mechanical_strain = lm.run_walk_mechanical_strain([run_min, 0, ...], walk_min)
+# (run minutes on the run zone model + walk minutes at ``lm.walk_dose_fraction()`` of a Zone 1 run minute, safety factor
+# included). Every other quantity is deliberately CONSERVATIVE, so nothing the solver's rows read is loosened:
+#   * ``duration_min`` is the whole session, so the run-minute guard, the ADR-022 longest-run cap, the run-share row and
+#     the weekly run-minute ramp (``safety_constraints.run_minutes``) count walked minutes as run minutes;
+#   * ``tss`` is the aerobic TSS of ALL minutes at Zone 1 run intensity (a walked minute is cheaper in reality);
+#   * neuromuscular / axial loads follow the ordinary non-heavy-run rule on the (reduced) strain.
+# ``needs_review`` until ``EXP-006`` calibrates the walk dose factor against actuals. The rows are gated by the
+# ``control.periodization.WALKJOG_LADDER`` rung (``filter_walkjog_workouts``): a row is offered only in a re-entry week
+# whose rung allows its run share and session length.
+RUN_WALK_SPECS: Dict[str, Dict[str, object]] = {
+    # code: run_min, walk_min (sum = duration; walk counted as Zone 1), description, adaptation
+    "RUN_RW_1_1_20": dict(
+        run_min=10.0, walk_min=10.0,
+        description="Run/walk re-entry, 1:1 ratio: 10 x (1 minute Zone 1 jog / 1 minute Zone 1 walk)",
+        adaptations="Return-to-run tissue loading: ladder rung 1 (1:1 run:walk) at a fraction of a continuous run's impact"),
+    "RUN_RW_2_1_20": dict(
+        run_min=12.0, walk_min=8.0,
+        description="Run/walk re-entry, 2:1 ratio: 6 x (2 minutes Zone 1 jog / 1 minute Zone 1 walk), 2 minutes Zone 1 walk "
+                    "cool-down",
+        adaptations="Return-to-run tissue loading: ladder rung 2 (2:1 run:walk) at a fraction of a continuous run's impact"),
+    "RUN_RW_1_1_30": dict(
+        run_min=15.0, walk_min=15.0,
+        description="Run/walk re-entry, 1:1 ratio: 15 x (1 minute Zone 1 jog / 1 minute Zone 1 walk)",
+        adaptations="Longer 1:1 run/walk session: more aerobic time for the same impact as 15 continuous minutes"),
+    "RUN_RW_2_1_30": dict(
+        run_min=20.0, walk_min=10.0,
+        description="Run/walk re-entry, 2:1 ratio: 10 x (2 minutes Zone 1 jog / 1 minute Zone 1 walk)",
+        adaptations="Return-to-run tissue loading: ladder rung 2-3 (2:1 run:walk), 30 minute session"),
+}
+RUN_WALK_CODES = list(RUN_WALK_SPECS)
+
+
+def run_walk_split(code: str):
+    """(run minutes, walk minutes) of a ``RUN_RW_*`` row, or ``None`` for every other code."""
+    spec = RUN_WALK_SPECS.get(code)
+    return None if spec is None else (float(spec["run_min"]), float(spec["walk_min"]))
+
+
+def run_walk_strain(code: str) -> float:
+    """Mechanical strain of a ``RUN_RW_*`` row from the TASK-023 impact model (run minutes Zone 1, walk at the dose fraction)."""
+    run_min, walk_min = run_walk_split(code)
+    return round(lm.run_walk_mechanical_strain([run_min, 0.0, 0.0, 0.0, 0.0], walk_min), 1)
+
+
+def run_walk_rows(profile=None, source: str = "scripts/migrations/m2026_11_19_run_walk_rows.py"
+                  ) -> List[Dict[str, object]]:
+    """Canonical rows for the TASK-058 run/walk re-entry workouts (``agent_authored``, ``lib_default``, ``needs_review``)."""
+    if profile is None:
+        from triplan.physiology.athlete_profile import CURRENT_ATHLETE as profile
+    rows: List[Dict[str, object]] = []
+    for code, spec in RUN_WALK_SPECS.items():
+        duration = float(spec["run_min"]) + float(spec["walk_min"])
+        z = [duration, 0.0, 0.0, 0.0, 0.0]
+        np_, if_, tss = power_tss(z, RUN_ZONE_IF, profile.run_cp)
+        desc = str(spec["description"])
+        row = _blank_row()
+        row.update(code=code, name=code, sport="Run", category="Run/walk re-entry", provenance="agent_authored",
+                   source=source, description=desc, duration_min=duration, tss=tss, intensity_factor=if_,
+                   normalized_power=np_, z1_min=duration, z2_min=0.0, z3_min=0.0, z4_min=0.0, z5_min=0.0,
+                   lib_default=True, needs_review=True, target_adaptations=str(spec["adaptations"]),
+                   preference_penalty=0.1,
+                   notes=(f"Run/walk re-entry (TASK-058): {spec['run_min']:.0f} min jog + {spec['walk_min']:.0f} min walk, walk "
+                          "counted as Zone 1 minutes. mechanical_strain from load_model.run_walk_mechanical_strain "
+                          "(prior constants, needs_review until EXP-006); TSS / duration conservatively count walking as "
+                          "Zone 1 running."))
+        flags = endurance_flags("Run", desc, duration, z)
+        row.update(flags)
+        row.update(endurance_loads("Run", tss, if_, duration, z, False, description=desc))
+        mech = run_walk_strain(code)
+        row.update(mechanical_strain=mech, neuromuscular_load=round(0.40 * mech, 1), axial_load=round(0.30 * mech, 1))
         rows.append(row)
     return rows
 
@@ -716,6 +798,8 @@ def recompute_load_columns(df: pd.DataFrame) -> pd.DataFrame:
             rz = _brick_run_zones(code)
             mech = round(lm.brick_strain(z7, rz), 1)
             out.at[i, "brick_run_strain"] = round(lm.zone_strain("Run", rz), 1)
+        elif code in RUN_WALK_SPECS:
+            mech = run_walk_strain(code)         # TASK-058: walked minutes on the TASK-023 impact model, not zone_strain
         else:
             mech = round(lm.zone_strain(sport, z7), 1)
         out.at[i, "mechanical_strain"] = mech

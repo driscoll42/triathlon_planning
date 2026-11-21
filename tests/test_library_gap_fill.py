@@ -1,7 +1,7 @@
 """TASK-051: per-sport library gap-fill (EXP-008): short easy runs, 40-55 min quality runs / rides, pool variants, lifts."""
 import pytest
 
-from triplan.library.build import (BIKE_ZONE_IF, GAP_ENDURANCE_SPECS, GAP_FILL_CODES, GAP_STRENGTH_SPECS, RUN_ZONE_IF,
+from triplan.library.build import (BIKE_ZONE_IF, GAP_ENDURANCE_SPECS, GAP_FILL_CODES, GAP_STRENGTH_SPECS, RUN_WALK_CODES, RUN_ZONE_IF,
                                    SHORT_BRICK_SPECS, endurance_flags, endurance_loads, gap_fill_rows, power_tss,
                                    swim_time_tss)
 from triplan.library.candidates import build_default_candidate_library
@@ -65,7 +65,7 @@ def test_short_easy_runs_fit_the_reentry_window(rows):
         r = rows.loc[code]
         assert r["duration_min"] == minutes and r["z1_min"] == minutes and not r["is_hard_endurance"], code
         assert not r["is_heavy_run"] and not r["is_long_run"] and not r["has_strides"], code
-    # a walk-jog row is NOT authored: the schema cannot represent a walk component (TASK-058)
+    # run/walk rows are not gap-fill rows: they carry their own impact-model loads (TASK-058, tests/test_run_walk_rows.py)
     assert not any("walk" in c.lower() for c in rows.index)
 
 
@@ -116,7 +116,7 @@ def test_strength_rows_are_non_heavy_cap_safe_and_split_neutral(rows):
 
 def test_default_library_gained_exactly_the_gap_fill_rows():
     lib = load_library()
-    assert lib["lib_default"].sum() == 38 + len(GAP_FILL_CODES) + len(SHORT_BRICK_SPECS)
+    assert lib["lib_default"].sum() == 38 + len(GAP_FILL_CODES) + len(SHORT_BRICK_SPECS) + len(RUN_WALK_CODES)
     assert lib["lib_hybrid"].sum() == 22                                   # hybrid set untouched
     codes = {w.code for w in load_candidates(library="default")}
     assert set(GAP_FILL_CODES) <= codes

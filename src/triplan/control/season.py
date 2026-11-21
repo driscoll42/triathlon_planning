@@ -14,7 +14,7 @@ from triplan.solver.safety_constraints import run_minutes as run_minutes_of, run
 from triplan.physiology.state import AthletePhysiologicalState
 from triplan.control.carry import week_tte_min, initial_carry_in, next_week_carry_in
 from triplan.control.periodization import (REENTRY_RELIEF_LEVELS, REENTRY_RELIEF_ROLES, STRUCTURE_OVERSHOOT_TOL,
-                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, apply_keystone_run_support, keystone_kind, KEYSTONE_RIDE_BASE_MIN, KEYSTONE_RUN_BASE_MIN, keystone_ride_minutes, keystone_ride_rungs, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance, progression_guard_bounds, tte_mode_for, next_walkjog_stage, walkjog_stage)
+                                            FLOOR_PROBE_TARGET, FLOOR_RAISE_ROLES, apply_deload_relief, apply_reentry_relief, raised_target, relax_deload_acwr_floor, relax_deload_anchors, apply_keystone_week, apply_keystone_run_support, keystone_kind, KEYSTONE_RIDE_BASE_MIN, KEYSTONE_RUN_BASE_MIN, keystone_ride_minutes, keystone_ride_rungs, keystone_run_minutes, keystone_run_rungs, drop_unhostable_long_sessions, build_season_matrix, filter_test_workouts, normalize_distance, progression_guard_bounds, tte_mode_for, next_walkjog_stage, walkjog_stage, filter_walkjog_workouts)
 from triplan.control.feasibility import attribute_single_run_week, peak_48h, run_session_count, season_infeasibility_report
 from triplan.solver.scheduler import TriathlonMILPScheduler
 
@@ -253,6 +253,7 @@ def generate_closed_loop_season_schedule(
         # 4. Solve Week MILP
         # ADR-011 lockouts: forbidden CP/CSS tests are removed from the candidates BEFORE the solve.
         week_lib = filter_test_workouts(lib, wk, carry.last_test_week, **test_rules)
+        week_lib = filter_walkjog_workouts(week_lib, walkjog_n)   # TASK-058: run/walk rows only at the ladder rung that allows them
         week_lib = relax_deload_anchors(week_lib, wk.role)   # TASK-038: no keystone obligation in deload weeks
         # TASK-055 (ADR-028): long-course race-block build / overload weeks alternate a long-run and a long-ride keystone.
         keystone_note = None

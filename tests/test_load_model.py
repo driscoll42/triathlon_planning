@@ -134,7 +134,9 @@ def test_every_library_row_uses_the_unified_ans_and_strain(library_df):
         z7, dur = _z7(r), float(r["duration_min"])
         strides = bool(r["has_strides"]) if not pd.isna(r["has_strides"]) else False
         assert r["ans_cost"] == pytest.approx(lm.ans_cost(z7, strides, dur), abs=0.06), r["code"]
-        if r["sport"] in ("Run", "Bike", "Swim"):
+        if r["code"] in lb.RUN_WALK_SPECS:        # TASK-058: walked minutes on the TASK-023 impact model
+            assert r["mechanical_strain"] == pytest.approx(lb.run_walk_strain(r["code"]), abs=0.06), r["code"]
+        elif r["sport"] in ("Run", "Bike", "Swim"):
             assert r["mechanical_strain"] == pytest.approx(lm.zone_strain(r["sport"], z7), abs=0.06), r["code"]
         if r["sport"] == "Strength":
             assert r["mechanical_strain"] == pytest.approx(lm.strength_strain(r["code"]), abs=0.06), r["code"]
