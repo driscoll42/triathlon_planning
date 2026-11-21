@@ -1,7 +1,7 @@
 """High-level season pipeline: plan formatting and closed-loop season schedule generation."""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Callable, Dict, List, Optional, Tuple, Any
 import pandas as pd
 import copy
 import logging
@@ -100,6 +100,7 @@ def generate_closed_loop_season_schedule(
     reentry_weeks: Optional[int] = None,
     collect: Optional[List["WeekRecord"]] = None,
     diagnose_single_run: bool = False,
+    realize_schedule: Optional[Callable[[Dict[int, List[Any]], int], Dict[int, List[Any]]]] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates a full periodized multi-month triathlon season plan (Olympic or 70.3)
@@ -369,14 +370,16 @@ def generate_closed_loop_season_schedule(
                 diagnostics=list(plan.get("diagnostics", [])),
                 n_candidates=len(scheduler.engine.workouts)))
         if plan:
-            for day_wkts in plan["schedule"].values():
+            realized_sched = realize_schedule(plan["schedule"], week_num) if realize_schedule is not None else plan["schedule"]
+            realized_tss = float(sum(w.aerobic_tss for d in range(7) for w in realized_sched.get(d, [])))
+            for day_wkts in realized_sched.values():
                 for w in day_wkts:
                     if w.flags.get("test"):
                         carry.last_test_week[w.sport] = week_num
-            # Advance physiological states day by day
+            # Advance physiological states day by day from realized loads
             max_acwr, max_excess = 0.0, -1e9
             for d in range(7):
-                wkts = plan["schedule"][d]
+                wkts = realized_sched.get(d, [])
                 d_aerobic = sum(w.aerobic_tss for w in wkts)
                 d_mech = sum(run_strain(w) for w in wkts)   # run leg of a lift + run combo or Brick included
                 d_bike = sum(w.aerobic_tss for w in wkts if w.sport == "Bike")
@@ -396,9 +399,9 @@ def generate_closed_loop_season_schedule(
                 max_excess = max(max_excess, athlete_state.running_acute_mech - acwr_cap * athlete_state.running_chronic_mech)
             run_minutes = float(sum(run_minutes_of(w) for d in range(7) for w in plan["schedule"][d]))
             if keystone == "run" and solved_ok:
-                last_keystone_run = max((run_minutes_of(w) for d in range(7) for w in plan["schedule"][d]), default=0.0)
+                last_keystone_run = max((run_minutes_of(w) for d in range(7) for w in realized_sched.get(d, [])), default=0.0)
             # TASK-063: longest ride scheduled this week bounds the next long-ride keystone (one rung above it).
-            week_longest_ride = max((float(w.duration) for d in range(7) for w in plan["schedule"][d] if w.sport == "Bike"),
+            week_longest_ride = max((float(w.duration) for d in range(7) for w in realized_sched.get(d, []) if w.sport == "Bike"),
                                     default=0.0)
             if keystone == "ride" and solved_ok:
                 last_keystone_ride = week_longest_ride
@@ -408,7 +411,7 @@ def generate_closed_loop_season_schedule(
             single_run_binding = ""
             if diagnose_single_run and solved_ok and run_session_count(plan["schedule"]) == 1:
                 single_run_binding = attribute_single_run_week(week_lib, copy.deepcopy(scheduler.cfg), solve_carry)["label"]
-            carry = next_week_carry_in(carry, plan["schedule"], athlete_state, profile, lib, plan["total_tss"],
+            carry = next_week_carry_in(carry, realized_sched, athlete_state, profile, lib, realized_tss,
                                        deload=wk.role.is_deload)
 
             if any(plan["schedule"][d] for d in range(7)):
