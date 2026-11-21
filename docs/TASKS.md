@@ -20,8 +20,6 @@ Phases 0–2 ✅ (through 2026-11-18; details in `docs/archive/TASKS_COMPLETED.m
 
 ## P2 — Queued Experiments (`docs/experiments/`)
 
-- [ ] `EXP-003` (`perf`): solver correctness, sparse build and pruning scaling. **Run first**; retests `EXP-001`.
-- [ ] `EXP-001` (`perf`): `NEEDS_RETEST` via `EXP-003`. 15-seed race vs single solve.
 - [ ] `EXP-004` (`optimizer`): goal-weight sensitivity + session-structure constraints (81-point sweep).
 - [ ] `EXP-005` (`integrations`): FIT parser validation on synthetic + real fixtures.
 - [ ] `EXP-006` (`physiology`): load-model calibration against historical Garmin/lifting telemetry.
