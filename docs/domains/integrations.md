@@ -3,7 +3,7 @@
 ## 1. Scope & Responsibility
 TrainingPeaks private REST API authentication and workout syncing, 80/20 Endurance `.xlsx`/HTML library ingestion (`clean_file.py`), and multi-device hardware telemetry / `.fit` ingestion specifications (`SPEC.md`, `ADR-010`).
 
-> **Implementation Status:** `TrainingPeaksClient` (`io/trainingpeaks.py`, including Run and Swim 80/20 structured-workout ingestion, CSS-calibrated TP JSON export, and 1.0–3.0s random jitter), the 80/20 library scraper/builder (`library/clean_file.py`), the multi-device `.fit` activity parser (`io/fit_ingest.py`, `TASK-024`, including `efficiency_factor` and `decoupling_pct`), and the `ActualsStore` -> `evaluate_cp_retest_triggers` telemetry wiring (`TASK-002`, `TASK-025`) are implemented.
+> **Implementation Status:** `TrainingPeaksClient` (`io/trainingpeaks.py`, including Run and Swim 80/20 structured-workout ingestion, CSS-calibrated TP JSON export, and 1.0–3.0s random jitter), the 80/20 library scraper/builder (`library/clean_file.py`), the multi-device `.fit` activity parser (`io/fit_ingest.py`, `TASK-024`, validated by `EXP-005` across 8 synthetic + 6 real-file tests and 2,020/2,020 corpus `.fit` files), and the `ActualsStore` -> `evaluate_cp_retest_triggers` telemetry wiring (`TASK-002`, `TASK-025`) are implemented.
 
 ## 2. Key Modules & Entrypoints
 - [`src/triplan/io/trainingpeaks.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/io/trainingpeaks.py): `TrainingPeaksClient` (1.0–3.0s random jitter + 429/5xx exponential backoff), repo-root-anchored credential loading via `triplan.paths.CONFIG_DIR` (`TASK-031`), Run & Swim structured step serialization (`Warmup`, `Active`, `Rest`, `Recovery`, `Cooldown`), CSS-calibrated swim `sTSS`/`sIF` payload export (`workoutTypeId=1`), `load_8020_swim_workouts_from_library()`, and folder sync.
@@ -56,5 +56,5 @@ TrainingPeaks private REST API authentication and workout syncing, 80/20 Enduran
 - **`HEUR-007` — Pool Swim Active Length Parsing and Multi-Device Deduplication Window:** Sum pool swim time strictly across active lengths (exclude drills from SWOLF) and deduplicate multi-device FIT files within 300s window.
 
 ### Empirical Experiments (`EXP`)
-- **`EXP-005` [`ACTIVE` | `QUEUED_SPEC`] — Multi-Device FIT Ingestion Parser and Hardware Invariant Validation:** Queued spec: validate multi-device FIT parser on synthetic and 2,020 real Garmin FIT files for Stryd CIQ power, active swim lengths, and 300s ride dedup.
+- **`EXP-005` [`ACTIVE` | `TIER_1_ISOLATED`] — Multi-Device FIT Ingestion Parser and Hardware Invariant Validation:** Validated triplan.io.fit_ingest on 8 synthetic tests (Fixtures A-F) + 6 real FIT fixtures and 2,020-file corpus sweep: 100% parse success (0 errors), 660 Stryd CIQ runs, 64 treadmill runs, 85 pool swims (mean elapsed/active 1.272x), and 6 <300s duplicates dropped.
 <!-- LODE_AUTOGEN_END -->

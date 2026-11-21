@@ -320,10 +320,16 @@ def test_seven_zone_tiz_mapping_run_and_bike():
 
 
 # ---------------------------------------------------------------------------
-# Real-file smoke test (runs locally when corpus is present)
+# Real-file smoke tests (run locally when corpus is present)
 # ---------------------------------------------------------------------------
-_REAL_RUN = DATA_DIR / "garmin" / "activities" / "fit_files" / "2026-06-22_running_23339527727.fit"
-_REAL_SWIM = DATA_DIR / "garmin" / "activities" / "fit_files" / "2024-05-09_lap_swimming_15304263682.fit"
+_FIT_DIR = DATA_DIR / "garmin" / "activities" / "fit_files"
+_REAL_RUN = _FIT_DIR / "2026-06-22_running_23339527727.fit"
+_REAL_SWIM = _FIT_DIR / "2024-05-09_lap_swimming_15304263682.fit"
+_REAL_DUAL_RUN = _FIT_DIR / "2023-08-27_multi_sport_11886648267.fit"
+_REAL_TREADMILL = _FIT_DIR / "2021-10-01_treadmill_running_7584781510.fit"
+_REAL_EDGE_INDOOR = _FIT_DIR / "2026-01-10_indoor_cycling_21505214216.fit"
+_REAL_DEDUP_A = _FIT_DIR / "2020-08-29_indoor_cycling_5457585443.fit"
+_REAL_DEDUP_B = _FIT_DIR / "2020-08-29_indoor_cycling_5458261651.fit"
 
 
 @pytest.mark.skipif(not _REAL_RUN.exists(), reason="Local Garmin FIT corpus not present")
@@ -345,3 +351,49 @@ def test_real_swim2_pool_file():
     assert act.active_lengths == 44
     assert act.duration_sec < act.elapsed_sec
     assert act.tss is not None and act.tss > 0
+
+
+@pytest.mark.skipif(not _REAL_DUAL_RUN.exists(), reason="Local Garmin FIT corpus not present")
+def test_real_dual_stryd_and_native_power_run():
+    act = parse_fit_file(_REAL_DUAL_RUN)
+    assert act.ok
+    assert act.sport == "Run"
+    assert act.has_stryd_power is True
+    assert act.has_native_run_power is True
+    assert act.avg_power == pytest.approx(222.3, abs=0.2)
+
+
+@pytest.mark.skipif(not _REAL_TREADMILL.exists(), reason="Local Garmin FIT corpus not present")
+def test_real_treadmill_zero_air_power():
+    act = parse_fit_file(_REAL_TREADMILL)
+    assert act.ok
+    assert act.sport == "Run"
+    assert act.is_treadmill is True
+    assert act.has_stryd_power is True
+    assert act.avg_air_power == pytest.approx(0.0)
+
+
+@pytest.mark.skipif(not _REAL_EDGE_INDOOR.exists(), reason="Local Garmin FIT corpus not present")
+def test_real_edge530_indoor_cycling_neo2t():
+    act = parse_fit_file(_REAL_EDGE_INDOOR)
+    assert act.ok
+    assert act.device_name == "Edge 530"
+    assert act.sport == "Bike"
+    assert act.sub_sport == "indoor_cycling"
+    assert act.avg_power is not None and act.avg_power > 0
+    assert act.normalized_power is not None and act.normalized_power >= act.avg_power
+    assert not hasattr(act, "left_right_balance")
+
+
+@pytest.mark.skipif(
+    not (_REAL_DEDUP_A.exists() and _REAL_DEDUP_B.exists()),
+    reason="Local Garmin FIT corpus not present",
+)
+def test_real_300s_ride_deduplication():
+    a = parse_fit_file(_REAL_DEDUP_A)
+    b = parse_fit_file(_REAL_DEDUP_B)
+    assert a.ok and b.ok
+    kept, dropped = deduplicate_activities([a, b], window_sec=300.0)
+    assert len(kept) == 1
+    assert len(dropped) == 1
+    assert dropped[0][2] == pytest.approx(294.0, abs=1.0)
