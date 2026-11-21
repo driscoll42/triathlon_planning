@@ -16,7 +16,6 @@ Phases 0–2 ✅ (through 2026-11-18; details in `docs/archive/TASKS_COMPLETED.m
 
 ### Phase 4 — Telemetry & Closed Loop
 
-- [ ] `TASK-025` (`mpc`): actuals store, unified readiness α_d (absorbs `TASK-003`), intra-week re-solve.
 - [ ] `TASK-002` (`workouts`): swim structured-workout ingestion + TP export; 1–3s jitter in all sync scripts.
 
 ## P2 — Queued Experiments (`docs/experiments/`)
