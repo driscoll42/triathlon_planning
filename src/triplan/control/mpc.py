@@ -1,11 +1,13 @@
 """Three-tier closed-loop MPC controller (Tier 1 readiness, Tier 2 recalibration, Tier 3 mesocycle)."""
 
-from typing import Dict, List, Optional, Tuple, Any, Union
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple, Any, Union
 import numpy as np
 import copy
 import logging
 
-
+from triplan.control.actuals import ActualsStore
+from triplan.io.garmin_wellness import WellnessSnapshot, compute_wellness_snapshot
 from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
 from triplan.model.phase import Phase
 from triplan.physiology.state import AthletePhysiologicalState
@@ -26,7 +28,7 @@ class ClosedLoopMPCController:
         self.daily_logs: List[Dict[str, Any]] = []
 
     # -------------------------------------------------------------------------
-    # TIER 1: DAILY MICRO-ADJUSTMENTS
+    # TIER 1: DAILY MICRO-ADJUSTMENTS (Unified alpha_d in [0.60, 1.00])
     # -------------------------------------------------------------------------
     @staticmethod
     def calculate_morning_readiness(
@@ -34,22 +36,29 @@ class ClosedLoopMPCController:
         rmssd_7d_baseline: float,
         sleep_hours: float,
         muscle_soreness_1_to_10: float,
-        menstrual_phase: Optional[str] = None
+        menstrual_phase: Optional[str] = None,
+        rhr_today: Optional[float] = None,
+        rhr_baseline_mean: Optional[float] = None,
+        rhr_baseline_std: float = 3.0,
     ) -> float:
         """
-        Calculates daily readiness scalar S_readiness in [0.3 .. 1.3].
-        If menstrual_phase is 'luteal' (days 18-24), adjusts for natural progesterone-induced
-        vagal suppression by scaling baseline expectation by 0.85, preventing false Red Alerts.
+        Unified morning readiness scalar alpha_d in [0.60, 1.00] (TASK-025, TASK-003).
+        Delegates to ``calculate_garmin_morning_readiness`` using a 15% RMSSD CV proxy
+        when explicit RMSSD SD is not supplied, and maps sleep hours to a 0-100 score.
         """
-        effective_baseline = rmssd_7d_baseline
-        if menstrual_phase and menstrual_phase.lower() in ("luteal", "mid-luteal"):
-            effective_baseline = rmssd_7d_baseline * 0.85
-
-        hrv_ratio = rmssd_today / max(effective_baseline, 1.0)
-        sleep_ratio = sleep_hours / 8.0
-        soreness_ratio = 1.0 - (muscle_soreness_1_to_10 / 10.0)
-        s = 0.5 * hrv_ratio + 0.3 * sleep_ratio + 0.2 * soreness_ratio
-        return float(np.clip(s, 0.3, 1.3))
+        sleep_score = float(np.clip((sleep_hours / 8.0) * 80.0, 0.0, 100.0))
+        rmssd_std = max(0.15 * rmssd_7d_baseline, 1.0)
+        return ClosedLoopMPCController.calculate_garmin_morning_readiness(
+            rmssd_today=rmssd_today,
+            rmssd_baseline_mean=rmssd_7d_baseline,
+            rmssd_baseline_std=rmssd_std,
+            rhr_today=rhr_today if rhr_today is not None else 55.0,
+            rhr_baseline_mean=rhr_baseline_mean if rhr_baseline_mean is not None else (rhr_today if rhr_today is not None else 55.0),
+            rhr_baseline_std=rhr_baseline_std,
+            sleep_score=sleep_score,
+            muscle_soreness_1_to_10=muscle_soreness_1_to_10,
+            menstrual_phase=menstrual_phase,
+        )
 
     def evaluate_tier1_daily_action(
         self,
@@ -57,13 +66,12 @@ class ClosedLoopMPCController:
         scheduled_workout: CandidateWorkout
     ) -> Dict[str, Any]:
         """
-        Evaluates Tier 1 daily action without reshuffling calendar slots:
-        - Red Alert (S < 0.65 or Soreness > 3/10): Substitute hard/strength session with AE1 or Rest
-        - Amber Caution (0.65 <= S < 0.85): Truncate interval volume by 25% and scale intensity
-        - Green Nominal (0.85 <= S <= 1.15): Execute as prescribed
-        - Supercompensation (S > 1.15): Boost intensity target +3-5%
+        Evaluates Tier 1 daily action on unified alpha_d in [0.60, 1.00] without reshuffling calendar slots:
+        - Red Alert (alpha_d < 0.75): Substitute hard/strength session with AE1 or halve easy volume
+        - Amber Caution (0.75 <= alpha_d < 0.95): Scale interval/TSS load by alpha_d
+        - Green Nominal (alpha_d >= 0.95): Execute as prescribed
         """
-        if readiness_scalar < 0.65:
+        if readiness_scalar < 0.75:
             # RED ALERT
             if scheduled_workout.is_hard_endurance or scheduled_workout.is_heavy_strength:
                 action = "SUBSTITUTE_ACTIVE_RECOVERY"
@@ -71,23 +79,23 @@ class ClosedLoopMPCController:
                 adj_tss = round(scheduled_workout.aerobic_tss * 0.4, 0)
                 adj_mech = round(scheduled_workout.mechanical_strain * 0.3, 0)
                 adj_ans = round(scheduled_workout.ans_cost * 0.2, 0)
-                reason = "Red Alert (S < 0.65): High autonomic or musculoskeletal fatigue. Replaced with AE1 Recovery."
+                reason = f"Red Alert (alpha={readiness_scalar:.2f} < 0.75): High autonomic or musculoskeletal fatigue. Replaced with AE1 Recovery."
             else:
                 action = "REDUCE_VOLUME_50"
                 adj_dur = round(scheduled_workout.duration * 0.5, 0)
                 adj_tss = round(scheduled_workout.aerobic_tss * 0.5, 0)
                 adj_mech = round(scheduled_workout.mechanical_strain * 0.5, 0)
                 adj_ans = round(scheduled_workout.ans_cost * 0.5, 0)
-                reason = "Red Alert (S < 0.65): Easy workout volume halved to protect vagal recovery."
-        elif readiness_scalar < 0.85:
+                reason = f"Red Alert (alpha={readiness_scalar:.2f} < 0.75): Easy workout volume halved to protect vagal recovery."
+        elif readiness_scalar < 0.95:
             # AMBER CAUTION
             action = "TRUNCATE_INTERVALS_25"
             adj_dur = scheduled_workout.duration
             adj_tss = round(scheduled_workout.aerobic_tss * readiness_scalar, 0)
             adj_mech = round(scheduled_workout.mechanical_strain * readiness_scalar, 0)
             adj_ans = round(scheduled_workout.ans_cost * readiness_scalar, 0)
-            reason = f"Amber Caution (S={readiness_scalar:.2f}): Interval volume scaled by readiness factor."
-        elif readiness_scalar <= 1.15:
+            reason = f"Amber Caution (alpha={readiness_scalar:.2f}): Interval volume scaled by readiness factor."
+        else:
             # GREEN NOMINAL
             action = "EXECUTE_AS_PRESCRIBED"
             adj_dur = scheduled_workout.duration
@@ -95,14 +103,6 @@ class ClosedLoopMPCController:
             adj_mech = scheduled_workout.mechanical_strain
             adj_ans = scheduled_workout.ans_cost
             reason = "Green Nominal: Homeostasis nominal. Proceed with full workout."
-        else:
-            # SUPERCOMPENSATION PEAK
-            action = "SUPERCOMPENSATION_BOOST"
-            adj_dur = scheduled_workout.duration
-            adj_tss = round(scheduled_workout.aerobic_tss * 1.05, 0)
-            adj_mech = round(scheduled_workout.mechanical_strain * 1.03, 0)
-            adj_ans = round(scheduled_workout.ans_cost * 1.05, 0)
-            reason = f"Supercompensation (S={readiness_scalar:.2f}): High freshness. Power/pace nudged +5%."
 
         return {
             "status": action,
@@ -125,17 +125,38 @@ class ClosedLoopMPCController:
         rhr_today: float,
         rhr_baseline_mean: float,
         sleep_score: float,
+        rhr_baseline_std: float = 3.0,
+        muscle_soreness_1_to_10: Optional[float] = None,
+        menstrual_phase: Optional[str] = None,
     ) -> float:
         """
-        Computes continuous morning readiness scalar alpha_d in [0.70, 1.05]
-        using Z-scores for nocturnal rMSSD and Resting Heart Rate plus sleep architecture.
-        Formula: alpha_d = clip(1.00 + 0.08 * Z_hrv - 0.05 * Z_rhr + 0.04 * ((sleep - 80) / 20), 0.70, 1.05)
+        Computes unified morning readiness scalar alpha_d in [0.60, 1.00] (TASK-025, TASK-003)
+        using Z-scores for nocturnal rMSSD and Resting Heart Rate (scaled by ``rhr_baseline_std``)
+        plus sleep architecture and optional subjective soreness / luteal adjustment.
         """
-        z_hrv = (rmssd_today - rmssd_baseline_mean) / max(rmssd_baseline_std, 1e-3)
-        z_rhr = (rhr_today - rhr_baseline_mean) / max(rmssd_baseline_std * 0.5, 1.0)
+        effective_rmssd_mean = rmssd_baseline_mean
+        if menstrual_phase and menstrual_phase.lower() in ("luteal", "mid-luteal"):
+            effective_rmssd_mean = rmssd_baseline_mean * 0.85
+
+        z_hrv = (rmssd_today - effective_rmssd_mean) / max(rmssd_baseline_std, 1e-3)
+        z_rhr = (rhr_today - rhr_baseline_mean) / max(rhr_baseline_std, 1.0)
         sleep_term = (sleep_score - 80.0) / 20.0
-        alpha = 1.00 + 0.08 * z_hrv - 0.05 * z_rhr + 0.04 * sleep_term
-        return float(np.clip(alpha, 0.70, 1.05))
+        soreness_term = -0.02 * max(0.0, float(muscle_soreness_1_to_10) - 3.0) if muscle_soreness_1_to_10 is not None else 0.0
+        alpha = 1.00 + 0.08 * z_hrv - 0.05 * z_rhr + 0.04 * sleep_term + soreness_term
+        return float(np.clip(alpha, 0.60, 1.00))
+
+    @staticmethod
+    def readiness_from_garmin_wellness(
+        target_date: Optional[str] = None,
+        wellness_dir: Optional[Path] = None,
+        window_days: int = 28,
+    ) -> WellnessSnapshot:
+        """Loads Garmin wellness JSONs and returns a ``WellnessSnapshot`` with unified ``alpha_d``."""
+        return compute_wellness_snapshot(
+            target_date=target_date,
+            wellness_dir=wellness_dir,
+            window_days=window_days,
+        )
 
     def evaluate_tier1_hybrid_action(
         self,
@@ -143,16 +164,16 @@ class ClosedLoopMPCController:
         scheduled_workout: CandidateWorkout
     ) -> Dict[str, Any]:
         """
-        Applies Tier 1 operational auto-regulation across lifting and endurance:
-        - Green Zone (alpha >= 0.95): Prescribed working load. If alpha >= 1.03, +2.5% load boost on top set.
-        - Yellow Caution (0.85 <= alpha < 0.95): Scale working weights down (W_actual = alpha * W_plan), cap endurance at Z2/Z3.
-        - Red Alert (alpha < 0.85): Convert heavy axial squats/deadlifts to light mobility/decompression; endurance to Z1 active recovery.
+        Applies Tier 1 operational auto-regulation across lifting and endurance (unified alpha_d in [0.60, 1.00]):
+        - Green Zone (alpha >= 0.95): Prescribed working load.
+        - Yellow Caution (0.75 <= alpha < 0.95): Scale working weights down (W_actual = alpha * W_plan).
+        - Red Alert (alpha < 0.75): Convert heavy axial squats/deadlifts to mobility; endurance to Z1 active recovery.
         """
         flg = getattr(scheduled_workout, "flags", {}) or {}
         is_axial_heavy = flg.get("heavy_sq", 0) == 1 or flg.get("heavy_dl", 0) == 1
         sport = scheduled_workout.sport
 
-        if readiness_alpha < 0.85:
+        if readiness_alpha < 0.75:
             # RED PARASYMPATHETIC SUPPRESSION ZONE
             if sport == "Strength" and is_axial_heavy:
                 action = "CONVERT_TO_MOBILITY_DECOMPRESSION"
@@ -185,15 +206,6 @@ class ClosedLoopMPCController:
             adj_neuro = round(scheduled_workout.neuromuscular_load * readiness_alpha, 0)
             load_factor = round(readiness_alpha, 2)
             reason = f"Yellow Caution (alpha={readiness_alpha:.2f}): Barbell working weights scaled by {readiness_alpha:.2f}."
-        elif readiness_alpha >= 1.03:
-            # SUPERCOMPENSATION PEAK
-            action = "AUTOREGULATORY_BOOST_2_5_PCT"
-            adj_dur = scheduled_workout.duration
-            adj_tss = round(scheduled_workout.aerobic_tss * 1.03, 0)
-            adj_axial = round(scheduled_workout.axial_load * 1.025, 0)
-            adj_neuro = round(scheduled_workout.neuromuscular_load * 1.05, 0)
-            load_factor = 1.025
-            reason = f"Supercompensation (alpha={readiness_alpha:.2f}): Fresh CNS. Top set load boosted +2.5%."
         else:
             # GREEN NOMINAL
             action = "EXECUTE_AS_PRESCRIBED"
@@ -467,6 +479,63 @@ class ClosedLoopMPCController:
             updated_config.target_bike_run_tss_splits = {"Bike": 0.70, "Run": 0.30}
 
         return updated_config
+
+    def advance_state_from_actuals(
+        self,
+        store: ActualsStore,
+        start_date: str,
+        end_date: str,
+    ) -> AthletePhysiologicalState:
+        """Advances ``self.state`` day-by-day over ``[start_date, end_date]`` using stored actuals (TASK-025)."""
+        return store.advance_state(self.state, start_date, end_date)
+
+    def reoptimize_remaining_week(
+        self,
+        library: Sequence[CandidateWorkout],
+        config: MesoCycleTargetsAndConstraints,
+        today_day_idx: int,
+        completed_days: Dict[int, Sequence[Any]],
+        today_readiness_alpha: Optional[float] = None,
+        carry_in: Optional[Any] = None,
+        k_plans: int = 1,
+        time_limit: float = 10.0,
+    ) -> List[Dict[str, Any]]:
+        """Intra-week receding-horizon re-solve (TASK-025, TASK-003).
+
+        Fixes completed days ``d < today_day_idx`` to the realized workouts in
+        ``completed_days``, optionally scales/protects ``today_day_idx`` from
+        ``today_readiness_alpha`` in ``[0.60, 1.00]``, and re-optimizes the
+        remaining days ``d >= today_day_idx`` under all Tier-0/1/2 constraints.
+        """
+        from triplan.solver.scheduler import TriathlonMILPScheduler
+
+        if not (0 <= today_day_idx <= 6):
+            raise ValueError(f"today_day_idx must be in 0..6, got {today_day_idx}")
+
+        fixed = {d: list(completed_days.get(d, [])) for d in range(today_day_idx)}
+        updated_cfg = copy.deepcopy(config)
+        disallowed_hard: List[int] = []
+
+        if today_readiness_alpha is not None:
+            alpha = float(np.clip(today_readiness_alpha, 0.60, 1.00))
+            if alpha < 0.75:
+                disallowed_hard.append(today_day_idx)
+                updated_cfg.daily_time_caps[today_day_idx] = round(
+                    float(updated_cfg.daily_time_caps[today_day_idx]) * 0.50, 1
+                )
+            elif alpha < 0.95:
+                updated_cfg.daily_time_caps[today_day_idx] = round(
+                    float(updated_cfg.daily_time_caps[today_day_idx]) * alpha, 1
+                )
+
+        scheduler = TriathlonMILPScheduler(
+            list(library),
+            updated_cfg,
+            carry_in=carry_in,
+            fixed_days=fixed if fixed else None,
+            disallowed_hard_days=disallowed_hard if disallowed_hard else None,
+        )
+        return scheduler.solve_top_k_plans(k_plans=k_plans, time_limit=time_limit)
 
     # -------------------------------------------------------------------------
     # TIER 3: MESOCYCLE PERIODIZATION PROGRESSION

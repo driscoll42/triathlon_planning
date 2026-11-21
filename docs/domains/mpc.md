@@ -4,7 +4,9 @@
 Three-tier Closed-Loop Model Predictive Control (`ADR-005`), generated 3:1 mesocycle season matrices and CP test lockouts (`TASK-026`, `ADR-011`), cross-week state carry-in (`ADR-019`), long-course alternating keystones (`ADR-028`), deload/re-entry/structural-floor target policies (`ADR-021`, `ADR-023`, `ADR-025`), and season-level infeasibility & single-run attribution diagnostics (`TASK-027`, `TASK-046`).
 
 ## 2. Key Modules & Entrypoints
-- [`src/triplan/control/mpc.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/mpc.py): `ClosedLoopMPCController`, Tier-1 daily readiness scaling (`apply_tier1_daily_readiness()`), Tier-2 e1RM Kalman filtering, compliance / moderate-intensity rut detection, and weekly execution recalibration.
+- [`src/triplan/control/mpc.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/mpc.py): `ClosedLoopMPCController`, unified Tier-1 daily readiness scaling ($\alpha_d \in [0.60, 1.00]$), `reoptimize_remaining_week()` intra-week receding-horizon re-solve, `advance_state_from_actuals()`, Tier-2 e1RM Kalman filtering, and weekly execution recalibration.
+- [`src/triplan/control/actuals.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/actuals.py): `ActualsStore` and `CompletedActivity` persisting realized activities with 7-zone TiZ, TSS, ANS cost, and mechanical strain to advance `AthletePhysiologicalState` from actuals (`TASK-025`).
+- [`src/triplan/io/garmin_wellness.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/io/garmin_wellness.py): `WellnessSnapshot` and `compute_wellness_snapshot()` reading `data/garmin/wellness/{hrv_summaries,daily_summaries,sleep_summaries}.json` (28-day rolling HRV rMSSD & RHR mean/SD + sleep score) into unified $\alpha_d$.
 - [`src/triplan/control/periodization.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/periodization.py): `build_season_matrix()` (3:1 cycles + optional re-entry block), `SeasonWeek` (`config_phase`), `is_cp_test_allowed()` / `filter_test_workouts()`, `drop_unhostable_long_sessions()`, `apply_deload_relief()` / `relax_deload_anchors()` / `relax_deload_acwr_floor()`, `apply_reentry_relief()`, `raised_target()` (`FLOOR_PROBE_TARGET`), `apply_keystone_week()` (`KEYSTONE_RUN_CODES`, `keystone_kind`, `keystone_run_rungs`, `KEYSTONE_RIDE_CODES`, `keystone_ride_rungs`, `keystone_ride_minutes`), `apply_keystone_run_support()` (`TASK-062`), and `progression_guard_bounds()` (`PROGRESSION_GUARD_WINDOW`, `ADR-031`).
 - [`src/triplan/control/carry.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/carry.py): `initial_carry_in()`, `load_state_for_week()`, and `next_week_carry_in()` bridging Saturday/Sunday loads, EWMA ACWR, CTL/ATL, and `prev_longest_run_min` across weeks (`ADR-019`, `ADR-022`, `TASK-045`, `TASK-049`).
 - [`src/triplan/control/season.py`](file:///C:/Users/drisc/PycharmProjects/triathlon_planning/src/triplan/control/season.py): `generate_closed_loop_season_schedule()`, `WeekRecord`, and `format_plan_to_dataframe()` (records `Run_Mech_Strain` alongside `Total_Mech_Strain`).
@@ -27,14 +29,13 @@ flowchart TD
     H -->|"Season End"| I["season_infeasibility_report() + optional attribute_single_run_week()"]
 ```
 
-### A. Tier 1: Daily Micro-Adjustments & Calendar Slot Stability
-Tier 1 never reshuffles scheduled days mid-week; it scales intensity and duration in-place from morning HRV RMSSD, sleep score, and subjective soreness/pain:
-$$R_t = 0.50 \cdot \left(\frac{\text{RMSSD}_t}{\text{RMSSD}_{7\text{d\_mean}}}\right) + 0.30 \cdot \text{SleepRatio}_t + 0.20 \cdot \text{SorenessRatio}_t \quad \in [0.70, 1.10]$$
-(Hybrid readiness scalar $\alpha_d \in [0.50, 1.20]$ weights HRV 0.40, Sleep 0.35, Soreness 0.25.)
-- **Red Alert ($R_t < 0.80$ or Pain $> 3/10$, or $\alpha_d < 0.50$):** Converts hard endurance / heavy strength to Zone 1 Active Recovery (0.50x duration) or complete rest.
-- **Amber Caution ($0.80 \le R_t < 0.95$, or $\alpha_d < 0.65$):** Reduces interval/strength set volume while preserving the calendar slot.
-- **Green / Supercompensation ($R_t \ge 0.95$):** Executes as planned (or $+3\%\text{ to }+5\%$ nudge above $1.05$ within 48h caps).
-- **Intensity Creep ("Moderate-Intensity Rut") Detection:** If an easy Z1/Z2 session executes at $IF_{\text{real}} > 0.78$ or $HR > LT_1$, it is reclassified as $hard_d = 1$ and its ANS cost feeds the 48h window. *(Note: automated live Garmin/TP actuals ingestion and intra-week re-solve remain queued in `TASK-024` / `TASK-025`.)*
+### A. Tier 1: Daily Micro-Adjustments & Intra-Week Receding-Horizon Re-Solve (`TASK-025`, `TASK-003`)
+Tier 1 scales intensity/duration from unified morning readiness $\alpha_d \in [0.60, 1.00]$ driven by Garmin nocturnal HRV rMSSD z-score, RHR z-score (using `rhr_baseline_std`), sleep score, and optional soreness / luteal phase adjustment:
+$$\alpha_d = \text{clip}\!\left(1.00 + 0.08\,Z_{\text{hrv}} - 0.05\,Z_{\text{rhr}} + 0.04\,\frac{\text{Sleep} - 80}{20} + \text{Soreness},\; 0.60,\; 1.00\right)$$
+- **Red Alert ($\alpha_d < 0.75$):** Converts hard endurance / heavy axial strength to Zone 1 Active Recovery (0.50x duration) or mobility decompression.
+- **Amber / Yellow Caution ($0.75 \le \alpha_d < 0.95$):** Scales interval/working load and daily cap by $\alpha_d$.
+- **Green Nominal ($\alpha_d \ge 0.95$):** Executes as prescribed.
+- **Intra-Week Receding-Horizon Re-Solve:** `ClosedLoopMPCController.reoptimize_remaining_week()` fixes completed days $d < \text{today}$ via `UnifiedWeekEngine(..., fixed_days=..., disallowed_hard_days=...)` (`calendar.add_fixed_days()`), protects `today` if $\alpha_d < 0.75$, and re-optimizes remaining days $d \ge \text{today}$ under all Tier-0/1/2 constraints. `ActualsStore.advance_state()` advances `AthletePhysiologicalState` day-by-day from stored actuals.
 
 ### B. Tier 2: Cross-Week Carry-In & In-Model Load Dynamics (`ADR-019`)
 Instead of post-hoc weekly strain throttling, `control/carry.py` passes `WeekCarryIn` from week $k$ to week $k+1$:

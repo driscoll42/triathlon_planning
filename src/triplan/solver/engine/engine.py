@@ -57,12 +57,26 @@ class UnifiedWeekEngine:
     """Build and solve one training week for any option preset."""
 
     def __init__(self, workouts: Sequence[Any], config: Any, options: EngineOptions,
-                 notes: Optional[List[str]] = None, carry_in: Optional[Any] = None) -> None:
+                 notes: Optional[List[str]] = None, carry_in: Optional[Any] = None,
+                 fixed_days: Optional[Dict[int, Sequence[Any]]] = None,
+                 disallowed_hard_days: Optional[Sequence[int]] = None) -> None:
         self.config = config
         self.carry_in = carry_in           # WeekCarryIn (TASK-018): previous-week constants; None = isolated week
+        self.fixed_days: Dict[int, List[Any]] = {int(d): list(v) for d, v in (fixed_days or {}).items()}
+        self.disallowed_hard_days: List[int] = [int(d) for d in (disallowed_hard_days or ())]
         self.opt = options
         self.dominance: Optional[DominanceReport] = None
         workouts = list(workouts)
+        fixed_objs = [item for items in self.fixed_days.values() for item in items if hasattr(item, "code")]
+        fixed_codes = {
+            str(item) if isinstance(item, str) else str(getattr(item, "code", item))
+            for items in self.fixed_days.values() for item in items
+        }
+        present_codes = {str(getattr(w, "code", "")) for w in workouts}
+        for obj in fixed_objs:
+            if str(obj.code) not in present_codes:
+                workouts.append(obj)
+                present_codes.add(str(obj.code))
         self.cfg = WeekConfig(config)
         # TASK-019 pre-filtering invariant: grey-zone drop -> q_i hard classification -> lossless feasibility filter ->
         # stratified 80/20 pool pruning -> DECISION-021 combos -> dominance pruning, all before WorkoutTable / model.
@@ -113,6 +127,15 @@ class UnifiedWeekEngine:
             workouts, self.dominance = prune_dominated_candidates(
                 workouts, WeekConfig(config).get("sport_freq_bounds", default=None) if options.tier1 else None,
                 extra_cost=variety_cost)
+        if fixed_codes:
+            by_code = {str(getattr(w, "code", "")): w for w in self._diag_workouts}
+            for obj in fixed_objs:
+                by_code.setdefault(str(obj.code), obj)
+            cur_codes = {str(getattr(w, "code", "")) for w in workouts}
+            for code in sorted(fixed_codes):
+                if code not in cur_codes and code in by_code:
+                    workouts.append(by_code[code])
+                    cur_codes.add(code)
         self.workouts = workouts
         self.table = WorkoutTable(self.workouts)
         self.key = sq.key_mask(self.workouts, self.quality_params)
@@ -146,6 +169,8 @@ class UnifiedWeekEngine:
             orthopedic.make_hooks(ctx)
 
         calendar.add_uniqueness(ctx)
+        if self.fixed_days or self.disallowed_hard_days:
+            calendar.add_fixed_days(ctx, self.fixed_days, self.disallowed_hard_days)
         if opt.session_model == "partition_brick":
             calendar.add_duration_caps(ctx)
             calendar.add_session_partition(ctx)
@@ -182,7 +207,7 @@ class UnifiedWeekEngine:
             intensity_structure.add_legacy_structure(ctx)
         goals.add_goal_rows(ctx)
         self.symmetry_row = False
-        if opt.symmetry_breaking and opt.cut_mode != "layout":
+        if opt.symmetry_breaking and opt.cut_mode != "layout" and not self.fixed_days and not self.disallowed_hard_days:
             self.symmetry_row = symmetry.add_reversal_symmetry(ctx)
         self.last_context = ctx
         return ctx

@@ -18,7 +18,7 @@ Key Architecture:
     * Tier 2: Weekly Receding-Horizon Update (Banister PMC, EWMA ACWR, ODI)
     * Tier 3: Mesocycle 3:1 Step-Cycles & Fast-Decay Taper
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from triplan.model.candidates import CandidateWorkout, MesoCycleTargetsAndConstraints
 from triplan.solver.engine.config import (
@@ -56,6 +56,8 @@ class TriathlonMILPScheduler:
         workouts: List[CandidateWorkout],
         config: MesoCycleTargetsAndConstraints,
         carry_in: Optional[Any] = None,
+        fixed_days: Optional[Dict[int, Sequence[Any]]] = None,
+        disallowed_hard_days: Optional[Sequence[int]] = None,
     ) -> None:
         self.workouts = list(workouts)
         self.cfg, self.notes = normalize_meso_config(config)  # deep copy: never mutate the caller's (TASK-013)
@@ -67,8 +69,10 @@ class TriathlonMILPScheduler:
         self.zones = list(ZONES)
         self.last_diagnostics: List[str] = []
         self.last_status: Optional[str] = None
-        self.engine = UnifiedWeekEngine(self.workouts, self.cfg, meso_options(), notes=self.notes,
-                                       carry_in=carry_in)
+        self.engine = UnifiedWeekEngine(
+            self.workouts, self.cfg, meso_options(), notes=self.notes,
+            carry_in=carry_in, fixed_days=fixed_days, disallowed_hard_days=disallowed_hard_days,
+        )
         self.limits = self.engine.limits
         self.sets = self.engine.sets
 
