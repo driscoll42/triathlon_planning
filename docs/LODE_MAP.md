@@ -19,6 +19,7 @@
 ## 2. Engineering PRDs (`docs/specs/`)
 - **`PRD-001`** (`optimizer`): Brick Transition Modeling and Same-Day Strength Stacking — Model same-day multi-discipline transitions and strength stacking within the HiGHS MILP constraint matrix.
 - **`PRD-002`** (`optimizer`): Dual-Objective Hybrid Athlete MILP and MPC Optimization — Optimize concurrent triathlon and heavy barbell/dumbbell strength training via HiGHS MILP and 3-Tier closed-loop MPC.
+- **`PRD-003`** (`integrations`): Post-Workout Telemetry Diagnostics, Review Skill, and Multi-Sport Block Review Agents — Add deterministic post-workout/block telemetry briefs, a single-session review skill, and 4 parallel sport-specialist review agents.
 
 ## 3. Architectural Decisions Index (`ADR`)
 - **`ADR-001`** (`general`): Adopt Progressive Disclosure & SQLite Lineage Architecture
