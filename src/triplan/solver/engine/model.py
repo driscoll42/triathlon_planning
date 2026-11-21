@@ -148,31 +148,54 @@ class WeekModel:
     def set_cost(self, col: int, cost: float) -> None:
         self._cost.a[col] = cost
 
+    def set_bounds(self, col: int, lb: float, ub: float) -> None:
+        if self.built:
+            raise RuntimeError("WeekModel is already built; modify bounds before build()")
+        self._lb.a[col] = lb
+        self._ub.a[col] = ub
+
     def costs(self) -> np.ndarray:
         return self._cost.view.copy()
 
     # ------------------------------------------------------------------ rows
     def add_row(self, coeffs: Coeffs, lb: float, ub: float, name: Optional[str] = None) -> Optional[int]:
         """Append a row ``lb <= sum coeffs <= ub``. Returns its index, or None when it collapsed."""
-        if isinstance(coeffs, Mapping):
-            cols = np.fromiter(coeffs.keys(), dtype=np.int64, count=len(coeffs))
-            vals = np.fromiter(coeffs.values(), dtype=np.float64, count=len(coeffs))
+        is_map = isinstance(coeffs, Mapping)
+        if is_map:
+            n_c = len(coeffs)
+            cols = np.fromiter(coeffs.keys(), dtype=np.int64, count=n_c)
+            vals = np.fromiter(coeffs.values(), dtype=np.float64, count=n_c)
         else:
             cols = np.asarray(coeffs[0], dtype=np.int64).ravel()
             vals = np.asarray(coeffs[1], dtype=np.float64).ravel()
+            n_c = len(cols)
             if cols.shape != vals.shape:
                 raise ValueError("coefficient columns and values differ in length")
-        if len(cols):
-            uniq, inv = np.unique(cols, return_inverse=True)  # sorted, duplicate-summing
-            if len(uniq) != len(cols):
-                summed = np.zeros(len(uniq), dtype=np.float64)
-                np.add.at(summed, inv, vals)
-                cols, vals = uniq, summed
-            else:
-                order = np.argsort(cols, kind="stable")
-                cols, vals = cols[order], vals[order]
-            keep = np.abs(vals) > self.coef_tol
-            cols, vals = cols[keep], vals[keep]
+        if n_c:
+            if n_c == 2:
+                c0, c1 = int(cols[0]), int(cols[1])
+                if c0 > c1:
+                    cols = np.array([c1, c0], dtype=np.int64)
+                    vals = np.array([vals[1], vals[0]], dtype=np.float64)
+                elif c0 == c1:
+                    cols = cols[:1]
+                    vals = np.array([vals[0] + vals[1]], dtype=np.float64)
+            elif n_c > 2 and not np.all(cols[1:] > cols[:-1]):
+                if is_map:
+                    order = np.argsort(cols, kind="mergesort")
+                    cols, vals = cols[order], vals[order]
+                else:
+                    uniq, inv = np.unique(cols, return_inverse=True)  # sorted, duplicate-summing
+                    if len(uniq) != n_c:
+                        summed = np.zeros(len(uniq), dtype=np.float64)
+                        np.add.at(summed, inv, vals)
+                        cols, vals = uniq, summed
+                    else:
+                        order = np.argsort(cols, kind="stable")
+                        cols, vals = cols[order], vals[order]
+            if np.any(np.abs(vals) <= self.coef_tol):
+                keep = np.abs(vals) > self.coef_tol
+                cols, vals = cols[keep], vals[keep]
         if len(cols) == 0:
             infeasible = lb > self.coef_tol or ub < -self.coef_tol
             if not infeasible:
@@ -254,7 +277,8 @@ class WeekModel:
         self.built = True
 
     # ------------------------------------------------------------------ adapters
-    def hooks(self, x: Callable[[int, int], int], allowed: Callable[[int, int], bool]):
+    def hooks(self, x: Callable[[int, int], int], allowed: Callable[[int, int], bool],
+              s_col: Optional[Callable[[int], int]] = None):
         """A ``safety_constraints.ModelHooks`` writing into this buffer (rows and columns stay buffered)."""
         from triplan.solver.safety_constraints import ModelHooks
         return ModelHooks(
@@ -262,6 +286,8 @@ class WeekModel:
             add_row=lambda coeff_map, lb, ub: self.add_row(coeff_map, lb, ub),
             add_var=lambda lb, ub, integer: self.add_var(None, lb, ub, 0.0, integer),
             allowed=allowed,
+            s_col=s_col,
+            fix_var=self.set_bounds,
         )
 
 
