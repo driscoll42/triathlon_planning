@@ -40,7 +40,13 @@ def add_meso_adjacency(ctx: BuildContext) -> None:
 def add_safety(ctx: BuildContext) -> None:
     """Gating, daily/weekly axial and neuromuscular caps, rolling 48h TSS/ANS/strain, hard/easy
     adjacency, 48h heavy-run separation, deadlift +-24h lockout, antagonism matrix, single-run share."""
-    ctx.run_share_model = add_tier0_safety(ctx.hooks, ctx.table.items, ctx.limits, ctx.sets)
+    opt = ctx.opt
+    one_hard_end = bool(opt.meso_adjacency_rows or opt.one_hard_per_day)
+    ctx.run_share_model = add_tier0_safety(
+        ctx.hooks, ctx.table.items, ctx.limits, ctx.sets,
+        one_hard_endurance_per_day=one_hard_end,
+        single_per_day=(opt.session_model == "single_per_day"),
+    )
 
 
 def add_weekly_run_strain_cap(ctx: BuildContext) -> None:

@@ -252,7 +252,9 @@ class RunShareModel:
 
 
 def add_tier0_safety(hooks: ModelHooks, workouts: Sequence[Any], limits: SafetyLimits,
-                     sets: Optional[WorkoutSets] = None) -> RunShareModel:
+                     sets: Optional[WorkoutSets] = None,
+                     one_hard_endurance_per_day: bool = False,
+                     single_per_day: bool = False) -> RunShareModel:
     """Add every Tier-0 orthopedic / physiological rule as a hard constraint."""
     S = sets or classify_workouts(workouts)
     N = len(workouts)
@@ -304,16 +306,33 @@ def add_tier0_safety(hooks: ModelHooks, workouts: Sequence[Any], limits: SafetyL
 
     # Hard/Easy rule: no two consecutive hard days (hard endurance or heavy strength).
     hard_day = {d: hooks.add_var(0.0, 1.0, True) for d in DAYS}
-    for d in DAYS:
-        for i in S.hard:
-            row({x(i, d): 1.0, hard_day[d]: -1.0}, -inf, 0.0)
+    if single_per_day:
+        for d in DAYS:
+            if S.hard:
+                r = {x(i, d): 1.0 for i in S.hard}
+                r[hard_day[d]] = -1.0
+                row(r, -inf, 0.0)
+    elif one_hard_endurance_per_day:
+        heavy_str = set(S.heavy_strength)
+        hard_end = [i for i in S.hard if i not in heavy_str]
+        for d in DAYS:
+            if hard_end:
+                r = {x(i, d): 1.0 for i in hard_end}
+                r[hard_day[d]] = -1.0
+                row(r, -inf, 0.0)
+            if S.heavy_strength:
+                r = {x(i, d): 1.0 for i in S.heavy_strength}
+                r[hard_day[d]] = -1.0
+                row(r, -inf, 0.0)
+    else:
+        for d in DAYS:
+            for i in S.hard:
+                row({x(i, d): 1.0, hard_day[d]: -1.0}, -inf, 0.0)
     for d in range(6):
         row({hard_day[d]: 1.0, hard_day[d + 1]: 1.0}, 0.0, 1.0)
 
     for d in DAYS:
-        # Heavy/long runs: at most one per day.
-        row({x(i, d): 1.0 for i in S.heavy_or_long_runs}, 0.0, 1.0)
-        # HEUR-004 same day: deadlift vs threshold/long run.
+        # HEUR-004 same day: deadlift vs threshold/long run (also caps heavy/long runs <= 1/day).
         row({x(i, d): 1.0 for i in S.deadlifts + S.heavy_or_long_runs}, 0.0, 1.0)
         # Antagonism matrix (same day): squat vs high-torque bike / threshold-long run; press vs CSS swim.
         row({x(i, d): 1.0 for i in S.squats + S.hi_torque_bikes}, 0.0, 1.0)
