@@ -66,5 +66,5 @@ Across every adjacent day pair $(d, d+1)$ including the cross-week Sun→Mon bou
 - **`HEUR-004` — Axial Spinal Fatigue and Running Impact Interaction: Enforcing 24h Buffer Between Heavy Deadlifts and Threshold/Long Runs:** Never schedule heavy deadlifts and threshold/long runs within 24 hours of each other due to catastrophic lumbar shear and spinal fatigue.
 
 ### Empirical Experiments (`EXP`)
-- **`EXP-002` [`ACTIVE` | `QUEUED_SPEC`] — Closed-Loop 16-Week Season Simulation Under Real Profile and Perturbations:** Queued spec: verify 16-week closed-loop season simulation on CURRENT_ATHLETE under nominal, illness, pool-closure, travel, and stochastic execution noise.
+- **`EXP-002` [`ACTIVE` | `TIER_1_ISOLATED`] — Closed-Loop 16-Week Season Simulation Under Real Profile and Perturbations:** 26 closed-loop seasons (nominal 16w/40w, Wk-5 sickness, Wk-8 pool closure, Wk-11 travel, n=20 Monte Carlo stochastic execution): 0 fallbacks, 0 Tier-0 violations, median 15/16 weeks within +-10% TSS, 25-32 distinct workouts.
 <!-- LODE_AUTOGEN_END -->
