@@ -321,3 +321,14 @@
 - **Result (`season_validation`, 8 seasons / 240 weeks):** 0 fallback weeks, 0 Tier-0 violations; max ODI^run 0.88-1.15 (limit 1.35); summary now records `TTE_Min`, `TTE_Ref`, `TTE_Mode`, `WalkJog`.
 - **Verification:** `python -m pytest -q` 445 passed (+58: `test_interval_durability`, `test_phase_enum`, `test_tte_variety`, `test_walk_jog_block`; `test_long_course_library` / `test_library_gap_fill` updated for the derived score).
 - **Reported, not fixed:** raw running ACWR of `CURRENT_ATHLETE` is still 1.45 (the in-model row holds; the structural fix is the `TASK-058` run/walk rows); `CURRENT_ATHLETE` still has 5-7 single-run weeks per season; durability weights, `g`, `w_tte`, `w_variety` and the walk dose are priors for `EXP-006`.
+
+## Phase 3 — TASK-058 — completed 2026-11-20
+
+- [x] **`TASK-058` (`workouts`):** **Walk-Jog (Run/Walk) Re-Entry Workouts (`ADR-037`, `EXP-010`)** — `RUN_RW_*` rows on the `TASK-023` impact model; `needs_review` until `EXP-006`.
+
+### Outcomes
+- **Library:** 4 `agent_authored` / `lib_default` / `needs_review` rows `RUN_RW_1_1_20`, `RUN_RW_2_1_20`, `RUN_RW_1_1_30`, `RUN_RW_2_1_30` (`library/build.py::RUN_WALK_SPECS`, `run_walk_rows`; migration `m2026_11_19_run_walk_rows.py`, idempotent). Walk = Zone 1 minutes; `mechanical_strain` from `load_model.run_walk_mechanical_strain` (5.0 / 5.7 / 7.6 / 9.2 vs 8.3 / 12.5 for the continuous Z1 run of the same length); duration and TSS count walking as Z1 running, so run-minute, longest-run, run-share and ramp rows are not loosened.
+- **Control:** `filter_walkjog_workouts` offers a row only at a `WALKJOG_LADDER` rung that allows its run share / length (none at rung 0); it only removes candidates. No change to `solver/*`, bounds or the profile.
+- **Result (`EXP-010`, 8 seasons):** 0 fallback, 0 violations; all 4 rows picked in all 4 `CURRENT_ATHLETE` seasons (3-15x); single-run weeks 5-6 -> 3, raw running ACWR 1.45-1.46 -> 1.41, ODI 70.3 / ironman 1.12 / 1.15 -> 0.95 / 0.99; relaxations unchanged (56 / 62 / 54 / 57); reference seasons unaffected (pool 98).
+- **Verification:** `python -m pytest -q` 452 passed (+7 `tests/test_run_walk_rows.py`; counts updated in `test_workout_library`, `test_library_gap_fill`, `test_8020_milp_integration`, `test_load_model`). One earlier run failed `test_carry_in::test_empty_carry_in_is_exactly_the_isolated_model` (10 s time-limit solve, machine shared with another matrix run); it passes alone and in the full rerun.
+- **Reported, not fixed:** the walk dose is a prior (`EXP-006`); the dropped 180 min ride / 75 min run anchors and the ACWR-floor waiver are not library-fixable; no dedicated 3:1 / 4:1 (35 min) row.

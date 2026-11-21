@@ -9,11 +9,10 @@ None open. `DECISION-001..022` resolved 2026-11-15 (`ADR-012`); review on **2027
 
 ## P1 — Engineering Queue
 
-Phases 0–2 ✅ (through 2026-11-18; details in `docs/archive/TASKS_COMPLETED.md`): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), token budget (`ADR-016`), unified MILP engine + safety rules + library/keystone work (`ADR-017`, `ADR-028`, `ADR-033`). Tests: `python -m pytest` (445 pass; `-m slow` adds the 8-season `EXP-007` matrix).
+Phases 0–2 ✅ (through 2026-11-18; details in `docs/archive/TASKS_COMPLETED.md`): stabilized repo, canonical library + YAML profile (`ADR-014`), `src/triplan/` package (`ADR-015`), token budget (`ADR-016`), unified MILP engine + safety rules + library/keystone work (`ADR-017`, `ADR-028`, `ADR-033`). Tests: `python -m pytest` (452 pass; `-m slow` adds the 8-season `EXP-007` matrix).
 
 ### Phase 3 — Physiology Calibration
 
-- [ ] `TASK-058` (`workouts`): walk-jog (run/walk) re-entry workouts on the `TASK-023` impact model (`EXP-008`); the schema has no walk component and a reduced impact load is an invented number.
 
 ### Phase 4 — Telemetry & Closed Loop
 

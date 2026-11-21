@@ -511,6 +511,25 @@ def walkjog_stage(stage: int) -> Optional[WalkJogStage]:
     return WALKJOG_LADDER[stage - 1] if 1 <= stage <= len(WALKJOG_LADDER) else None
 
 
+def filter_walkjog_workouts(workouts: Sequence[Any], stage: int) -> List[Any]:
+    """Gate the ``RUN_RW_*`` run/walk rows (TASK-058) by the week's ladder rung. Only REMOVES candidates, so no solver row
+    or bound changes. Rung 0 (the athlete is not re-entering: run CTL >= the exit) offers none, since a continuous run is
+    then allowed; rung ``s`` offers a row only when its run share <= the rung's and its session is no longer than the
+    rung's ``session_min``, so the ladder's 1:1 -> 4:1, 20 -> 35 min progression is enforced rather than merely reported."""
+    from triplan.library.build import run_walk_split   # lazy: library.build must not be a control import-time dependency
+    rung = walkjog_stage(stage)
+    out: List[Any] = []
+    for w in workouts:
+        split = run_walk_split(str(getattr(w, "code", "")))
+        if split is None:
+            out.append(w)
+        elif rung is not None:
+            run_min, walk_min = split
+            if run_min / (run_min + walk_min) <= rung.run_fraction + 1e-9 and run_min + walk_min <= rung.session_min + 1e-9:
+                out.append(w)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # ADR-011 test lockouts
 # ---------------------------------------------------------------------------

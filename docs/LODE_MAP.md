@@ -55,6 +55,7 @@
 - **`ADR-034`** (`physiology`): Unified ANS cost, zone-power mechanical strain, set-intensity strength strain, 10-20 TSS/h strength and exact Banister PMC decay
 - **`ADR-035`** (`safety`): Run-strain ODI: EWMA_35 / EWMA_120 of daily run strain, in-model Tier-0 ceiling, wrong-sign throttle removed
 - **`ADR-036`** (`mpc`): Interval-parsed durability, TTE progression and variety goals, Phase enum, walk-jog re-entry block
+- **`ADR-037`** (`workouts`): Run/Walk Library Rows: Impact-Model Strain, Conservative Duration/TSS, Ladder-Gated Candidates
 
 ## 4. Operational Heuristics Index by Domain (`HEUR`)
 - **`workouts`:** `HEUR-003`, `HEUR-008`
