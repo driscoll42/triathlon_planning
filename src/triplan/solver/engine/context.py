@@ -33,6 +33,7 @@ class BuildContext:
 
     # variable registry (filled by calendar.add_variables / goals.declare_goals)
     X: Optional[np.ndarray] = None                       # (N, 7) column index of x[i, d]
+    s: Optional[np.ndarray] = None                       # (N,) column index of weekly selection s[i] = sum_d x[i, d]
     y: Dict[Tuple[str, int], int] = field(default_factory=dict)
     u: Dict[Tuple[str, int], int] = field(default_factory=dict)
     double: Dict[int, int] = field(default_factory=dict)
@@ -46,6 +47,7 @@ class BuildContext:
     carry_in: Optional[Any] = None                       # engine.carry_in.WeekCarryIn (TASK-018)
     hooks: Optional[ModelHooks] = None
     reg: Optional[Tier1Registry] = None
+    run_share_model: Optional[Any] = None
 
     @property
     def n(self) -> int:
@@ -62,6 +64,8 @@ class BuildContext:
         return self.X[np.asarray(list(ids), dtype=np.int64), d]
 
     def per_week(self, vals: np.ndarray, ids=None) -> Tuple[np.ndarray, np.ndarray]:
-        """(cols, values) of a per-workout coefficient vector repeated over the 7 days."""
+        """(cols, values) of a per-workout coefficient vector summed over the week."""
         ids = np.arange(self.n) if ids is None else np.asarray(list(ids), dtype=np.int64)
+        if self.s is not None:
+            return self.s[ids], np.asarray(vals, dtype=np.float64)[ids]
         return self.X[ids].ravel(), np.repeat(np.asarray(vals, dtype=np.float64)[ids], 7)

@@ -241,6 +241,8 @@ class ModelHooks:
     add_row: Callable[[Dict[int, float], float, float], None]   # (coeff map, lb, ub)
     add_var: Callable[[float, float, bool], int]                # (lb, ub, is_integer) -> column, cost 0
     allowed: Callable[[int, int], bool]                         # unary Tier-0 gating (facility, caps)
+    s_col: Optional[Callable[[int], int]] = None                # weekly selection col s[i] = sum_d x[i, d]
+    fix_var: Optional[Callable[[int, float, float], None]] = None  # direct col bound tightening (0 rows)
 
 
 @dataclass
@@ -256,17 +258,26 @@ def add_tier0_safety(hooks: ModelHooks, workouts: Sequence[Any], limits: SafetyL
     N = len(workouts)
     inf = highspy.kHighsInf
     x, row = hooks.x, hooks.add_row
+    s_col, fix_var = hooks.s_col, hooks.fix_var
 
     def dur(i):
         return float(getattr(workouts[i], "duration", 0.0))
 
     # Unary gating (pre-filter): weekday single-session cap, facility/time (engine-supplied).
     for i in range(N):
+        ok_days = 0
         for d in DAYS:
             too_long = (d in WEEKDAYS and limits.weekday_single_workout_cap is not None
                         and dur(i) > limits.weekday_single_workout_cap + 1e-9)
             if too_long or not hooks.allowed(i, d):
-                row({x(i, d): 1.0}, 0.0, 0.0)
+                if fix_var is not None:
+                    fix_var(x(i, d), 0.0, 0.0)
+                else:
+                    row({x(i, d): 1.0}, 0.0, 0.0)
+            else:
+                ok_days += 1
+        if ok_days == 0 and fix_var is not None and s_col is not None:
+            fix_var(s_col(i), 0.0, 0.0)
 
     # Daily / weekly axial and neuromuscular ceilings (ADR-008).
     for attr, day_cap, wk_cap in (("axial_load", limits.max_daily_axial, limits.max_weekly_axial),
@@ -277,7 +288,10 @@ def add_tier0_safety(hooks: ModelHooks, workouts: Sequence[Any], limits: SafetyL
         for d in DAYS:
             cap = day_cap * (float(limits.readiness_alpha[d]) if attr == "neuromuscular_load" else 1.0)
             row({x(i, d): loads[i] for i in range(N) if loads[i]}, 0.0, cap)
-        row({x(i, d): loads[i] for i in range(N) if loads[i] for d in DAYS}, 0.0, wk_cap)
+        if s_col is not None:
+            row({s_col(i): loads[i] for i in range(N) if loads[i]}, 0.0, wk_cap)
+        else:
+            row({x(i, d): loads[i] for i in range(N) if loads[i] for d in DAYS}, 0.0, wk_cap)
 
     # Rolling 48h TSS / ANS / mechanical strain caps.
     for attr, cap in (("aerobic_tss", limits.max_48h_tss), ("ans_cost", limits.max_48h_ans),
@@ -331,47 +345,76 @@ def add_tier0_safety(hooks: ModelHooks, workouts: Sequence[Any], limits: SafetyL
 def _add_run_share_cap(hooks: ModelHooks, workouts, limits: SafetyLimits, S: WorkoutSets) -> RunShareModel:
     """Single-run share cap applied to ALL runs, conditioned on the realized run count.
 
-    R = number of scheduled runs, encoded with z1..z3 (R == n) and z_ge4 (R >= 4).
-    For each level n with cap rho_n < 1 and each run (i, d):
-        dur_i * x_id - rho_n * sum_j dur_j x_j + dur_i * z_n <= dur_i
-    The row binds only when z_n = 1. There is no silent relaxation: weeks with < 4 runs get the
-    explicit pigeonhole cap from SafetyLimits.pigeonhole_run_share, reported via run_share_report().
+    Uses weekly selection indicators ``s_col(i)`` (when provided) and Balas-lifted coefficients
+    across run-count levels ``z[1..4]`` for an exact, much tighter LP relaxation.
     """
     inf = highspy.kHighsInf
     pairs = [(i, d) for i in S.runs for d in DAYS if hooks.allowed(i, d)]
     if not pairs:
         return RunShareModel({}, [])
+    s_col = hooks.s_col
+    run_ids = sorted({i for i, _ in pairs})
+    durs = {i: run_minutes(workouts[i]) for i in run_ids}
     z = {n: hooks.add_var(0.0, 1.0, True) for n in (1, 2, 3, 4)}
-    v = hooks.add_var(0.0, float(len(pairs)), True)
+    n_upper = len(run_ids) if s_col is not None else len(pairs)
+    v = hooks.add_var(0.0, float(n_upper), True)
     hooks.add_row({z[n]: 1.0 for n in z}, 0.0, 1.0)
-    count = {hooks.x(i, d): 1.0 for i, d in pairs}
+    if s_col is not None:
+        count = {s_col(i): 1.0 for i in run_ids}
+    else:
+        count = {hooks.x(i, d): 1.0 for i, d in pairs}
     count.update({z[1]: -1.0, z[2]: -2.0, z[3]: -3.0, v: -1.0})
     hooks.add_row(count, 0.0, 0.0)
-    hooks.add_row({v: 1.0, z[4]: -float(len(pairs))}, -inf, 0.0)
+    hooks.add_row({v: 1.0, z[4]: -float(n_upper)}, -inf, 0.0)
     hooks.add_row({v: 1.0, z[4]: -4.0}, 0.0, inf)
 
-    durs = {i: run_minutes(workouts[i]) for i in S.runs}
-    # Auxiliary total-run-minutes variable keeps each run-share row at 3 nonzeros instead of |pairs| + 1.
-    r_tot = hooks.add_var(0.0, inf, False)
-    r_row = {hooks.x(j, dp): durs[j] for j, dp in pairs}
+    r_tot = hooks.add_var(0.0, float(sum(durs.values())), False)
+    if s_col is not None:
+        r_row = {s_col(i): durs[i] for i in run_ids}
+    else:
+        r_row = {hooks.x(j, dp): durs[j] for j, dp in pairs}
     r_row[r_tot] = -1.0
     hooks.add_row(r_row, 0.0, 0.0)
+
+    rhos = {1: 1.0, 2: limits.run_share_cap(2), 3: limits.run_share_cap(3), 4: limits.run_share_cap(4)}
     for n in (4, 3, 2):
-        rho = limits.run_share_cap(n)
+        rho = rhos[n]
         if rho >= 1.0:
             continue
-        for i, d in pairs:
-            hooks.add_row({hooks.x(i, d): durs[i], r_tot: -rho, z[n]: durs[i]}, -inf, durs[i])
+        if s_col is not None:
+            for i in run_ids:
+                di = durs[i]
+                row_l: Dict[int, float] = {s_col(i): di, r_tot: -rho}
+                for m in (1, 2, 3, 4):
+                    if m == n:
+                        continue
+                    lift = max(0.0, 1.0 - rho / max(rhos[m], 1e-9))
+                    if lift > 1e-9:
+                        row_l[z[m]] = -di * lift
+                hooks.add_row(row_l, -inf, 0.0)
+        else:
+            for i, d in pairs:
+                di = durs[i]
+                row_l = {hooks.x(i, d): di, r_tot: -rho}
+                for m in (1, 2, 3, 4):
+                    if m == n:
+                        continue
+                    lift = max(0.0, 1.0 - rho / max(rhos[m], 1e-9))
+                    if lift > 1e-9:
+                        row_l[z[m]] = -di * lift
+                hooks.add_row(row_l, -inf, 0.0)
 
-    # ADR-022: with < 4 runs the ratio is vacuous, so cap every single run in absolute minutes instead.
-    # z4 = 1 iff >= 4 runs, so for a run longer than L the row  x_id - z4 <= 0  forbids it unless the week has
-    # >= 4 runs (where the 32% rule governs). L is raised to the shortest schedulable run so a run always fits.
     L = limits.long_run_abs_cap_min
     if L is not None:
-        L = max(L, min(durs[i] for i, _ in pairs))
-        for i, d in pairs:
-            if durs[i] > L + 1e-9:
-                hooks.add_row({hooks.x(i, d): 1.0, z[4]: -1.0}, -inf, 0.0)
+        L = max(L, min(durs.values()))
+        if s_col is not None:
+            for i in run_ids:
+                if durs[i] > L + 1e-9:
+                    hooks.add_row({s_col(i): 1.0, z[4]: -1.0}, -inf, 0.0)
+        else:
+            for i, d in pairs:
+                if durs[i] > L + 1e-9:
+                    hooks.add_row({hooks.x(i, d): 1.0, z[4]: -1.0}, -inf, 0.0)
     return RunShareModel(z, pairs)
 
 
@@ -460,7 +503,8 @@ def add_tier1_targets(reg: Tier1Registry, workouts: Sequence[Any], cfg: Any, set
                       rest_day: Optional[Callable[[int], int]] = None, include_anchors: bool = True,
                       include_strides: bool = True, include_heavy_strength: bool = True,
                       rest_bounds_default: Tuple[int, int] = (1, 7),
-                      extra_members: Optional[Callable[[str], Sequence[int]]] = None) -> None:
+                      extra_members: Optional[Callable[[str], Sequence[int]]] = None,
+                      s: Optional[Callable[[int], int]] = None) -> None:
     """Add anchors, sport minimum frequencies, strides, heavy-strength count and rest days as Tier-1 rows.
 
     Upper bounds (max frequency, max strides, max heavy strength) stay hard. Only the minimums
@@ -468,6 +512,7 @@ def add_tier1_targets(reg: Tier1Registry, workouts: Sequence[Any], cfg: Any, set
     """
     row = reg.hooks.add_row
     inf = highspy.kHighsInf
+    s_fn = s or reg.hooks.s_col
 
     def at_least(real: Dict[int, float], lo: float, slack: Optional[int]) -> None:
         r = dict(real)
@@ -479,54 +524,61 @@ def add_tier1_targets(reg: Tier1Registry, workouts: Sequence[Any], cfg: Any, set
     if include_anchors:
         for i, w in enumerate(workouts):
             if getattr(w, "is_anchor", False):
-                s = reg.add(f"shorten_or_drop_anchor:{w.sport}", f"anchor {w.code}", 1,
-                            f"Dropped anchor {w.code} ({w.sport}, {w.duration:.0f} min).")
-                at_least({x(i, d): 1.0 for d in DAYS}, 1.0, s)
+                sl = reg.add(f"shorten_or_drop_anchor:{w.sport}", f"anchor {w.code}", 1,
+                             f"Dropped anchor {w.code} ({w.sport}, {w.duration:.0f} min).")
+                at_least({s_fn(i): 1.0} if s_fn is not None else {x(i, d): 1.0 for d in DAYS}, 1.0, sl)
 
     bounds = cfg_get(cfg, "sport_freq_bounds", default=None) or {}
     for sport, (f_min, f_max) in bounds.items():
         sd_cols = [sport_day(sport, d) for d in DAYS] if sport_day is not None else [None]
         if all(c is not None for c in sd_cols):
             real = {c: 1.0 for c in sd_cols}
+        elif s_fn is not None:
+            real = {s_fn(i): 1.0 for i, w in enumerate(workouts) if w.sport == sport}
         else:
             real = {x(i, d): 1.0 for i, w in enumerate(workouts) if w.sport == sport for d in DAYS}
         if extra_members is not None:  # lift + easy cardio combos count toward the cardio sport (DECISION-021)
-            real.update({x(i, d): 1.0 for i in extra_members(sport) for d in DAYS})
+            if s_fn is not None:
+                real.update({s_fn(i): 1.0 for i in extra_members(sport)})
+            else:
+                real.update({x(i, d): 1.0 for i in extra_members(sport) for d in DAYS})
         if real:
             row(real, 0.0, float(f_max))
         if f_min > 0:
-            s = reg.add(f"reduce_frequency:{sport}", f"{sport} sessions >= {f_min}", f_min,
-                        f"{sport}: {{n}} fewer session(s) than the minimum of {f_min}.")
-            at_least(real, f_min, s)
+            sl = reg.add(f"reduce_frequency:{sport}", f"{sport} sessions >= {f_min}", f_min,
+                         f"{sport}: {{n}} fewer session(s) than the minimum of {f_min}.")
+            at_least(real, f_min, sl)
 
     if include_strides:
         lo = int(cfg_get(cfg, "min_stride_sessions", default=0) or 0)
         hi = int(cfg_get(cfg, "max_stride_sessions", default=7))
-        real = {x(i, d): 1.0 for i in sets.strides for d in DAYS}
+        real = ({s_fn(i): 1.0 for i in sets.strides} if s_fn is not None
+                else {x(i, d): 1.0 for i in sets.strides for d in DAYS})
         if real:
             row(real, 0.0, float(hi))
         if lo > 0:
-            s = reg.add("drop_stride_count", f"stride sessions >= {lo}", lo,
-                        f"Strides: {{n}} fewer stride session(s) than the minimum of {lo}.")
-            at_least(real, lo, s)
+            sl = reg.add("drop_stride_count", f"stride sessions >= {lo}", lo,
+                         f"Strides: {{n}} fewer stride session(s) than the minimum of {lo}.")
+            at_least(real, lo, sl)
 
     req_raw = cfg_get(cfg, "required_heavy_strength_sessions", default=None)
     if include_heavy_strength and req_raw is not None:  # engines without a heavy-strength count skip this rule
         req = int(req_raw)
-        real = {x(i, d): 1.0 for i in sets.heavy_strength for d in DAYS}
+        real = ({s_fn(i): 1.0 for i in sets.heavy_strength} if s_fn is not None
+                else {x(i, d): 1.0 for i in sets.heavy_strength for d in DAYS})
         if real:
             row(real, 0.0, float(req))
         if req > 0:
             # Floor of 1 heavy session (DECISION-006): slack may cover at most req - 1.
-            s = reg.add("reduce_heavy_strength_count_to_min_1", f"heavy strength == {req}", req - 1,
-                        f"Heavy strength: {{n}} fewer heavy session(s) than the {req} required (floor 1).")
+            sl = reg.add("reduce_heavy_strength_count_to_min_1", f"heavy strength == {req}", req - 1,
+                         f"Heavy strength: {{n}} fewer heavy session(s) than the {req} required (floor 1).")
             if real:
-                at_least(real, req, s)
+                at_least(real, req, sl)
             else:
                 # No heavy strength in the library: the floor of 1 is unattainable. Make that an explicit
                 # Tier-0 infeasibility (reported by explain_feasibility) instead of silently dropping it.
                 zero = reg.hooks.add_var(0.0, 0.0, False)
-                at_least({zero: 1.0}, req, s)
+                at_least({zero: 1.0}, req, sl)
 
     if rest_day is not None:
         lo = int(cfg_get(cfg, "min_rest_days", default=rest_bounds_default[0]))
@@ -657,48 +709,83 @@ class LexState:
 
 
 def lexicographic_solve(h: "highspy.Highs", tier1_costs: Dict[int, float], state: LexState,
-                        tier2_gap: Optional[float] = None) -> SolveResult:
-    """Phase A minimizes Tier-1 slack only. Its optimum is then locked with a row, and
-    Phase B optimizes the engine's Tier-2 objective. Later calls (Top-K) run only Phase B."""
+                        tier2_gap: Optional[float] = None, *,
+                        phase_a_factory: Optional[Callable[[], "highspy.Highs"]] = None,
+                        run_bounds: Optional[Tuple[int, int]] = None,
+                        run_share_model: Optional[RunShareModel] = None,
+                        run_slack_cols: Optional[Sequence[int]] = None,
+                        phase_b_no_sub_mip: bool = True) -> SolveResult:
+    """Phase A minimizes Tier-1 slack only. Its per-weight slacks are then bound-locked without
+    huge coefficients, and Phase B optimizes Tier-2. Later calls (Top-K) run only Phase B."""
     if not tier1_costs or state.locked:
         return run_and_check(h)
 
-    n = h.getNumCol()
-    tier2 = list(h.getLp().col_cost_)
-    idx = list(range(n))
     import numpy as np  # local: keep module import-light
 
-    phase_a = [0.0] * n
+    st_g, orig_rel_gap = h.getOptionValue("mip_rel_gap")
+    target_gap = float(orig_rel_gap) if (tier2_gap is None and st_g == highspy.HighsStatus.kOk) else (0.01 if tier2_gap is None else tier2_gap)
+
+    solver_a = phase_a_factory() if phase_a_factory is not None else h
+    n = solver_a.getNumCol()
+    tier2 = list(h.getLp().col_cost_) if solver_a is h else None
+    idx = np.arange(n, dtype=np.int32)
+
+    phase_a = np.zeros(n, dtype=np.float64)
     for c, wgt in tier1_costs.items():
         phase_a[c] = wgt
-    h.changeColsCost(n, np.array(idx, dtype=np.int32), np.array(phase_a, dtype=np.float64))
-    h.setOptionValue("mip_rel_gap", 0.0)
-    h.setOptionValue("mip_abs_gap", 0.5)  # integer-valued objective
-    res_a = run_and_check(h)
+    solver_a.changeColsCost(n, idx, phase_a)
+    solver_a.setOptionValue("mip_rel_gap", 0.0)
+    solver_a.setOptionValue("mip_abs_gap", 0.5)  # integer-valued objective
+    res_a = run_and_check(solver_a)
     if not res_a.has_solution:
-        h.changeColsCost(n, np.array(idx, dtype=np.int32), np.array(tier2, dtype=np.float64))
+        if solver_a is h and tier2 is not None:
+            solver_a.changeColsCost(n, idx, np.asarray(tier2, dtype=np.float64))
         return res_a
 
     best = float(res_a.objective or 0.0)
-    cols = sorted(tier1_costs)
-    h.addRow(-highspy.kHighsInf, best + 0.5, len(cols), np.array(cols, dtype=np.int32),
-             np.array([tier1_costs[c] for c in cols], dtype=np.float64))
-    for c in cols:  # Tier-1 slacks carry no Tier-2 cost
-        tier2[c] = 0.0
-    h.changeColsCost(n, np.array(idx, dtype=np.int32), np.array(tier2, dtype=np.float64))
+    # Lock each weight level cleanly via column bounds or unit-coefficient rows (eliminates 10^11 row scaling).
+    by_w: Dict[float, List[int]] = {}
+    for c, wgt in tier1_costs.items():
+        by_w.setdefault(float(wgt), []).append(c)
+    for _, cols_w in sorted(by_w.items()):
+        v_sum = sum(int(round(res_a.col_value[c])) for c in cols_w)
+        if v_sum == 0:
+            for c in cols_w:
+                h.changeColBounds(c, 0.0, 0.0)
+        elif len(cols_w) == 1:
+            h.changeColBounds(cols_w[0], float(v_sum), float(v_sum))
+        else:
+            h.addRow(-highspy.kHighsInf, float(v_sum) + 0.5, len(cols_w),
+                     np.array(sorted(cols_w), dtype=np.int32), np.ones(len(cols_w), dtype=np.float64))
+
+    if run_bounds is not None and run_share_model is not None and run_share_model.count_cols:
+        r_min, r_max = int(run_bounds[0]), int(run_bounds[1])
+        s_val = sum(int(round(res_a.col_value[c])) for c in (run_slack_cols or ()))
+        eff_min = max(0, r_min - s_val)
+        if eff_min <= r_max:
+            for n_lvl in (1, 2, 3, 4):
+                if n_lvl in run_share_model.count_cols and (n_lvl < eff_min or n_lvl > r_max):
+                    h.changeColBounds(run_share_model.count_cols[n_lvl], 0.0, 0.0)
+            if eff_min >= 4 and 4 in run_share_model.count_cols:
+                h.changeColBounds(run_share_model.count_cols[4], 1.0, 1.0)
+
+    if solver_a is h and tier2 is not None:
+        for c in tier1_costs:
+            tier2[c] = 0.0
+        h.changeColsCost(n, np.arange(h.getNumCol(), dtype=np.int32), np.asarray(tier2, dtype=np.float64))
+    else:
+        for c in tier1_costs:
+            h.changeColCost(c, 0.0)
     h.setOptionValue("mip_abs_gap", 1e-6)
-    h.setOptionValue("mip_rel_gap", 0.01 if tier2_gap is None else tier2_gap)
-    # Phase-A's solution satisfies every Phase-B row (including the newly locked Tier-1 bound); pass it as MIP start.
-    if res_a.col_value is not None:
-        sol = highspy.HighsSolution()
-        sol.col_value = list(res_a.col_value)
-        sol.value_valid = True
-        h.setSolution(sol)
+    h.setOptionValue("mip_rel_gap", target_gap)
+    if phase_b_no_sub_mip:
+        for opt_name in ("mip_heuristic_run_rins", "mip_heuristic_run_rens", "mip_heuristic_run_feasibility_jump"):
+            h.setOptionValue(opt_name, False)
     state.locked = True
     state.tier1_penalty = best
     res_b = run_and_check(h)
     if not res_b.has_solution and res_a.has_solution:
-        # Phase B timed out without an incumbent: fall back to the Phase-A solution (already Tier-1 optimal).
+        # Phase B found no incumbent within budget: fall back to the Phase-A solution (already Tier-1 optimal).
         logger.warning("Lexicographic Phase B found no incumbent (%s); returning Phase-A solution.", res_b.status)
         return res_a
     return res_b

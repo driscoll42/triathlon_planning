@@ -9,9 +9,10 @@ columns; nothing is inferred from codes or descriptions here.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 from functools import lru_cache
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
@@ -21,6 +22,19 @@ from triplan.paths import REPO_ROOT as _REPO_ROOT
 
 ROOT = str(_REPO_ROOT)
 LIBRARY_PATH = os.path.join(ROOT, "data", "workout_library.csv")
+
+_MATERIALIZED_CACHE: dict[Tuple[str, float, Any], pd.DataFrame] = {}
+_CANDIDATES_CACHE: dict[Tuple[Any, ...], Tuple[Any, ...]] = {}
+_MAX_CACHE_ENTRIES = 16
+
+
+def _profile_cache_key(profile: Any) -> Optional[Tuple[Any, ...]]:
+    if profile is None:
+        return ("none",)
+    if dataclasses.is_dataclass(profile):
+        return (type(profile), tuple((f.name, getattr(profile, f.name)) for f in dataclasses.fields(profile)
+                                     if isinstance(getattr(profile, f.name), (int, float, str, bool, type(None)))))
+    return None
 
 
 @lru_cache(maxsize=4)
@@ -46,13 +60,24 @@ def load_library(path: Optional[str] = None, profile=_CURRENT) -> pd.DataFrame:
     from triplan.library.schema import Workout
 
     p = os.path.abspath(path or LIBRARY_PATH)
-    df = _load_cached(p, os.path.getmtime(p)).copy()
+    mtime = os.path.getmtime(p)
     if profile is _CURRENT:
         from triplan.physiology.athlete_profile import CURRENT_ATHLETE as profile
+    pk = _profile_cache_key(profile)
+    if pk is not None:
+        cached = _MATERIALIZED_CACHE.get((p, mtime, pk))
+        if cached is not None:
+            return cached.copy()
+
+    df = _load_cached(p, mtime).copy()
     if profile is not None:
         df = materialize(df, profile)
         for rec in df[df["prescription"] == "distance"].to_dict(orient="records"):
             Workout(**{k: (None if (isinstance(v, float) and pd.isna(v)) else v) for k, v in rec.items()})
+    if pk is not None:
+        if len(_MATERIALIZED_CACHE) >= _MAX_CACHE_ENTRIES:
+            _MATERIALIZED_CACHE.clear()
+        _MATERIALIZED_CACHE[(p, mtime, pk)] = df.copy()
     return df
 
 
@@ -127,14 +152,28 @@ def load_candidates(*, library: Optional[str] = None, provenance: Optional[Itera
     ``include_8020=True`` (default) also includes ``provenance == "8020_library"`` options
     alongside the curated ``lib_default`` / ``lib_hybrid`` core.
     """
-    lib_df = load_library(path)
+    p = os.path.abspath(path or LIBRARY_PATH)
+    mtime = os.path.getmtime(p)
+    prov_k = tuple(provenance) if provenance is not None else None
+    sp_k = tuple(sports) if sports is not None else None
+    ck = (p, mtime, library, prov_k, sp_k, bool(include_tests), bool(include_8020))
+    cached = _CANDIDATES_CACHE.get(ck)
+    if cached is not None:
+        return [dataclasses.replace(w, flags=dict(w.flags), sets_by_muscle=dict(w.sets_by_muscle)) for w in cached]
+
+    lib_df = load_library(p)
     if library in ("default", "hybrid") and provenance is None and include_8020:
         core = select(lib_df, library=library, sports=sports, include_tests=include_tests)
         extra = select(lib_df, provenance=["8020_library"], sports=sports, include_tests=include_tests)
         combined = pd.concat([core, extra], ignore_index=True).drop_duplicates(subset=["code"], keep="first")
-        return to_candidates(combined)
-    return to_candidates(select(lib_df, library=library, provenance=provenance,
-                                sports=sports, include_tests=include_tests))
+        cands = to_candidates(combined)
+    else:
+        cands = to_candidates(select(lib_df, library=library, provenance=provenance,
+                                     sports=sports, include_tests=include_tests))
+    if len(_CANDIDATES_CACHE) >= _MAX_CACHE_ENTRIES:
+        _CANDIDATES_CACHE.clear()
+    _CANDIDATES_CACHE[ck] = tuple(cands)
+    return [dataclasses.replace(w, flags=dict(w.flags), sets_by_muscle=dict(w.sets_by_muscle)) for w in cands]
 
 
 def legacy_frame(df: pd.DataFrame) -> pd.DataFrame:

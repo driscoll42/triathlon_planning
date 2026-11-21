@@ -84,7 +84,7 @@ def zone7(w: Any) -> Tuple[float, ...]:
     """(Z1, Z2, ZX, Z3, ZY, Z4, Z5) minutes of ``w``; falls back to the 5-zone view with ZX = ZY = 0."""
     z7 = getattr(w, "zone7", None)
     if z7 is not None and len(z7) == 7:
-        return tuple(float(x) for x in z7)
+        return z7 if isinstance(z7, tuple) else tuple(float(x) for x in z7)
     zd = getattr(w, "zone_durations", None)
     if zd is not None and len(zd) >= 5:
         return (float(zd[0]), float(zd[1]), 0.0, float(zd[2]), 0.0, float(zd[3]), float(zd[4]))
@@ -110,10 +110,12 @@ def endurance_zone7(w: Any) -> Tuple[float, ...]:
 # ----------------------------------------------------------------------------- quality
 
 def raw_quality(w: Any, p: SessionQualityParams) -> float:
-    z = list(zone7(w))
-    if getattr(w, "has_strides", False):
-        z[6] = 0.0  # alactic strides carry no quality
-    return float(sum(wt * m for wt, m in zip(p.zone_weights, z)))
+    z = zone7(w)
+    w0, w1, w2, w3, w4, w5, w6 = p.zone_weights
+    total = w0 * z[0] + w1 * z[1] + w2 * z[2] + w3 * z[3] + w4 * z[4] + w5 * z[5]
+    if not getattr(w, "has_strides", False):
+        total += w6 * z[6]  # alactic strides carry no quality
+    return float(total)
 
 
 def quality(w: Any, p: SessionQualityParams) -> float:

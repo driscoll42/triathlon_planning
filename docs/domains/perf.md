@@ -14,9 +14,9 @@ Single deterministic HiGHS solve governance (`ADR-018`), candidate-pool complexi
 
 ### A. Global Guardrail Domain & Single Deterministic Solve (`ADR-018`, supersedes `ADR-006`)
 Rules in `perf` are injected into briefings across all domains (`scripts/lodectx.py`).
-- **One Deterministic Solve per Week:** The 15-seed × 2-thread multi-seed race (`ADR-006`) is retired. Every week executes a single deterministic `UnifiedWeekEngine` solve to a stated `mip_rel_gap` (`1%` default), always reporting `status` and `mip_gap`.
-- **Structural Speedups Inside the Model:** Convergence comes from sparse NumPy/CSR construction (`WeekModel`), sparse $r_{\text{tot}}$ run-share linearization (`ADR-029`), Phase-B `h.setSolution` warm-starts (`ADR-029`), clone dominance pruning, week-reversal symmetry breaking (`builders/symmetry.py`), and `selection` Top-K cuts (`ADR-018`).
-- **Pending Benchmark (`EXP-003`):** `EXP-001` is marked `NEEDS_RETEST`; `EXP-003` is queued to formally benchmark the retired race vs the single deterministic engine across scaled pools.
+- **One Deterministic Solve per Week:** The 15-seed × 2-thread multi-seed race (`ADR-006`, `EXP-001`) is retired and formally superseded (`EXP-003`). Every week executes a single deterministic `UnifiedWeekEngine` solve to a stated `mip_rel_gap` (`1%` default for single plan; `0%` recommended for strict monotone Top-K ranking), always reporting `status` and `mip_gap`.
+- **Structural Speedups Inside & Before the Model (`EXP-003`):** Convergence and build throughput come from cached library materialization/candidates (`library/loader.py`), precomputed `(N, 7)` `allowed` matrices (`builders/calendar.py`), $O(k)$ sorted fast paths + direct `set_bounds` in `WeekModel`, `s[i] = sum_d x[i, d]` weekly indicator decomposition (`7x` sparser weekly/cut/split rows), Balas-lifted `_add_run_share_cap` (`ADR-029`), goal-free Phase A + per-weight Tier-1 bound locking (eliminating $10^{11}$ row scaling), clone dominance pruning, and week-reversal symmetry breaking.
+- **Verified Scaling (`EXP-003`, 2026-11-21):** Unpruned single deterministic `threads=4` achieves 100% optimal convergence across $N \in \{40..500\}$ (`1.63–1.97s` p95 for $N \le 160$, `2.42s` med / `4.49s` p95 at $N=500$, `11.1–25.2ms` build, `119.4–148.2 MB` Peak RSS) and beats the `15x2` race by `2.35–3.70x` wall time and `7.0–11.7x` CPU thread-seconds (`scripts/run_exp003_benchmark.py`).
 
 ### B. Candidate Complexity Control & `MAX_CANDIDATES_BUDGET <= 120` (`TASK-060`, `ADR-029`)
 Keeping the active post-combo candidate pool $W \le 120$ bounds binary assignment variables ($W \times 7 \le 840$) and prevents branch-and-bound blowups:
@@ -38,9 +38,9 @@ Keeping the active post-combo candidate pool $W \le 120$ bounds binary assignmen
 - **`HEUR-001` — Guard Against Python Multiprocessing Worker Deadlocks on Windows in Parallel HiGHS Workers:** Never pass unpicklable Highs objects to child workers; pass pure dicts/DataFrames and initialize Highs inside worker.
 
 ### Empirical Experiments (`EXP`)
-- **`EXP-001` [`NEEDS_RETEST` | `TIER_1_ISOLATED`] — Multi-Seed HiGHS Race vs Single-Seed Branching Search Benchmark:** 15-seed x 2-thread parallel HiGHS race reduces p99 solve time from 24.8s to 1.1s across 500 candidate workouts.
-- **`EXP-003` [`ACTIVE` | `QUEUED_SPEC`] — Solver Correctness, Sparse Build and Dominance Pruning Scaling Benchmark:** Queued spec: benchmark sparse CSR WeekModel build and dominance pruning across 40-500 candidates, and retest EXP-001 15-seed race vs single solve.
+- **`EXP-001` [`SUPERSEDED` | `TIER_1_ISOLATED`] — Multi-Seed HiGHS Race vs Single-Seed Branching Search Benchmark:** SUPERSEDED by EXP-003 (2026-11-21): single deterministic solve outperforms 15-seed x 2-thread race by 2.35-3.70x wall time and 7.0-11.7x CPU thread-seconds at equal objective.
+- **`EXP-003` [`ACTIVE` | `TIER_1_ISOLATED`] — Solver Correctness, Sparse Build and Dominance Pruning Scaling Benchmark:** Single deterministic s_i/Balas-lifted WeekModel achieves 100% optimality across N=40..500 (p95 <= 1.97s for N<=160), beats 15x2 race by 2.35-3.70x wall and 7.0-11.7x CPU-s (superseding EXP-001), and delivers monotone Top-5 plans at gap=0.
 - **`EXP-007` [`ACTIVE` | `TIER_1_ISOLATED`] — Multi-Distance Season Validation on CURRENT_ATHLETE and an Unconstrained Reference Profile:** 8 seasons (4 distances x 2 profiles): 0 fallback weeks, 0 independent Tier-0 violations; time-budget infeasibility is named, volume-target defects are queued.
 
-> **Superseded (`perf`):** `ADR-006` (`python scripts/lodectx.py trace <ID>`).
+> **Superseded (`perf`):** `ADR-006`, `EXP-001` (`python scripts/lodectx.py trace <ID>`).
 <!-- LODE_AUTOGEN_END -->

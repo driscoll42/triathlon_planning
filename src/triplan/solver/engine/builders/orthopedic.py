@@ -14,7 +14,8 @@ from triplan.solver.safety_constraints import Tier1Registry, add_tier0_safety, a
 
 
 def make_hooks(ctx: BuildContext) -> None:
-    ctx.hooks = ctx.model.hooks(ctx.x, ctx.allowed)
+    s_fn = (lambda i: int(ctx.s[i])) if ctx.s is not None else None
+    ctx.hooks = ctx.model.hooks(ctx.x, ctx.allowed, s_col=s_fn)
 
 
 def add_meso_adjacency(ctx: BuildContext) -> None:
@@ -39,7 +40,7 @@ def add_meso_adjacency(ctx: BuildContext) -> None:
 def add_safety(ctx: BuildContext) -> None:
     """Gating, daily/weekly axial and neuromuscular caps, rolling 48h TSS/ANS/strain, hard/easy
     adjacency, 48h heavy-run separation, deadlift +-24h lockout, antagonism matrix, single-run share."""
-    add_tier0_safety(ctx.hooks, ctx.table.items, ctx.limits, ctx.sets)
+    ctx.run_share_model = add_tier0_safety(ctx.hooks, ctx.table.items, ctx.limits, ctx.sets)
 
 
 def add_weekly_run_strain_cap(ctx: BuildContext) -> None:
@@ -58,4 +59,5 @@ def add_tier1(ctx: BuildContext) -> None:
         rest_day=lambda d: ctx.rest[d],
         rest_bounds_default=ctx.opt.rest_bounds_default,
         extra_members=ctx.table.extra_members,
+        s=(lambda i: int(ctx.s[i])) if ctx.s is not None else None,
     )

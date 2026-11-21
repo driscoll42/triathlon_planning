@@ -92,9 +92,21 @@ def _freeze(v: Any) -> Any:
     return v
 
 
+_SIG_FIELDS_CACHE: Dict[type, Tuple[str, ...]] = {}
+
+
 def _signature(w: Any) -> Tuple:
-    names = ([f.name for f in dataclasses.fields(w)] if dataclasses.is_dataclass(w) else sorted(vars(w)))
-    return tuple((n, _freeze(getattr(w, n))) for n in sorted(names)
+    if dataclasses.is_dataclass(w):
+        cls = type(w)
+        fields = _SIG_FIELDS_CACHE.get(cls)
+        if fields is None:
+            fields = tuple(sorted(f.name for f in dataclasses.fields(w)
+                                  if f.name not in _COST_ONLY_FIELDS and f.name not in _IDENTITY_FIELDS))
+            _SIG_FIELDS_CACHE[cls] = fields
+        return tuple((n, v if type(v) in (int, float, str, bool, type(None)) else _freeze(v))
+                     for n in fields for v in (getattr(w, n),))
+    names = sorted(vars(w))
+    return tuple((n, _freeze(getattr(w, n))) for n in names
                  if n not in _COST_ONLY_FIELDS and n not in _IDENTITY_FIELDS)
 
 
