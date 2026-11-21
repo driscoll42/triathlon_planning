@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Dict, Optional, Sequence
 
 import numpy as np
 
@@ -90,6 +90,39 @@ def add_uniqueness(ctx: BuildContext) -> None:
     """Each workout is used at most once per week (anchors are handled in Tier 1)."""
     for i in range(ctx.n):
         ctx.model.add_row((ctx.X[i], np.ones(7)), 0.0, 1.0)
+
+
+def add_fixed_days(
+    ctx: BuildContext,
+    fixed_days: Optional[Dict[int, Sequence[Any]]] = None,
+    disallowed_hard_days: Optional[Sequence[int]] = None,
+) -> None:
+    """Fix completed days d < today and optionally block hard/heavy sessions on today (TASK-025)."""
+    if fixed_days:
+        code_to_idx: Dict[str, int] = {}
+        for idx, item in enumerate(ctx.table.items):
+            code_to_idx.setdefault(str(getattr(item, "code", "")), idx)
+        for d, items in fixed_days.items():
+            if d not in ctx.days:
+                continue
+            fixed_indices = set()
+            for item in items:
+                code = str(item) if isinstance(item, str) else str(getattr(item, "code", item))
+                if code in code_to_idx:
+                    fixed_indices.add(code_to_idx[code])
+                else:
+                    raise ValueError(f"Fixed workout {code!r} for day {d} not found in solver candidate pool")
+            for i in range(ctx.n):
+                val = 1.0 if i in fixed_indices else 0.0
+                ctx.model.add_row({ctx.x(i, d): 1.0}, val, val)
+
+    if disallowed_hard_days:
+        for d in disallowed_hard_days:
+            if d not in ctx.days:
+                continue
+            for i, item in enumerate(ctx.table.items):
+                if ctx.table.is_hard_endurance[i] or bool(getattr(item, "is_heavy_strength", False)):
+                    ctx.model.add_row({ctx.x(i, d): 1.0}, 0.0, 0.0)
 
 
 def add_exact_count(ctx: BuildContext, count: int) -> None:
