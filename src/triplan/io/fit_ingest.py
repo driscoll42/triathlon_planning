@@ -99,6 +99,8 @@ class ParsedActivity:
     avg_hr: Optional[float] = None
     max_hr: Optional[float] = None
     avg_cadence: Optional[float] = None
+    efficiency_factor: Optional[float] = None
+    decoupling_pct: Optional[float] = None
     zones7_min: Dict[str, float] = field(default_factory=lambda: {z: 0.0 for z in ZONES7})
 
     # Run / Stryd Model 17 fields
@@ -182,6 +184,52 @@ def compute_normalized_power(powers: Sequence[float]) -> Optional[float]:
     else:
         rolling = np.array([float(np.mean(arr))], dtype=float)
     return float(np.mean(rolling ** 4) ** 0.25)
+
+
+def compute_aerobic_decoupling(
+    powers: Sequence[Optional[float]],
+    hrs: Sequence[Optional[float]],
+    min_samples: int = 60,
+) -> Tuple[Optional[float], Optional[float]]:
+    """Compute Efficiency Factor (EF = NP / AvgHR) and Pw:HR decoupling (%).
+
+    Splits paired (power, hr) samples into first and second halves and returns
+    ``(efficiency_factor, decoupling_pct)`` where
+    ``decoupling_pct = ((EF_1 - EF_2) / EF_1) * 100``.
+    """
+    paired = [
+        (float(p), float(h))
+        for p, h in zip(powers, hrs)
+        if p is not None and h is not None and h > 0
+    ]
+    if len(paired) < min_samples:
+        return None, None
+
+    all_p = [p for p, _ in paired]
+    all_hr = [h for _, h in paired]
+    np_all = compute_normalized_power(all_p)
+    mean_hr = float(np.mean(all_hr))
+    if np_all is None or mean_hr <= 0:
+        return None, None
+    ef = float(np_all / mean_hr)
+
+    mid = len(paired) // 2
+    p1 = [p for p, _ in paired[:mid]]
+    h1 = [h for _, h in paired[:mid]]
+    p2 = [p for p, _ in paired[mid:]]
+    h2 = [h for _, h in paired[mid:]]
+    np1 = compute_normalized_power(p1)
+    np2 = compute_normalized_power(p2)
+    hr1 = float(np.mean(h1))
+    hr2 = float(np.mean(h2))
+    if np1 is None or np2 is None or hr1 <= 0 or hr2 <= 0:
+        return ef, None
+    ef1 = np1 / hr1
+    ef2 = np2 / hr2
+    if ef1 <= 0:
+        return ef, None
+    decoupling = ((ef1 - ef2) / ef1) * 100.0
+    return float(ef), float(decoupling)
 
 
 def _normalize_sport(raw_sport: Optional[str], sub_sport: Optional[str]) -> str:
@@ -328,6 +376,7 @@ def _parse_fit_object(
     # 4. Record-level stream extraction
     timestamps: List[Optional[datetime]] = []
     power_samples: List[Optional[float]] = []
+    hr_record_samples: List[Optional[float]] = []
     hr_samples: List[float] = []
     cadence_samples: List[float] = []
     form_power_samples: List[float] = []
@@ -339,6 +388,7 @@ def _parse_fit_object(
         rec_ts: Optional[datetime] = None
         native_pwr: Optional[float] = None
         stryd_pwr: Optional[float] = None
+        rec_hr: Optional[float] = None
 
         for fld in rmsg.fields:
             fname = fld.name
@@ -350,6 +400,7 @@ def _parse_fit_object(
             elif fname == "heart_rate" and not dev:
                 fv = _safe_float(val)
                 if fv is not None and fv > 0:
+                    rec_hr = fv
                     hr_samples.append(fv)
             elif fname == "cadence" and not dev:
                 fv = _safe_float(val)
@@ -383,6 +434,7 @@ def _parse_fit_object(
             # Note: Tacx Neo 2T 'left_right_balance' is intentionally ignored (HEUR-006).
 
         timestamps.append(rec_ts)
+        hr_record_samples.append(rec_hr)
         if act.sport == "Run":
             power_samples.append(stryd_pwr)
         elif act.sport == "Bike":
@@ -433,6 +485,12 @@ def _parse_fit_object(
             z_vec = [act.zones7_min[z] for z in ZONES7]
             act.mechanical_strain = zone_strain(act.sport, z_vec)
             act.ans_cost_val = ans_cost(z_vec, duration=sum(z_vec))
+
+            ef_val, dec_val = compute_aerobic_decoupling(power_samples, hr_record_samples)
+            if ef_val is None and act.normalized_power is not None and act.avg_hr and act.avg_hr > 0:
+                ef_val = float(act.normalized_power / act.avg_hr)
+            act.efficiency_factor = ef_val
+            act.decoupling_pct = dec_val
 
     return act
 

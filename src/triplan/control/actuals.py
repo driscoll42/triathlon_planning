@@ -35,6 +35,8 @@ class CompletedActivity:
     zones7_min: Dict[str, float] = field(default_factory=_empty_zones7)
     intensity_factor: Optional[float] = None
     avg_hr: Optional[float] = None
+    efficiency_factor: Optional[float] = None
+    decoupling_pct: Optional[float] = None
     workout_code: Optional[str] = None
     brick_run_min: float = 0.0
     brick_run_strain: float = 0.0
@@ -63,6 +65,8 @@ class CompletedActivity:
             zones7_min=dict(data.get("zones7_min") or {}),
             intensity_factor=data.get("intensity_factor"),
             avg_hr=data.get("avg_hr"),
+            efficiency_factor=data.get("efficiency_factor"),
+            decoupling_pct=data.get("decoupling_pct"),
             workout_code=data.get("workout_code"),
             brick_run_min=float(data.get("brick_run_min", 0.0) or 0.0),
             brick_run_strain=float(data.get("brick_run_strain", 0.0) or 0.0),
@@ -93,6 +97,8 @@ class CompletedActivity:
             zones7_min=dict(parsed.zones7_min or {}),
             intensity_factor=parsed.intensity_factor,
             avg_hr=parsed.avg_hr,
+            efficiency_factor=parsed.efficiency_factor,
+            decoupling_pct=parsed.decoupling_pct,
             workout_code=workout_code,
             source="fit",
         )
@@ -153,6 +159,69 @@ class ActualsStore:
 
     def for_range(self, start_date: str, end_date: str) -> List[CompletedActivity]:
         return [a for a in self.all() if start_date <= a.date <= end_date]
+
+    def rolling_cp_telemetry(
+        self,
+        sport: str,
+        as_of_date: Optional[str] = None,
+        window_days: int = 28,
+    ) -> Dict[str, Optional[float]]:
+        """Compute rolling decoupling (%) and 28-day EF change (%) from parsed actuals.
+
+        * ``rolling_decoupling_pct``: mean ``decoupling_pct`` over steady aerobic
+          sessions (``duration_min >= 30`` and ``intensity_factor <= 0.88`` when present)
+          in ``(as_of - window_days, as_of]``.
+        * ``rolling_ef_change_pct``: percentage change in mean ``efficiency_factor``
+          between ``(as_of - window_days, as_of]`` and the prior baseline window
+          ``(as_of - 2*window_days, as_of - window_days]``.
+        """
+        sport_norm = sport.strip().lower()
+        sport_aliases = {
+            "bike": ("bike", "cycling"),
+            "cycling": ("bike", "cycling"),
+            "run": ("run", "running"),
+            "running": ("run", "running"),
+            "swim": ("swim", "swimming"),
+            "swimming": ("swim", "swimming"),
+        }.get(sport_norm, (sport_norm,))
+
+        matching = [a for a in self.all() if a.sport.strip().lower() in sport_aliases]
+        if not matching:
+            return {"rolling_decoupling_pct": None, "rolling_ef_change_pct": None}
+
+        ref_date_str = as_of_date or matching[-1].date
+        ref_date = date.fromisoformat(ref_date_str)
+        cur_start = (ref_date - timedelta(days=window_days - 1)).isoformat()
+        prev_start = (ref_date - timedelta(days=(2 * window_days) - 1)).isoformat()
+        prev_end = (ref_date - timedelta(days=window_days)).isoformat()
+
+        recent = [a for a in matching if cur_start <= a.date <= ref_date_str]
+        baseline = [a for a in matching if prev_start <= a.date <= prev_end]
+
+        steady_dec = [
+            float(a.decoupling_pct)
+            for a in recent
+            if a.decoupling_pct is not None
+            and a.duration_min >= 30.0
+            and (a.intensity_factor is None or a.intensity_factor <= 0.88)
+        ]
+        if not steady_dec:
+            steady_dec = [float(a.decoupling_pct) for a in recent if a.decoupling_pct is not None]
+        rolling_dec = sum(steady_dec) / len(steady_dec) if steady_dec else None
+
+        recent_ef = [float(a.efficiency_factor) for a in recent if a.efficiency_factor is not None and a.efficiency_factor > 0]
+        base_ef = [float(a.efficiency_factor) for a in baseline if a.efficiency_factor is not None and a.efficiency_factor > 0]
+        rolling_ef_chg: Optional[float] = None
+        if recent_ef and base_ef:
+            m_rec = sum(recent_ef) / len(recent_ef)
+            m_base = sum(base_ef) / len(base_ef)
+            if m_base > 0:
+                rolling_ef_chg = ((m_rec - m_base) / m_base) * 100.0
+
+        return {
+            "rolling_decoupling_pct": rolling_dec,
+            "rolling_ef_change_pct": rolling_ef_chg,
+        }
 
     def daily_totals(self, date_str: str) -> Dict[str, Any]:
         """Aggregates realized TSS, run mechanical strain, ANS cost, and 7-zone TiZ for one day."""

@@ -23,6 +23,7 @@ import io
 import json
 import logging
 import os
+import random
 import sys
 import time
 import zipfile
@@ -43,6 +44,13 @@ logging.basicConfig(
 logger = logging.getLogger("garmin_sync")
 
 T = TypeVar("T")
+
+
+def polite_jitter_sleep(min_sec: float = 1.0, max_sec: float = 3.0) -> float:
+    """Enforces 1.0-3.0s random jitter between outbound Garmin API calls."""
+    delay = random.uniform(min_sec, max_sec)
+    time.sleep(delay)
+    return delay
 
 
 def load_garmin_key(env_path: Path) -> str:
@@ -204,7 +212,7 @@ def fetch_wellness_telemetry(
                     )
                     if has_data:
                         all_daily_records.append(r)
-                time.sleep(0.1)
+                polite_jitter_sleep()
             except Exception as e:
                 logger.warning(f"Daily summaries for {y_start.year} failed: {e}")
 
@@ -231,7 +239,7 @@ def fetch_wellness_telemetry(
                 )
                 items = hrv.get("hrvSummaries", []) if isinstance(hrv, dict) else []
                 all_hrv_records.extend(items)
-                time.sleep(0.1)
+                polite_jitter_sleep()
             except Exception as e:
                 logger.warning(f"HRV summaries for {y_start.year} failed: {e}")
 
@@ -257,7 +265,7 @@ def fetch_wellness_telemetry(
                 )
                 items = w.get("dailyWeightSummaries", []) if isinstance(w, dict) else []
                 all_weights.extend(items)
-                time.sleep(0.1)
+                polite_jitter_sleep()
             except Exception as e:
                 logger.warning(f"Weight for {y_start.year} failed: {e}")
 
@@ -293,7 +301,7 @@ def fetch_wellness_telemetry(
                     for entry in res:
                         if entry.get("sleepScores") or entry.get("durationInSeconds"):
                             all_sleep.append(entry)
-                time.sleep(0.08)
+                polite_jitter_sleep()
             except Exception as e:
                 logger.warning(f"Sleep chunk {c_start} to {c_end} failed: {e}")
             if idx % 25 == 0 or idx == len(month_chunks):
@@ -323,7 +331,7 @@ def fetch_wellness_telemetry(
                     for entry in res:
                         if entry.get("charged") is not None or entry.get("drained") is not None:
                             all_bb.append(entry)
-                time.sleep(0.08)
+                polite_jitter_sleep()
             except Exception as e:
                 logger.warning(f"Body battery chunk {c_start} to {c_end} failed: {e}")
             if idx % 25 == 0 or idx == len(month_chunks):
@@ -354,7 +362,7 @@ def fetch_wellness_telemetry(
                         vals = entry.get("values") or {}
                         if vals.get("overallStressLevel") is not None or entry.get("overallStressLevel") is not None:
                             all_stress.append(entry)
-                time.sleep(0.08)
+                polite_jitter_sleep()
             except Exception as e:
                 logger.warning(f"Stress chunk {c_start} to {c_end} failed: {e}")
             if idx % 25 == 0 or idx == len(month_chunks):
@@ -384,7 +392,7 @@ def fetch_wellness_telemetry(
                     for entry in res:
                         if entry.get("totalSteps") is not None and entry.get("totalSteps") > 0:
                             all_steps.append(entry)
-                time.sleep(0.08)
+                polite_jitter_sleep()
             except Exception as e:
                 logger.warning(f"Steps chunk {c_start} to {c_end} failed: {e}")
             if idx % 25 == 0 or idx == len(month_chunks):
@@ -463,7 +471,7 @@ def fetch_activities_and_fit_files(
                 break
             page_start += len(batch)
             logger.info(f"  Indexed {len(matched_activities)} activities so far (offset: {page_start})...")
-            time.sleep(0.05)
+            polite_jitter_sleep()
 
         summary_file.write_text(
             json.dumps(matched_activities, indent=2), encoding="utf-8"
@@ -506,7 +514,7 @@ def fetch_activities_and_fit_files(
                     )
                     detail_path.write_text(json.dumps(detail, indent=2), encoding="utf-8")
                     details_downloaded += 1
-                    time.sleep(0.1)
+                    polite_jitter_sleep()
                 except Exception as e:
                     logger.warning(f"Failed to fetch detail for activity {act_id}: {e}")
 
@@ -540,7 +548,7 @@ def fetch_activities_and_fit_files(
                         fit_path.write_bytes(payload)
                         fit_downloaded += 1
 
-                    time.sleep(0.12)  # Polite spacing to maximize throughput within rate limits
+                    polite_jitter_sleep()  # 1.0-3.0s random jitter between FIT downloads
                 except Exception as e:
                     logger.warning(f"Failed to download FIT for activity {act_id}: {e}")
                     fit_failed += 1
