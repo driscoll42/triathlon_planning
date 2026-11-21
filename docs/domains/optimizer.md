@@ -81,7 +81,7 @@ All three historical solver entrypoints (`TriathlonMILPScheduler`, `HybridAthlet
 - **`ADR-025` — Race-block build weeks raise their TSS target to the structural floor:** Race-block base/build/overload weeks solve at target = max(matrix target, structural floor); no structure relief there; deload/re-entry relief unchanged.
 
 ### Empirical Experiments (`EXP`)
-- **`EXP-004` [`ACTIVE` | `QUEUED_SPEC`] — Goal-Weight Sensitivity and Session-Structure Constraints Sweep:** Queued spec: 81-point soft-goal weight sensitivity sweep across 300/500/700 TSS with and without ADR-020 session-structure constraints.
+- **`EXP-004` [`ACTIVE` | `TIER_1_ISOLATED`] — Goal-Weight Sensitivity and Session-Structure Constraints Sweep:** 486-solve sweep: ADR-020 structure cuts grey-zone picks 164->0, 80/20 violations 52->0, key violations 195->0; neutral (100,80,50,45) is Pareto-optimal; overall median TSS dev 18.79% (6.55% at 500 TSS) leaves defaults unchanged.
 
 > **Superseded (`optimizer`):** `PRD-001` (`python scripts/lodectx.py trace <ID>`).
 <!-- LODE_AUTOGEN_END -->
