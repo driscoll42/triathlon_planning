@@ -30,7 +30,7 @@ scratch/
 # Includes personal telemetry (FIT/Garmin/lifting), the workout library
 # sources, and copyrighted reference books / research reports.
 data/
-references/
+/references/
 
 # Test caches
 .pytest_cache/
